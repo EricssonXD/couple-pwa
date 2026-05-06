@@ -139,7 +139,13 @@
 		}
 	}
 
+	let lastTapAt = $state(0);
+	let tapBurst = $state(0);
 	function sendTap() {
+		const now = Date.now();
+		if (now - lastTapAt < 1000) return;
+		lastTapAt = now;
+		tapBurst = now;
 		void rt.sendHeartbeatTap();
 		try {
 			navigator.vibrate?.(20);
@@ -301,12 +307,19 @@
 	<section class="mt-6">
 		<button
 			type="button"
-			class="btn btn-block gap-3 btn-lg btn-primary"
+			class="btn relative btn-block gap-3 overflow-hidden btn-lg btn-primary"
 			onclick={sendTap}
 			aria-label="Send heartbeat tap"
 		>
 			<span class="text-2xl">💓</span>
 			Send a heartbeat
+			{#if tapBurst}
+				{#key tapBurst}
+					<span
+						class="pointer-events-none absolute inset-0 animate-ping rounded-lg bg-primary-content/30"
+					></span>
+				{/key}
+			{/if}
 		</button>
 		{#if tapPulse}
 			{#key tapPulse}
@@ -332,13 +345,4 @@
 	{:else if tracker.status === 'error' && tracker.lastError}
 		<p class="mt-6 text-center text-xs opacity-60">Sync issue: {tracker.lastError} · retrying…</p>
 	{/if}
-
-	<section class="mt-10 prose">
-		<h2 class="text-lg">Coming next</h2>
-		<ul class="text-sm">
-			<li>Heartbeat tap (haptic ping)</li>
-			<li>Mood weather + anniversary ribbon</li>
-			<li>Whisper chat + geo-moments</li>
-		</ul>
-	</section>
 </main>
