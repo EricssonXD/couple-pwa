@@ -40,6 +40,14 @@ function isPrivatePath(pathname: string): boolean {
 	);
 }
 
+// SvelteKit issues data requests at /__data.json or /<route>/__data.json
+// during SPA navigation. Treat them like HTML so the cached page works
+// fully offline (network-first, cache fallback, no /offline rewrite since
+// data files aren't HTML).
+function isDataRequest(pathname: string): boolean {
+	return pathname.endsWith('/__data.json') || pathname.includes('/__data.json?');
+}
+
 async function trimCache(cacheName: string, max: number): Promise<void> {
 	const cache = await caches.open(cacheName);
 	const keys = await cache.keys();
@@ -95,11 +103,12 @@ sw.addEventListener('fetch', (event) => {
 		return;
 	}
 
-	// 2) HTML navigations → network-first w/ offline fallback.
+	// 2) HTML navigations + SvelteKit __data.json → network-first w/ offline fallback.
 	const isHtml =
 		request.mode === 'navigate' ||
 		request.headers.get('accept')?.includes('text/html');
-	if (isHtml) {
+	const isData = isDataRequest(url.pathname);
+	if (isHtml || isData) {
 		event.respondWith(
 			(async () => {
 				try {
@@ -113,8 +122,11 @@ sw.addEventListener('fetch', (event) => {
 				} catch {
 					const cached = await caches.match(request);
 					if (cached) return cached;
-					const offline = await caches.match(OFFLINE_URL);
-					return offline ?? Response.error();
+					if (isHtml) {
+						const offline = await caches.match(OFFLINE_URL);
+						if (offline) return offline;
+					}
+					return Response.error();
 				}
 			})()
 		);

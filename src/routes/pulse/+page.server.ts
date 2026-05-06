@@ -34,6 +34,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			ghostMode: isGhostActive(me.ghostMode, me.ghostUntil)
 		},
 		partner: partnerProfile ? { ...partnerProfile, id: partnerId } : null,
+		coupleId: locals.couple.id,
 		coupleSince: locals.couple.createdAt,
 		initialState: {
 			me: state.mine && {

@@ -4,6 +4,8 @@
 	import { signOut } from '$lib/auth-client';
 	import { createGeolocationTracker } from '$lib/client/geolocation.svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
+	import { createOnlineStatus } from '$lib/client/online.svelte';
+	import { idbGet, idbSet } from '$lib/client/idb';
 	import { relativeTime } from '$lib/utils/time';
 	import DistanceBubble from '$lib/components/DistanceBubble.svelte';
 	import type { DistanceBucket } from '$lib/server/services/location';
@@ -26,21 +28,32 @@
 		bucket: DistanceBucket;
 	};
 
+	type CachedSnapshot = {
+		live: StateResp;
+		ghostOn: boolean;
+		savedAt: number;
+	};
+
+	const CACHE_KEY = `pulse:${data.coupleId}`;
+
 	const tracker = createGeolocationTracker();
 	const rt = createRealtimeClient();
+	const net = createOnlineStatus();
 	let live = $state<StateResp>(data.initialState as unknown as StateResp);
 	let ghostOn = $state(data.me.ghostMode);
 	let ghostBusy = $state(false);
-	let now = $state(Date.now()); // ticks every 30s so relative times stay fresh
+	let now = $state(Date.now());
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let tickTimer: ReturnType<typeof setInterval> | null = null;
-	let tapPulse = $state(0); // bumps each time partner taps; UI animates off it
+	let tapPulse = $state(0);
+	// Persistence is gated until after we've attempted to hydrate from IDB —
+	// otherwise the first $effect run would overwrite the cached snapshot with
+	// the (possibly older) server-rendered state before we get a chance to read it.
+	let hydrated = $state(false);
 
 	const partnerId = $derived(data.partner?.id ?? '');
 	const partnerPresence = $derived(rt.presence[partnerId] ?? 'offline');
 
-	// Apply realtime location updates from the partner directly to `live`
-	// instead of waiting for the next poll.
 	$effect(() => {
 		const u = rt.lastLocation;
 		if (!u || u.userId !== partnerId) return;
@@ -57,7 +70,6 @@
 		};
 	});
 
-	// Partner toggled ghost — flip their card without invalidating.
 	$effect(() => {
 		const g = rt.lastGhost;
 		if (!g || g.userId !== partnerId) return;
@@ -74,12 +86,10 @@
 				}
 			};
 		} else {
-			// Clear the ghost veil; next poll/update will repaint with real values.
 			void refreshState();
 		}
 	});
 
-	// Partner sent a heartbeat tap — vibrate and bump the pulse counter.
 	$effect(() => {
 		const t = rt.lastTap;
 		if (!t) return;
@@ -89,6 +99,14 @@
 		} catch {
 			/* not supported */
 		}
+	});
+
+	// Persist the latest snapshot to IDB whenever live or ghostOn changes so the
+	// next cold load (even offline) can hydrate immediately.
+	$effect(() => {
+		if (!hydrated) return;
+		const snapshot: CachedSnapshot = { live, ghostOn, savedAt: Date.now() };
+		void idbSet(CACHE_KEY, snapshot);
 	});
 
 	async function refreshState() {
@@ -136,10 +154,21 @@
 		await goto('/');
 	}
 
-	onMount(() => {
+	onMount(async () => {
+		// Try to upgrade the initial server data with a fresher cached snapshot.
+		// SSR/cached HTML may carry stale state; live realtime data persisted from
+		// a previous session can be newer. Hydrate before starting the tracker so
+		// users see something instantly even when offline.
+		const cached = await idbGet<CachedSnapshot>(CACHE_KEY);
+		if (cached) {
+			const cachedTs = Date.parse(cached.live?.partner?.capturedAt ?? '') || 0;
+			const liveTs = Date.parse(live?.partner?.capturedAt ?? '') || 0;
+			if (cachedTs > liveTs) live = cached.live;
+		}
+		hydrated = true;
+
 		if (!ghostOn) void tracker.start();
 		rt.start();
-		// Poll is now a fallback when WS is down; keep it but lengthen.
 		pollTimer = setInterval(refreshState, 30_000);
 		tickTimer = setInterval(() => (now = Date.now()), 30_000);
 	});
@@ -170,6 +199,15 @@
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 py-10">
+	{#if !net.online}
+		<div
+			role="status"
+			class="alert alert-warning mb-4 py-2 text-sm"
+			aria-live="polite"
+		>
+			<span>Offline — showing last known state.</span>
+		</div>
+	{/if}
 	<header class="flex items-center justify-between">
 		<div>
 			<p class="text-base-content/60 text-xs tracking-wider uppercase">Pulse</p>
