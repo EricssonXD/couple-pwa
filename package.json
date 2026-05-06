@@ -3,6 +3,10 @@
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
+	"overrides": {
+		"@better-auth/core": "1.6.9",
+		"@better-auth/utils": "0.4.0"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
