@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
-import { profile, user } from '$lib/server/db/schema';
+import { profile } from '$lib/server/db/schema';
 import { bucketFor, getPulseState, isGhostActive } from '$lib/server/services/location';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -16,12 +16,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const [partnerProfile] = await db
 		.select({
 			displayName: profile.displayName,
-			avatarEmoji: profile.avatarEmoji,
-			name: user.name
+			avatarEmoji: profile.avatarEmoji
 		})
-		.from(user)
-		.leftJoin(profile, eq(profile.userId, user.id))
-		.where(eq(user.id, partnerId))
+		.from(profile)
+		.where(eq(profile.userId, partnerId))
 		.limit(1);
 
 	const state = await getPulseState(locals.user.id, locals.couple.id);
@@ -33,7 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			avatarEmoji: me.avatarEmoji,
 			ghostMode: isGhostActive(me.ghostMode, me.ghostUntil)
 		},
-		partner: partnerProfile ? { ...partnerProfile, id: partnerId } : null,
+		partner: partnerProfile ? { ...partnerProfile, name: null, id: partnerId } : null,
 		coupleId: locals.couple.id,
 		coupleSince: locals.couple.createdAt,
 		initialState: {

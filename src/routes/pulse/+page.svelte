@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
-	import { signOut } from '$lib/auth-client';
+	import { getSupabaseClient } from '$lib/auth-client';
 	import { createGeolocationTracker } from '$lib/client/geolocation.svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { createOnlineStatus } from '$lib/client/online.svelte';
@@ -150,7 +150,7 @@
 	async function handleSignOut() {
 		tracker.stop();
 		rt.stop();
-		await signOut();
+		await getSupabaseClient().auth.signOut();
 		await goto('/');
 	}
 
@@ -180,7 +180,7 @@
 		if (tickTimer) clearInterval(tickTimer);
 	});
 
-	const partnerName = $derived(data.partner?.displayName ?? data.partner?.name ?? 'them');
+	const partnerName = $derived(data.partner?.displayName ?? 'them');
 	const partnerLastSeen = $derived(
 		live.partner ? relativeTime(live.partner.capturedAt ?? null, now) : ''
 	);

@@ -8,7 +8,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/auth/sign-in');
 	const [p] = await db.select().from(profile).where(eq(profile.userId, locals.user.id)).limit(1);
 	if (p?.onboardedAt) redirect(303, locals.couple ? '/pulse' : '/onboarding/link');
-	return { profile: p ?? null, name: locals.user.name };
+	return {
+		profile: p ?? null,
+		name: (locals.user.user_metadata?.name as string | undefined) ?? null
+	};
 };
 
 export const actions: Actions = {
