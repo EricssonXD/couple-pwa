@@ -139,7 +139,7 @@
 	}
 
 	function sendTap() {
-		rt.sendHeartbeatTap();
+		void rt.sendHeartbeatTap();
 		try {
 			navigator.vibrate?.(20);
 		} catch {
@@ -149,7 +149,7 @@
 
 	async function handleSignOut() {
 		tracker.stop();
-		rt.stop();
+		void rt.stop();
 		await getSupabaseClient().auth.signOut();
 		await goto('/');
 	}
@@ -168,14 +168,14 @@
 		hydrated = true;
 
 		if (!ghostOn) void tracker.start();
-		rt.start();
+		void rt.start();
 		pollTimer = setInterval(refreshState, 30_000);
 		tickTimer = setInterval(() => (now = Date.now()), 30_000);
 	});
 
 	onDestroy(() => {
 		tracker.stop();
-		rt.stop();
+		void rt.stop();
 		if (pollTimer) clearInterval(pollTimer);
 		if (tickTimer) clearInterval(tickTimer);
 	});
