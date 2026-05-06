@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { couple, locationPing, locationDailySummary, profile } from '$lib/server/db/schema';
-import { realtime } from '$lib/server/realtime';
+import { broadcastToCouple } from '$lib/server/realtime';
 
 // Server-side guard rails. Client throttles too, but never trust it.
 export const MIN_PING_INTERVAL_MS = 60 * 1000; // 60s
@@ -128,7 +128,7 @@ async function broadcastLocation(userId: string, coupleId: string, p: PingInput)
 		distanceM = Number(d);
 	}
 
-	realtime.broadcastToCouple(coupleId, {
+	void broadcastToCouple(coupleId, {
 		t: 'location_update',
 		ts: Date.now(),
 		p: {
@@ -139,7 +139,7 @@ async function broadcastLocation(userId: string, coupleId: string, p: PingInput)
 			charging: p.charging ?? null,
 			capturedAt: p.capturedAt.toISOString()
 		}
-	});
+	}).catch(() => {});
 }
 
 async function upsertDailySummary(userId: string, coupleId: string, p: PingInput) {
@@ -268,11 +268,11 @@ export async function setGhostMode(userId: string, enabled: boolean, untilMs?: n
 		)
 		.limit(1);
 	if (c) {
-		realtime.broadcastToCouple(c.id, {
+		void broadcastToCouple(c.id, {
 			t: 'ghost_change',
 			ts: Date.now(),
 			p: { userId, ghost: enabled }
-		});
+		}).catch(() => {});
 	}
 }
 
