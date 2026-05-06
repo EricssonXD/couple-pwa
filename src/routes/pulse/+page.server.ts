@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { profile, user } from '$lib/server/db/schema';
+import { bucketFor, getPulseState, isGhostActive } from '$lib/server/services/location';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/auth/sign-in');
@@ -23,9 +24,26 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.where(eq(user.id, partnerId))
 		.limit(1);
 
+	const state = await getPulseState(locals.user.id, locals.couple.id);
+
 	return {
-		me: { displayName: me.displayName, avatarEmoji: me.avatarEmoji },
+		me: {
+			displayName: me.displayName,
+			avatarEmoji: me.avatarEmoji,
+			ghostMode: isGhostActive(me.ghostMode, me.ghostUntil)
+		},
 		partner: partnerProfile ?? null,
-		coupleSince: locals.couple.createdAt
+		coupleSince: locals.couple.createdAt,
+		initialState: {
+			me: state.mine && {
+				capturedAt: state.mine.capturedAt,
+				batteryPct: state.mine.batteryPct,
+				charging: state.mine.charging
+			},
+			partner: state.partner,
+			distanceM: state.distanceM,
+			bucket: bucketFor(state.distanceM)
+		}
 	};
 };
+
