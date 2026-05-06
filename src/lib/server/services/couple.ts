@@ -133,3 +133,80 @@ export async function getLiveLinkCode(userId: string) {
 		.limit(1);
 	return rows[0] ?? null;
 }
+
+// ─── Profile + couple-meta updates (M8 settings page) ─────────────────────
+export class ProfileError extends Error {
+	constructor(public readonly code: 'invalid_input' | 'not_paired') {
+		super(code);
+	}
+}
+
+const MAX_DISPLAY_NAME = 40;
+const MAX_NICKNAME = 60;
+// Allow 1–4 emoji-presentation graphemes for the avatar slot.
+const EMOJI_OK = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}]{1,4}$/u;
+
+export async function updateProfile(
+	userId: string,
+	patch: { displayName?: string; avatarEmoji?: string }
+) {
+	const set: Record<string, unknown> = {};
+	if (patch.displayName !== undefined) {
+		const v = patch.displayName.trim();
+		if (v.length === 0 || v.length > MAX_DISPLAY_NAME) throw new ProfileError('invalid_input');
+		set.displayName = v;
+	}
+	if (patch.avatarEmoji !== undefined) {
+		const v = patch.avatarEmoji.trim();
+		if (!EMOJI_OK.test(v)) throw new ProfileError('invalid_input');
+		set.avatarEmoji = v;
+	}
+	if (Object.keys(set).length === 0) return;
+	const { profile } = await import('$lib/server/db/schema');
+	await db.update(profile).set(set).where(eq(profile.userId, userId));
+}
+
+export async function updateCoupleMeta(
+	userId: string,
+	coupleId: string,
+	patch: { nickname?: string | null; anniversary?: string | null }
+) {
+	const set: Record<string, unknown> = {};
+	if (patch.nickname !== undefined) {
+		const v = patch.nickname == null ? null : patch.nickname.trim();
+		if (v && v.length > MAX_NICKNAME) throw new ProfileError('invalid_input');
+		set.nickname = v && v.length > 0 ? v : null;
+	}
+	if (patch.anniversary !== undefined) {
+		if (patch.anniversary == null || patch.anniversary === '') {
+			set.anniversary = null;
+		} else {
+			if (!/^\d{4}-\d{2}-\d{2}$/.test(patch.anniversary)) throw new ProfileError('invalid_input');
+			const d = new Date(patch.anniversary + 'T00:00:00Z');
+			if (Number.isNaN(d.getTime())) throw new ProfileError('invalid_input');
+			set.anniversary = patch.anniversary;
+		}
+	}
+	if (Object.keys(set).length === 0) return;
+	const res = await db
+		.update(couple)
+		.set(set)
+		.where(
+			and(eq(couple.id, coupleId), or(eq(couple.partnerA, userId), eq(couple.partnerB, userId)))
+		);
+	const rows = (res as unknown as { rowCount?: number }).rowCount;
+	if (rows === 0) throw new ProfileError('not_paired');
+}
+
+/**
+ * Either partner unilaterally unpairs. Flips status to 'broken' so the
+ * partial unique active-couple indexes free up. History rows remain.
+ */
+export async function unpair(userId: string, coupleId: string) {
+	await db
+		.update(couple)
+		.set({ status: 'broken', brokenAt: new Date() })
+		.where(
+			and(eq(couple.id, coupleId), or(eq(couple.partnerA, userId), eq(couple.partnerB, userId)))
+		);
+}
