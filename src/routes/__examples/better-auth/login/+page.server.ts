@@ -13,12 +13,12 @@ export const load: PageServerLoad = async (event) => {
 export const actions: Actions = {
 	signInSocial: async (event) => {
 		const formData = await event.request.formData();
-		const provider = formData.get('provider')?.toString() ?? 'github';
+		const provider = formData.get('provider')?.toString() ?? 'google';
 		const callbackURL = formData.get('callbackURL')?.toString() ?? '/__examples/better-auth';
 
 		const result = await auth.api.signInSocial({
 			body: {
-				provider: provider as 'github',
+				provider: provider as 'google',
 				callbackURL
 			}
 		});
