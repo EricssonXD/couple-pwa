@@ -1,3 +1,14 @@
+## Agent Interaction Rules (CRITICAL)
+
+To ensure all agents behave consistently and reliably, follow these rules at all times:
+
+- **NEVER stop to ask the user for the next step directly** — always use the `ask_question` / `vscode_askQuestions` tool to collect decisions or clarify next actions. Do not simply prompt in text and **NEVER END THE CHAT SESSION**.
+- **ALWAYS ask what to do next** after completing a task, using the question tool, unless the next step is already specified or part of a batch. Then ask what to do next after everything
+- **ALWAYS make frequent, meaningful git commits** — never batch unrelated changes into a single commit. Each commit should represent a logical, reviewable unit of work.
+- These rules apply even after context compaction or agent handoff — re-read this file if unsure.
+- If you are uncertain about the next step, default to asking the user via the question tool rather than making assumptions.
+- When in doubt, prioritize clarity, explicitness, and user control.
+
 ## Project Configuration
 
 - **Language**: TypeScript
