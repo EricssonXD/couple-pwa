@@ -1,6 +1,7 @@
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "couple-pwa",
+	"account_id": "d3589f684597b798eada420dea5d7315",
 	"compatibility_date": "2026-03-03",
 	"compatibility_flags": ["nodejs_als", "nodejs_compat"],
 	"main": ".svelte-kit/cloudflare/_worker.js",
