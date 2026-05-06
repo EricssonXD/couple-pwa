@@ -1,4 +1,7 @@
 import type { User, Session } from 'better-auth/minimal';
+import type { couple } from '$lib/server/db/schema';
+
+type Couple = typeof couple.$inferSelect;
 
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
@@ -14,6 +17,7 @@ declare global {
 		interface Locals {
 			user?: User;
 			session?: Session;
+			couple?: Couple;
 		}
 
 		// interface Error {}
