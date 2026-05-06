@@ -176,3 +176,49 @@ export const coupleRelations = relations(couple, ({ many }) => ({
 export const locationPingRelations = relations(locationPing, ({ one }) => ({
 	couple: one(couple, { fields: [locationPing.coupleId], references: [couple.id] })
 }));
+
+// ─── Geo-Moment ───────────────────────────────────────────────────────────
+// A short note dropped at a location. The metadata (lat/lon/radius) is
+// visible to both partners, but the body lives in `geo_moment_body` and
+// is only readable by the author or by the partner who has walked into
+// the radius (server marks `unlocked_by`). See drizzle/manual/0004 +
+// docs/rls-model.md.
+export const geoMoment = pgTable(
+'geo_moment',
+{
+id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+coupleId: uuid('couple_id')
+.notNull()
+.references(() => couple.id, { onDelete: 'cascade' }),
+authorId: uuid('author_id')
+.notNull()
+.references(() => authUsers.id, { onDelete: 'cascade' }),
+lat: doublePrecision('lat').notNull(),
+lon: doublePrecision('lon').notNull(),
+geog: geographyPoint('geog').notNull(),
+radiusM: integer('radius_m').notNull().default(100),
+createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+expiresAt: timestamp('expires_at', { withTimezone: true }),
+deletedAt: timestamp('deleted_at', { withTimezone: true }),
+unlockedAt: timestamp('unlocked_at', { withTimezone: true }),
+unlockedBy: uuid('unlocked_by').references(() => authUsers.id, { onDelete: 'set null' })
+},
+(t) => [
+index('geo_moment_couple_created_idx').on(t.coupleId, t.createdAt.desc())
+]
+);
+
+export const geoMomentBody = pgTable('geo_moment_body', {
+momentId: uuid('moment_id')
+.primaryKey()
+.references(() => geoMoment.id, { onDelete: 'cascade' }),
+body: text('body').notNull()
+});
+
+export const geoMomentRelations = relations(geoMoment, ({ one }) => ({
+couple: one(couple, { fields: [geoMoment.coupleId], references: [couple.id] }),
+body: one(geoMomentBody, {
+fields: [geoMoment.id],
+references: [geoMomentBody.momentId]
+})
+}));

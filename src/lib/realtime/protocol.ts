@@ -40,6 +40,29 @@ export type ServerEvent =
 			t: 'heartbeat_tap';
 			ts: number;
 			p: { userId: string };
+	  }
+	| {
+			t: 'moment_dropped';
+			ts: number;
+			p: {
+				id: string;
+				authorId: string;
+				lat: number;
+				lon: number;
+				radiusM: number;
+				createdAt: string;
+				expiresAt: string | null;
+			};
+	  }
+	| {
+			t: 'moment_unlocked';
+			ts: number;
+			p: { id: string; unlockedBy: string; unlockedAt: string };
+	  }
+	| {
+			t: 'moment_deleted';
+			ts: number;
+			p: { id: string };
 	  };
 
 // ─── Client-originated events ────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { couple, locationPing, locationDailySummary, profile } from '$lib/server/db/schema';
 import { broadcastToCouple } from '$lib/server/realtime';
+import { unlockMomentsForPing } from './moments';
 
 // Server-side guard rails. Client throttles too, but never trust it.
 export const MIN_PING_INTERVAL_MS = 60 * 1000; // 60s
@@ -72,6 +73,10 @@ export async function recordPing(userId: string, coupleId: string, input: PingIn
 	if (last) {
 		const sinceMs = input.capturedAt.getTime() - last.capturedAt.getTime();
 		if (sinceMs < MIN_PING_INTERVAL_MS && Number(last.distM) < MIN_PING_MOVEMENT_M) {
+			// Even if we drop the ping for storage, we still try to unlock
+			// any nearby moments — the user *is* there, we just don't need
+			// to log it again. See moments critique #4.
+			void runMomentUnlock(userId, coupleId, input).catch(() => {});
 			return null;
 		}
 	}
@@ -102,7 +107,26 @@ export async function recordPing(userId: string, coupleId: string, input: PingIn
 	// without round-tripping /api/location/state.
 	void broadcastLocation(userId, coupleId, input).catch(() => {});
 
+	// Walk-to-unlock for partner-dropped moments. Skipped if user is
+	// ghosted (we don't want to leak presence sideways via moment unlocks).
+	void runMomentUnlock(userId, coupleId, input).catch(() => {});
+
 	return row;
+}
+
+async function runMomentUnlock(userId: string, coupleId: string, p: PingInput) {
+	const [prof] = await db
+		.select({ ghostMode: profile.ghostMode, ghostUntil: profile.ghostUntil })
+		.from(profile)
+		.where(eq(profile.userId, userId))
+		.limit(1);
+	const ghosted = isGhostActive(prof?.ghostMode ?? false, prof?.ghostUntil);
+	await unlockMomentsForPing(
+		userId,
+		coupleId,
+		{ lat: p.lat, lon: p.lon, accuracyM: p.accuracyM },
+		{ ghosted }
+	);
 }
 
 /** Compute distance to partner's latest ping and fan out a location_update. */
