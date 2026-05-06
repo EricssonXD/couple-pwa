@@ -9,6 +9,7 @@
 	import { relativeTime } from '$lib/utils/time';
 	import DistanceBubble from '$lib/components/DistanceBubble.svelte';
 	import AnniversaryRibbon from '$lib/components/AnniversaryRibbon.svelte';
+	import MemoryResurface from '$lib/components/MemoryResurface.svelte';
 	import type { DistanceBucket } from '$lib/server/services/location';
 	import type { PageData } from './$types';
 
@@ -226,6 +227,12 @@
 			nickname={data.coupleNickname}
 		/>
 	</div>
+
+	{#if data.memory}
+		<div class="mt-3">
+			<MemoryResurface memory={data.memory} viewerId={data.me.id} {partnerName} />
+		</div>
+	{/if}
 
 	<div class="mt-6 flex items-center gap-4 text-5xl">
 		<span aria-label="you">{data.me.avatarEmoji ?? '💗'}</span>

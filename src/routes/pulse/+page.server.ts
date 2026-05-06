@@ -4,6 +4,7 @@ import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import { profile } from '$lib/server/db/schema';
 import { bucketFor, getPulseState, isGhostActive } from '$lib/server/services/location';
+import { resurfaceMemory } from '$lib/server/services/memory';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/auth/sign-in');
@@ -23,6 +24,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.limit(1);
 
 	const state = await getPulseState(locals.user.id, locals.couple.id);
+	const memory = await resurfaceMemory(locals.couple.id);
 
 	return {
 		me: {
@@ -45,6 +47,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			partner: state.partner,
 			distanceM: state.distanceM,
 			bucket: bucketFor(state.distanceM)
-		}
+		},
+		memory
 	};
 };
