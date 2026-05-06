@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			avatarEmoji: me.avatarEmoji,
 			ghostMode: isGhostActive(me.ghostMode, me.ghostUntil)
 		},
-		partner: partnerProfile ? { ...partnerProfile, name: null, id: partnerId } : null,
+		partner: partnerProfile ? { ...partnerProfile, id: partnerId } : null,
 		coupleId: locals.couple.id,
 		coupleSince: locals.couple.createdAt,
 		initialState: {
