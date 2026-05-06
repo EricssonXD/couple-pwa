@@ -1,12 +1,67 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { authClient, signIn } from '$lib/auth-client';
+	import { authClient, signIn, signUp } from '$lib/auth-client';
 
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 	let mode = $state<'register' | 'login'>('login');
+	// Most users without WebAuthn will start with password — promote it as default.
+	let method = $state<'password' | 'passkey'>('password');
 	let name = $state('');
 	let email = $state('');
+	let password = $state('');
+
+	function describe(e: unknown): string {
+		if (e instanceof Error) return e.message;
+		if (typeof e === 'string') return e;
+		try {
+			return JSON.stringify(e);
+		} catch {
+			return 'Unexpected error';
+		}
+	}
+
+	async function passwordRegister() {
+		busy = true;
+		error = null;
+		try {
+			if (!name.trim() || !email.trim() || password.length < 8) {
+				error = 'Name, email and an 8+ character password are required';
+				return;
+			}
+			const res = await signUp.email({ name, email, password });
+			if (res.error) {
+				error = res.error.message ?? 'Sign-up failed';
+				return;
+			}
+			await goto('/onboarding');
+		} catch (e) {
+			error = describe(e);
+		} finally {
+			busy = false;
+		}
+	}
+
+	async function passwordLogin() {
+		busy = true;
+		error = null;
+		try {
+			if (!email.trim() || !password) {
+				error = 'Email and password are required';
+				return;
+			}
+			const res = await signIn.email({ email, password });
+			if (res.error) {
+				error = res.error.message ?? 'Sign-in failed';
+				return;
+			}
+			await goto('/pulse');
+		} catch (e) {
+			error = describe(e);
+		} finally {
+			busy = false;
+		}
+	}
 
 	async function passkeyRegister() {
 		busy = true;
@@ -16,14 +71,13 @@
 				error = 'Name and email are required';
 				return;
 			}
-			// Sign up creates the user record without password (passkey-only).
-			const signUp = await authClient.signUp.email({
+			const signUpRes = await authClient.signUp.email({
 				name,
 				email,
-				password: crypto.randomUUID() // random throwaway — passkey is the real credential
+				password: crypto.randomUUID()
 			});
-			if (signUp.error) {
-				error = signUp.error.message ?? 'Sign-up failed';
+			if (signUpRes.error) {
+				error = signUpRes.error.message ?? 'Sign-up failed';
 				return;
 			}
 			const reg = await authClient.passkey.addPasskey();
@@ -33,7 +87,7 @@
 			}
 			await goto('/onboarding');
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Unexpected error';
+			error = describe(e);
 		} finally {
 			busy = false;
 		}
@@ -50,7 +104,7 @@
 			}
 			await goto('/pulse');
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Unexpected error';
+			error = describe(e);
 		} finally {
 			busy = false;
 		}
@@ -62,7 +116,7 @@
 		try {
 			await signIn.social({ provider: 'google', callbackURL: '/pulse' });
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Unexpected error';
+			error = describe(e);
 			busy = false;
 		}
 	}
@@ -77,7 +131,7 @@
 		<div class="card-body">
 			<h1 class="text-3xl font-semibold tracking-tight">Welcome back</h1>
 			<p class="mt-1 text-sm text-base-content/70">
-				Passkeys keep DuoSync private — no passwords, no email checks.
+				Sign in with email + password, or use a passkey if your device supports it.
 			</p>
 
 			<div role="tablist" class="tabs-boxed mt-4 tabs">
@@ -95,17 +149,31 @@
 				>
 			</div>
 
-			{#if mode === 'register'}
-				<label class="form-control mt-4 w-full">
-					<span class="label-text">Name</span>
-					<input
-						class="input-bordered input"
-						type="text"
-						bind:value={name}
-						autocomplete="name"
-						placeholder="Your name"
-					/>
-				</label>
+			<form
+				class="contents"
+				onsubmit={(e) => {
+					e.preventDefault();
+					if (method === 'password') {
+						mode === 'register' ? passwordRegister() : passwordLogin();
+					} else {
+						mode === 'register' ? passkeyRegister() : passkeyLogin();
+					}
+				}}
+			>
+				{#if mode === 'register'}
+					<label class="form-control mt-4 w-full">
+						<span class="label-text">Name</span>
+						<input
+							class="input-bordered input"
+							type="text"
+							bind:value={name}
+							autocomplete="name"
+							placeholder="Your name"
+							required
+						/>
+					</label>
+				{/if}
+
 				<label class="form-control mt-2 w-full">
 					<span class="label-text">Email</span>
 					<input
@@ -114,21 +182,43 @@
 						bind:value={email}
 						autocomplete="email"
 						placeholder="you@example.com"
+						required
 					/>
 				</label>
-				<button
-					class="btn mt-4 btn-primary"
-					disabled={busy}
-					onclick={passkeyRegister}
-					type="button"
-				>
-					{busy ? 'Creating…' : 'Create account + add passkey'}
+
+				{#if method === 'password'}
+					<label class="form-control mt-2 w-full">
+						<span class="label-text">Password</span>
+						<input
+							class="input-bordered input"
+							type="password"
+							bind:value={password}
+							autocomplete={mode === 'register' ? 'new-password' : 'current-password'}
+							placeholder={mode === 'register' ? 'At least 8 characters' : 'Your password'}
+							minlength={mode === 'register' ? 8 : undefined}
+							required
+						/>
+					</label>
+				{/if}
+
+				<button class="btn mt-4 btn-primary" disabled={busy} type="submit">
+					{#if busy}
+						…
+					{:else if method === 'password'}
+						{mode === 'register' ? 'Create account' : 'Sign in'}
+					{:else}
+						{mode === 'register' ? 'Create account + add passkey' : 'Sign in with passkey'}
+					{/if}
 				</button>
-			{:else}
-				<button class="btn mt-4 btn-primary" disabled={busy} onclick={passkeyLogin} type="button">
-					{busy ? '…' : 'Sign in with passkey'}
-				</button>
-			{/if}
+			</form>
+
+			<button
+				class="link-hover btn-link btn mt-2 btn-sm justify-self-center"
+				type="button"
+				onclick={() => (method = method === 'password' ? 'passkey' : 'password')}
+			>
+				{method === 'password' ? 'Use a passkey instead' : 'Use email + password instead'}
+			</button>
 
 			<div class="divider text-xs text-base-content/50">or</div>
 
