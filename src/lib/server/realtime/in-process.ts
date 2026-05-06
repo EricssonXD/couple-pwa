@@ -95,6 +95,18 @@ export function registerConnection(ws: WebSocket, userId: string, coupleId: stri
 	room.add(conn);
 
 	send(conn, { t: 'hello', ts: Date.now(), p: { userId, coupleId } });
+
+	// Tell the new socket about every other user already in the room — without
+	// this, a late-joining partner would never see the existing online state.
+	const seen = new Set<string>();
+	for (const other of room) {
+		if (other.userId === userId) continue;
+		if (seen.has(other.userId)) continue;
+		seen.add(other.userId);
+		const p = aggregatePresence(coupleId, other.userId);
+		send(conn, { t: 'presence', ts: Date.now(), p: { userId: other.userId, presence: p } });
+	}
+
 	announcePresence(conn);
 
 	ws.on('message', (raw) => {

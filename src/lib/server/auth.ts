@@ -19,7 +19,7 @@ export const auth = betterAuth({
 	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'pg' }),
-	emailAndPassword: { enabled: false },
+	emailAndPassword: { enabled: true },
 	socialProviders: {
 		google: {
 			clientId: env.GOOGLE_CLIENT_ID ?? '',
