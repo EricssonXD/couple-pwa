@@ -9,13 +9,7 @@ export const LINK_CODE_TTL_MS = 15 * 60 * 1000;
 
 export class PairingError extends Error {
 	constructor(
-		public code:
-			| 'expired'
-			| 'used'
-			| 'not_found'
-			| 'self_redeem'
-			| 'already_paired'
-			| 'collision',
+		public code: 'expired' | 'used' | 'not_found' | 'self_redeem' | 'already_paired' | 'collision',
 		message: string
 	) {
 		super(message);
@@ -129,7 +123,11 @@ export async function getLiveLinkCode(userId: string) {
 		.select()
 		.from(linkCode)
 		.where(
-			and(eq(linkCode.issuerId, userId), isNull(linkCode.usedAt), gt(linkCode.expiresAt, new Date()))
+			and(
+				eq(linkCode.issuerId, userId),
+				isNull(linkCode.usedAt),
+				gt(linkCode.expiresAt, new Date())
+			)
 		)
 		.orderBy(sql`${linkCode.createdAt} desc`)
 		.limit(1);

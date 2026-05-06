@@ -47,9 +47,9 @@
 		<p class="installed">✓ Installed — welcome back.</p>
 	{/if}
 
-	<p class="muted">
-		Setup, sign-in, and pairing flows are coming online phase-by-phase. See <code>plan.md</code>.
-	</p>
+	<a class="cta secondary" href="/auth/sign-in">Get started</a>
+
+	<p class="muted">Sign in with a passkey or Google to pair up.</p>
 </main>
 
 <style>
@@ -115,6 +115,14 @@
 		transform: translateY(-1px);
 		transition: transform 120ms ease;
 	}
+	.cta.secondary {
+		text-decoration: none;
+		display: inline-block;
+		background: transparent;
+		color: #6d28d9;
+		border: 1.5px solid rgba(109, 40, 217, 0.4);
+		box-shadow: none;
+	}
 	.ios-hint,
 	.installed,
 	.muted {
@@ -125,10 +133,5 @@
 	.muted {
 		margin-top: 0.5rem;
 		font-size: 0.8rem;
-	}
-	code {
-		background: rgba(0, 0, 0, 0.06);
-		padding: 0.05rem 0.35rem;
-		border-radius: 0.25rem;
 	}
 </style>
