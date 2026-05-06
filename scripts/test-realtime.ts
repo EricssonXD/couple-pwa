@@ -136,6 +136,7 @@ function makeInbox(label: string, sb: SupabaseClient, userId: string): Inbox {
 
 	const channel = sb.channel(TOPIC, {
 		config: {
+			private: true,
 			broadcast: { self: false },
 			presence: { key: userId }
 		}
@@ -322,16 +323,12 @@ async function main() {
 	await postJson('alice', '/api/location/ghost', aliceCookie, { enabled: true });
 	await ghostP;
 
-	console.log('# 7. Alice channel.send heartbeat_tap → bob waits for heartbeat_tap');
+	console.log('# 7. Alice POST /api/realtime/tap → bob waits for heartbeat_tap');
 	const tapP = bobInbox.waitBroadcast(
 		'heartbeat_tap',
 		(p) => (p as { p: { userId: string } }).p?.userId === seed.alice.userId
 	);
-	await aliceInbox.channel.send({
-		type: 'broadcast',
-		event: 'heartbeat_tap',
-		payload: { t: 'heartbeat_tap', ts: Date.now(), p: { userId: seed.alice.userId } }
-	});
+	await postJson('alice', '/api/realtime/tap', aliceCookie, {});
 	await tapP;
 
 	console.log("# 8. Alice updates presence → bob sees alice's meta as 'away'");
