@@ -1,10 +1,9 @@
-import type { User, Session } from 'better-auth/minimal';
+import type { Session, User } from '@supabase/supabase-js';
 import type { couple } from '$lib/server/db/schema';
 
 type Couple = typeof couple.$inferSelect;
 
 // See https://svelte.dev/docs/kit/types#app.d.ts
-// for information about these interfaces
 declare global {
 	namespace App {
 		interface Platform {
