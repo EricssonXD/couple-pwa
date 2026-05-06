@@ -1,7 +1,12 @@
 /**
  * Dev-only seed: ensures two paired Supabase users (alice + bob) exist with
- * profiles and an active couple, and prints fresh access/refresh tokens so
- * `scripts/test-realtime.ts` can exercise the live realtime path.
+ * profiles and an active couple, plus a third lone user (charlie) with a
+ * profile but no couple. Prints fresh access/refresh tokens for all three so
+ * `scripts/test-realtime.ts` and `scripts/test-rls.ts` can exercise the live
+ * realtime / RLS paths.
+ *
+ * Charlie exists for cross-couple isolation tests: he is an authenticated
+ * outsider who must NOT see alice/bob's data through any RLS-protected path.
  *
  * Idempotent: re-running reuses users + couple, but always rotates passwords
  * (so the seed-output password is the canonical one) and resets fixture
@@ -70,6 +75,14 @@ const ACCOUNTS: SeedAccount[] = [
 	},
 	{ email: 'bob@duosync.test', password: 'bob-test-pw-2025!', displayName: 'Bob', emoji: '🌊' }
 ];
+
+// Lone outsider: profile but no couple. Used for negative RLS tests.
+const CHARLIE: SeedAccount = {
+	email: 'charlie@duosync.test',
+	password: 'charlie-test-pw-2025!',
+	displayName: 'Charlie',
+	emoji: '🍃'
+};
 
 async function findUserByEmail(email: string): Promise<User | null> {
 	// Paginate until we find the user OR we get a short page (= last page).
@@ -152,7 +165,11 @@ async function ensureCouple(aId: string, bId: string): Promise<string> {
 	return rows[0].id;
 }
 
-async function resetFixtureState(coupleId: string, userIds: string[]): Promise<void> {
+async function resetFixtureState(
+	coupleId: string,
+	pairUserIds: string[],
+	allFixtureUserIds: string[]
+): Promise<void> {
 	// Wipe location history + ghost flags so test-realtime starts from a
 	// known state. recordPing's movement / dedup gates would otherwise drop
 	// re-runs silently.
@@ -160,7 +177,30 @@ async function resetFixtureState(coupleId: string, userIds: string[]): Promise<v
 	await sql`DELETE FROM location_daily_summary WHERE couple_id = ${coupleId}`;
 	await sql`
 		UPDATE profile SET ghost_mode = FALSE, ghost_until = NULL
-		WHERE user_id IN ${sql(userIds)}
+		WHERE user_id IN ${sql(pairUserIds)}
+	`;
+	// Clear stale link_code rows issued by ANY fixture user so test-rls's
+	// "0 rows" expectations are deterministic.
+	await sql`DELETE FROM link_code WHERE issuer_id IN ${sql(allFixtureUserIds)}`;
+	// Seed one location_daily_summary row so RLS positive control on that
+	// table actually has something to find. Use today + alice's user id.
+	await sql`
+		INSERT INTO location_daily_summary
+			(user_id, couple_id, day, ping_count, first_lat, first_lon, last_lat, last_lon, distance_traveled_m)
+		VALUES
+			(${pairUserIds[0]}, ${coupleId}, CURRENT_DATE, 1, 22.3, 114.17, 22.3, 114.17, 0)
+		ON CONFLICT (user_id, day) DO UPDATE
+		SET couple_id = EXCLUDED.couple_id, ping_count = EXCLUDED.ping_count
+	`;
+}
+
+// Defensive: if charlie somehow ended up in an active couple from prior
+// fixture runs, demote it. Charlie must be lone for isolation tests.
+async function ensureCharlieIsLone(charlieId: string): Promise<void> {
+	await sql`
+		UPDATE couple SET status = 'broken', broken_at = NOW()
+		WHERE status = 'active'
+		  AND (partner_a = ${charlieId} OR partner_b = ${charlieId})
 	`;
 }
 
@@ -175,10 +215,19 @@ async function signIn(a: SeedAccount): Promise<{ accessToken: string; refreshTok
 
 async function main() {
 	const ids = await Promise.all(ACCOUNTS.map(ensureUser));
-	await Promise.all(ids.map((id, i) => ensureProfile(id, ACCOUNTS[i])));
+	const charlieId = await ensureUser(CHARLIE);
+	await Promise.all([
+		...ids.map((id, i) => ensureProfile(id, ACCOUNTS[i])),
+		ensureProfile(charlieId, CHARLIE)
+	]);
+	await ensureCharlieIsLone(charlieId);
 	const coupleId = await ensureCouple(ids[0], ids[1]);
-	await resetFixtureState(coupleId, ids);
-	const sessions = await Promise.all(ACCOUNTS.map(signIn));
+	await resetFixtureState(coupleId, ids, [...ids, charlieId]);
+	const [aliceSession, bobSession, charlieSession] = await Promise.all([
+		signIn(ACCOUNTS[0]),
+		signIn(ACCOUNTS[1]),
+		signIn(CHARLIE)
+	]);
 
 	const out = {
 		origin: ORIGIN,
@@ -187,17 +236,25 @@ async function main() {
 			userId: ids[0],
 			email: ACCOUNTS[0].email,
 			password: ACCOUNTS[0].password,
-			...sessions[0]
+			...aliceSession
 		},
 		bob: {
 			userId: ids[1],
 			email: ACCOUNTS[1].email,
 			password: ACCOUNTS[1].password,
-			...sessions[1]
+			...bobSession
+		},
+		charlie: {
+			userId: charlieId,
+			email: CHARLIE.email,
+			password: CHARLIE.password,
+			...charlieSession
 		}
 	};
 	process.stdout.write(JSON.stringify(out, null, 2) + '\n');
-	console.error(`[seed] ✓ couple ${coupleId} ready (alice=${ids[0]}, bob=${ids[1]})`);
+	console.error(
+		`[seed] ✓ couple ${coupleId} ready (alice=${ids[0]}, bob=${ids[1]}, charlie=${charlieId})`
+	);
 	await sql.end();
 }
 
