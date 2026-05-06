@@ -5,9 +5,17 @@
 	import { initInstallPrompt } from '$lib/pwa/install';
 	import { registerServiceWorker } from '$lib/pwa/register';
 	import UpdateBanner from '$lib/pwa/UpdateBanner.svelte';
+	import BottomNav from '$lib/components/BottomNav.svelte';
 	import './layout.css';
 
-	let { children } = $props();
+	let { children, data } = $props();
+
+	const showNav = $derived(
+		!!data?.user &&
+			!!data?.couple &&
+			!page.url.pathname.startsWith('/auth') &&
+			!page.url.pathname.startsWith('/onboarding')
+	);
 
 	onMount(() => {
 		initInstallPrompt();
@@ -15,7 +23,12 @@
 	});
 </script>
 
-{@render children()}
+<div class:pb-20={showNav}>
+	{@render children()}
+</div>
+{#if showNav}
+	<BottomNav />
+{/if}
 <UpdateBanner />
 
 <div style="display:none">
