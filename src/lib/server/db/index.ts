@@ -65,7 +65,7 @@ function activeDb(): PostgresJsDatabase<typeof schema> {
 // Proxy preserves `db.select(...).from(...).where(...)` ergonomics: every
 // access dispatches to the request-scoped Drizzle instance.
 export const db = new Proxy({} as PostgresJsDatabase<typeof schema>, {
-	get(_target, prop, _receiver) {
+	get(_target, prop) {
 		const target = activeDb() as unknown as Record<string | symbol, unknown>;
 		const v = target[prop];
 		return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(target) : v;
