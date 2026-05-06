@@ -1,6 +1,6 @@
 ---
 name: slay-artifacts
-description: "Manage task artifacts (files, folders) via the slay CLI"
+description: 'Manage task artifacts (files, folders) via the slay CLI'
 trigger: auto
 ---
 
@@ -99,11 +99,11 @@ Download artifacts in various formats. Default type is `raw` (original file).
 **Available types by render mode:**
 | Type | Available for |
 |------|--------------|
-| raw  | all files |
-| pdf  | markdown, code, html, svg, mermaid |
-| png  | svg, mermaid |
+| raw | all files |
+| pdf | markdown, code, html, svg, mermaid |
+| png | svg, mermaid |
 | html | markdown, code, mermaid |
-| zip  | all (task-level) |
+| zip | all (task-level) |
 
 `pdf`, `png`, and `html` exports require the SlayZone app to be running. `--output` defaults to the current directory with an auto-generated filename.
 

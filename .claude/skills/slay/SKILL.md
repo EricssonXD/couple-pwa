@@ -1,6 +1,6 @@
 ---
 name: slay
-description: "Full CLI reference for slay — orchestrates all slay domain skills"
+description: 'Full CLI reference for slay — orchestrates all slay domain skills'
 trigger: auto
 depends_on:
   - slay-context
@@ -21,18 +21,18 @@ All ID arguments support prefix matching (e.g., `a1b2` matches the full UUID sta
 
 ## Domains
 
-| Skill | Commands | Purpose |
-|-------|----------|---------|
-| slay-context | — | Ensure root instruction files include SlayZone context |
-| slay-tasks | `slay tasks`, `slay tags`, `slay templates` | Task lifecycle, subtasks, tags, templates |
-| slay-browser | `slay tasks browser` | Control the task browser panel |
-| slay-artifacts | `slay tasks artifacts` | Manage files and folders attached to tasks |
-| slay-automations | `slay automations` | Event-driven and cron automations |
-| slay-projects | `slay projects` | Project CRUD |
-| slay-processes | `slay processes` | Inspect and control running processes |
-| slay-pty | `slay pty` | Interact with PTY terminal sessions |
-| slay-panels | `slay panels` | Manage custom web panels |
-| slay-auto-title | — | Auto-title tasks from conversation context |
+| Skill            | Commands                                    | Purpose                                                |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------ |
+| slay-context     | —                                           | Ensure root instruction files include SlayZone context |
+| slay-tasks       | `slay tasks`, `slay tags`, `slay templates` | Task lifecycle, subtasks, tags, templates              |
+| slay-browser     | `slay tasks browser`                        | Control the task browser panel                         |
+| slay-artifacts   | `slay tasks artifacts`                      | Manage files and folders attached to tasks             |
+| slay-automations | `slay automations`                          | Event-driven and cron automations                      |
+| slay-projects    | `slay projects`                             | Project CRUD                                           |
+| slay-processes   | `slay processes`                            | Inspect and control running processes                  |
+| slay-pty         | `slay pty`                                  | Interact with PTY terminal sessions                    |
+| slay-panels      | `slay panels`                               | Manage custom web panels                               |
+| slay-auto-title  | —                                           | Auto-title tasks from conversation context             |
 
 ## Other
 

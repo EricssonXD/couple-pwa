@@ -1,6 +1,6 @@
 ---
 name: slay-tasks
-description: "Manage tasks, subtasks, tags, and templates via the slay CLI"
+description: 'Manage tasks, subtasks, tags, and templates via the slay CLI'
 trigger: auto
 ---
 

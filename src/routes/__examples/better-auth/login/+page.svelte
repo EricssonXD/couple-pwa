@@ -1,4 +1,4 @@
-<script lang='ts'>
+<script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
 
@@ -9,5 +9,7 @@
 <form method="post" action="?/signInSocial" use:enhance>
 	<input type="hidden" name="provider" value="github" />
 	<input type="hidden" name="callbackURL" value="/__examples/better-auth" />
-	<button class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Sign in with GitHub</button>
+	<button class="rounded-md bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
+		>Sign in with GitHub</button
+	>
 </form>

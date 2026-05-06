@@ -1,6 +1,6 @@
 ---
 name: slay-automations
-description: "Create and manage automations via the slay CLI"
+description: 'Create and manage automations via the slay CLI'
 trigger: auto
 ---
 
@@ -8,14 +8,14 @@ Automations are project-scoped, event-driven actions. They fire shell commands i
 
 ## Trigger types
 
-| Type | Fires when | Extra flags |
-|------|-----------|-------------|
-| `task_status_change` | Task status changes | `--trigger-from-status`, `--trigger-to-status` (both optional, filter transitions) |
-| `task_created` | New task created | — |
-| `task_archived` | Task archived | — |
-| `task_tag_changed` | Tags modified on a task | — |
-| `cron` | On schedule | `--cron <expression>` (required) |
-| `manual` | Only via `slay automations run` | — |
+| Type                 | Fires when                      | Extra flags                                                                        |
+| -------------------- | ------------------------------- | ---------------------------------------------------------------------------------- |
+| `task_status_change` | Task status changes             | `--trigger-from-status`, `--trigger-to-status` (both optional, filter transitions) |
+| `task_created`       | New task created                | —                                                                                  |
+| `task_archived`      | Task archived                   | —                                                                                  |
+| `task_tag_changed`   | Tags modified on a task         | —                                                                                  |
+| `cron`               | On schedule                     | `--cron <expression>` (required)                                                   |
+| `manual`             | Only via `slay automations run` | —                                                                                  |
 
 ## Commands
 
@@ -48,9 +48,7 @@ Automations are project-scoped, event-driven actions. They fire shell commands i
 
 ```json
 {
-  "trigger_config": { "type": "task_status_change", "params": { "toStatus": "done" } },
-  "actions": [
-    { "type": "run_command", "params": { "command": "echo 'Task completed!'" } }
-  ]
+	"trigger_config": { "type": "task_status_change", "params": { "toStatus": "done" } },
+	"actions": [{ "type": "run_command", "params": { "command": "echo 'Task completed!'" } }]
 }
 ```

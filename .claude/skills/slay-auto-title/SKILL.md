@@ -1,6 +1,6 @@
 ---
 name: slay-auto-title
-description: "Automatically title tasks based on conversation context"
+description: 'Automatically title tasks based on conversation context'
 trigger: auto
 ---
 

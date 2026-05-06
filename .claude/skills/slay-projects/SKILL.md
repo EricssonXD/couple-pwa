@@ -1,6 +1,6 @@
 ---
 name: slay-projects
-description: "Manage projects via the slay CLI"
+description: 'Manage projects via the slay CLI'
 trigger: auto
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: slay-processes
-description: "List and manage running processes via the slay CLI"
+description: 'List and manage running processes via the slay CLI'
 trigger: auto
 ---
 

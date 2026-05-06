@@ -1,6 +1,6 @@
 ---
 name: slay-browser
-description: "Control the task browser panel via the slay CLI"
+description: 'Control the task browser panel via the slay CLI'
 trigger: auto
 ---
 
@@ -55,6 +55,7 @@ Browser commands control the browser panel embedded in each task's detail view. 
 ## Workflow tips
 
 A typical browser verification flow:
+
 1. `navigate` to the URL
 2. `content` to inspect the page and find selectors
 3. `click` or `type` to interact

@@ -1,6 +1,6 @@
 ---
 name: slay-panels
-description: "Manage web panels via the slay CLI"
+description: 'Manage web panels via the slay CLI'
 trigger: auto
 ---
 

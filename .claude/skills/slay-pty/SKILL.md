@@ -1,6 +1,6 @@
 ---
 name: slay-pty
-description: "Interact with PTY terminal sessions via the slay CLI"
+description: 'Interact with PTY terminal sessions via the slay CLI'
 trigger: auto
 ---
 
@@ -59,6 +59,7 @@ All commands support ID prefix matching.
 ## Orchestration patterns
 
 Submit a prompt to a Claude Code session and wait for completion:
+
 ```bash
 slay pty submit <id> "Fix the failing tests in src/auth.ts"
 slay pty wait <id> --state idle --timeout 300000
@@ -66,6 +67,7 @@ slay pty buffer <id>  # read the result
 ```
 
 Pipe multi-line input:
+
 ```bash
 cat prompt.md | slay pty submit <id>
 ```

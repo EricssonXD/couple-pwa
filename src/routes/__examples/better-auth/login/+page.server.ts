@@ -3,7 +3,6 @@ import type { Actions } from './$types';
 import type { PageServerLoad } from './$types';
 import { auth } from '$lib/server/auth';
 
-
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) {
 		return redirect(302, '/__examples/better-auth');
@@ -19,7 +18,7 @@ export const actions: Actions = {
 
 		const result = await auth.api.signInSocial({
 			body: {
-				provider: provider as "github",
+				provider: provider as 'github',
 				callbackURL
 			}
 		});
@@ -28,5 +27,5 @@ export const actions: Actions = {
 			return redirect(302, result.url);
 		}
 		return fail(400, { message: 'Social sign-in failed' });
-	},
+	}
 };
