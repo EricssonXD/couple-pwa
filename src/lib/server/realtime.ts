@@ -1,18 +1,22 @@
 /**
- * Server-side realtime broadcast (Phase M4).
+ * Server-side realtime broadcast (Phase M6).
  *
- * Posts to Supabase Realtime's HTTP broadcast endpoint so that we don't
- * need a persistent WebSocket from the server. This is the only thing
- * Cloudflare Workers can do — `fetch` is portable, real WS clients are
- * not. Every browser sits on a Supabase Realtime websocket already; this
- * endpoint just fans the message out to all subscribers of the topic.
+ * Posts to Supabase Realtime's HTTP broadcast endpoint so we don't need a
+ * persistent WebSocket from the server — `fetch` is portable, real WS clients
+ * are not (Cloudflare Workers). Every browser sits on a Supabase Realtime
+ * websocket already; this endpoint just fans the message out to all subscribers
+ * of the topic.
  *
  * Topic convention: `couple:<coupleId>` (uuid).
  *
- * Privacy note (MVP): channels are public (private: false). The topic
- * uuid (122 bits) is treated as the access secret. This is a known
- * short-lived exception — to be upgraded to private channels with RLS
- * policies on `realtime.messages` in a follow-up. See plan.md §M6.
+ * Privacy (M6): channels are PRIVATE. Subscribers must satisfy the RLS
+ * policies in `drizzle/manual/0003_realtime_rls.sql` — i.e. they must be
+ * authenticated as a partner of the couple. The service_role key used here
+ * bypasses RLS, so the server can always broadcast; clients can only listen
+ * (the policy denies client INSERTs on the broadcast extension to prevent
+ * partner-spoofing of trusted events like `location_update` / `ghost_change`).
+ * Client-originated events (heartbeat_tap) round-trip through server endpoints
+ * (e.g. POST /api/realtime/tap) which re-broadcast here.
  */
 
 import { env } from '$env/dynamic/private';
@@ -44,7 +48,7 @@ export async function broadcastToCouple(coupleId: string, event: ServerEvent): P
 					topic: topicForCouple(coupleId),
 					event: event.t,
 					payload: event,
-					private: false
+					private: true
 				}
 			]
 		})

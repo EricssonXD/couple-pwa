@@ -15,6 +15,9 @@
 export type Presence = 'online' | 'away' | 'offline';
 
 // ─── Server-originated events (sent via REST /realtime/v1/api/broadcast) ──
+// All server events are emitted via the service-role REST endpoint and
+// re-broadcast on the private `couple:<id>` topic. Clients can only LISTEN
+// to broadcast on this topic (RLS denies client INSERT) — see M6 plan.
 export type ServerEvent =
 	| {
 			t: 'location_update';
@@ -34,19 +37,19 @@ export type ServerEvent =
 			p: { userId: string; ghost: boolean };
 	  }
 	| {
-			t: 'typing';
-			ts: number;
-			p: { userId: string; typing: boolean };
-	  }
-	| {
 			t: 'heartbeat_tap';
 			ts: number;
 			p: { userId: string };
 	  };
 
-// ─── Client-originated events (sent via channel.send broadcast) ───────────
-// NOTE: `presence` is NOT a broadcast — it goes through the Supabase
-// Presence API (channel.track / channel.untrack).
-export type ClientEvent =
-	| { t: 'typing'; ts: number; p: { userId: string; typing: boolean } }
-	| { t: 'heartbeat_tap'; ts: number; p: { userId: string } };
+// ─── Client-originated events ────────────────────────────────────────────
+// `presence` is NOT a broadcast — it goes through the Supabase Presence API
+// (channel.track / channel.untrack), which under M6 is the only client
+// INSERT path allowed on `realtime.messages` for couple topics.
+//
+// Heartbeat-tap is HTTP-mediated (POST /api/realtime/tap) so the server can
+// validate the caller before re-broadcasting; clients no longer hold INSERT
+// permission on the broadcast extension to prevent partner-spoofing of
+// server events. Hence this union is currently empty — kept as an extension
+// point for future client-direct broadcast events (none planned).
+export type ClientEvent = never;
