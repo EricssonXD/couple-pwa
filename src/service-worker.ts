@@ -34,9 +34,7 @@ const IMG_CACHE_MAX = 60;
 
 function isPrivatePath(pathname: string): boolean {
 	return (
-		pathname.startsWith('/api/') ||
-		pathname.startsWith('/auth/') ||
-		pathname.startsWith('/ws/')
+		pathname.startsWith('/api/') || pathname.startsWith('/auth/') || pathname.startsWith('/ws/')
 	);
 }
 
@@ -78,7 +76,9 @@ sw.addEventListener('activate', (event) => {
 	event.waitUntil(
 		caches
 			.keys()
-			.then((keys) => Promise.all(keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k))))
+			.then((keys) =>
+				Promise.all(keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k)))
+			)
 			.then(() => sw.clients.claim())
 	);
 });
@@ -97,16 +97,13 @@ sw.addEventListener('fetch', (event) => {
 
 	// 1) Hashed build + static files → cache-first.
 	if (SHELL_SET.has(url.pathname)) {
-		event.respondWith(
-			caches.match(request).then((cached) => cached ?? fetch(request))
-		);
+		event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)));
 		return;
 	}
 
 	// 2) HTML navigations + SvelteKit __data.json → network-first w/ offline fallback.
 	const isHtml =
-		request.mode === 'navigate' ||
-		request.headers.get('accept')?.includes('text/html');
+		request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html');
 	const isData = isDataRequest(url.pathname);
 	if (isHtml || isData) {
 		event.respondWith(

@@ -43,8 +43,7 @@
 		min-height: 100dvh;
 		display: grid;
 		place-items: center;
-		padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem
-			max(1.5rem, env(safe-area-inset-bottom));
+		padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
 		background: linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%);
 		color: #e5e7eb;
 	}

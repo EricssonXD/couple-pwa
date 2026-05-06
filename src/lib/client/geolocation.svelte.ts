@@ -34,8 +34,7 @@ function haversineM(a: { lat: number; lon: number }, b: { lat: number; lon: numb
 	const φ2 = (b.lat * Math.PI) / 180;
 	const dφ = ((b.lat - a.lat) * Math.PI) / 180;
 	const dλ = ((b.lon - a.lon) * Math.PI) / 180;
-	const x =
-		Math.sin(dφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) ** 2;
+	const x = Math.sin(dφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) ** 2;
 	return 2 * R * Math.asin(Math.sqrt(x));
 }
 
@@ -116,8 +115,7 @@ export function createGeolocationTracker() {
 
 	function scheduleRetry(pos: GeolocationPosition) {
 		if (backoffTimer) clearTimeout(backoffTimer);
-		const delay =
-			ERROR_BACKOFF_MS[Math.min(consecutiveErrors - 1, ERROR_BACKOFF_MS.length - 1)];
+		const delay = ERROR_BACKOFF_MS[Math.min(consecutiveErrors - 1, ERROR_BACKOFF_MS.length - 1)];
 		backoffTimer = setTimeout(() => void sendPing(pos), delay);
 	}
 

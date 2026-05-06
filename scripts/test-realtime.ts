@@ -160,9 +160,7 @@ function makeInbox(label: string, sb: SupabaseClient, userId: string): Inbox {
 		.on('presence', { event: 'sync' }, () => {
 			const snap = channel.presenceState() as Record<string, Array<Record<string, unknown>>>;
 			presenceSnapshots.push(snap);
-			console.log(
-				`  [${label} ←presence sync] keys=${Object.keys(snap).join(',') || '(empty)'}`
-			);
+			console.log(`  [${label} ←presence sync] keys=${Object.keys(snap).join(',') || '(empty)'}`);
 			for (let i = pWaiters.length - 1; i >= 0; i--) {
 				const w = pWaiters[i];
 				if (w.pred(snap)) {
@@ -297,8 +295,7 @@ async function main() {
 	const upd2P = bobInbox.waitBroadcast(
 		'location_update',
 		(p) =>
-			(p as { p: { userId: string; distanceM: number | null } }).p?.userId ===
-				seed.alice.userId &&
+			(p as { p: { userId: string; distanceM: number | null } }).p?.userId === seed.alice.userId &&
 			(p as { p: { distanceM: number | null } }).p.distanceM !== null
 	);
 	const ping2 = await postJson('alice', '/api/location/ping', aliceCookie, {

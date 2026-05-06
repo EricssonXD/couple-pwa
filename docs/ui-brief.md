@@ -19,9 +19,10 @@ way you glance at a window — it reassures you, then gets out of the
 way.
 
 Tagline candidates:
-- *"被動共在 — passive presence."*
-- *"A window, not a feed."*
-- *"Two heartbeats, one screen."*
+
+- _"被動共在 — passive presence."_
+- _"A window, not a feed."_
+- _"Two heartbeats, one screen."_
 
 ## 2. Who it's for
 
@@ -32,6 +33,7 @@ Tagline candidates:
   them, not feed an algorithm.
 
 Tone of the product:
+
 - Tender but not saccharine. Warm but not childish.
 - Minimal text. Status communicated through soft motion, color, and
   gentle haptics rather than words.
@@ -42,6 +44,7 @@ Tone of the product:
 ## 3. Aesthetic direction
 
 Think:
+
 - **Light theme**: soft cream + dusty rose + sage. Hand-rolled paper
   texture vibes, but rendered cleanly — no skeuomorphic noise.
 - **Dark theme**: deep midnight blue + warm peach accents. Like a
@@ -52,7 +55,7 @@ Think:
 - **Iconography**: rounded, two-tone, breathable. No sharp corners.
   Heroicons "outline" style as a baseline, customized.
 - **Motion**: spring physics, never linear. Things should feel
-  *breathing*. The pulse bubble literally pulses (1bpm scale, 2s
+  _breathing_. The pulse bubble literally pulses (1bpm scale, 2s
   cycle). Transitions are 250–350ms, ease-out for entry, ease-in for
   exit.
 - **Haptics**: every meaningful action has a soft tap (`navigator.vibrate(15)`).
@@ -96,9 +99,11 @@ optional context icon on the right (e.g., ghost-mode toggle on Pulse).
 ## 6. Screen-by-screen brief
 
 ### 6.1 `/pulse` — the heart of the app
+
 Goal: in a single glance, the user knows their partner is OK.
 
 Components, top to bottom:
+
 - **Anniversary Ribbon**: thin ribbon with "Day 423 · together since
   2024-01-08 · 77 days to anniversary 🎈" — soft, dismissible per day.
 - **Distance Bubble** (the hero): a large, round, **breathing**
@@ -123,6 +128,7 @@ Components, top to bottom:
   今日 · One year ago today" with a thumbnail of an old moment.
 
 ### 6.2 `/map`
+
 Goal: see both pins on one map at once.
 
 - Leaflet/MapLibre, both partners' last-known location as soft
@@ -135,6 +141,7 @@ Goal: see both pins on one map at once.
   and the distance reads "—".
 
 ### 6.3 `/moments` — list view
+
 Goal: a feed of geo-moments either of you have dropped.
 
 - Vertical timeline. Each card:
@@ -143,12 +150,13 @@ Goal: a feed of geo-moments either of you have dropped.
   - A tiny inline map preview (rounded rectangle) showing the drop
     location.
   - **Lock state**: if `unlocked_at` is null AND the viewer is not
-    near, the card is blurred + says "Walk closer to read 🚶 ___m
+    near, the card is blurred + says "Walk closer to read 🚶 \_\_\_m
     away".
   - Footer: a soft heart + comment-thread count (Phase 2).
 - FAB bottom-right: + → `/moments/new`.
 
 ### 6.4 `/moments/new`
+
 - Top: small map preview centered on current location, draggable pin
   (radius slider: 30m / 100m / 500m).
 - Caption text area (placeholder: "what do you want her to find
@@ -158,11 +166,13 @@ Goal: a feed of geo-moments either of you have dropped.
 - Bottom: large primary button "Drop here ✨".
 
 ### 6.5 `/timeline` (folded into Moments tab)
+
 - Year/month scrubber on the right edge.
 - Mixed feed: moments, anniversaries, photos.
 - "On this day" pills.
 
 ### 6.6 `/you` — settings
+
 - Big avatar + display name + status emoji at top.
 - Couple card: "Alice & Bob · 423 days · since 2024-01-08", tap →
   rename / set anniversary / unpair.
@@ -176,6 +186,7 @@ Goal: a feed of geo-moments either of you have dropped.
 - Sign out at the bottom.
 
 ### 6.7 `/onboarding` (3 steps)
+
 1. Welcome screen with two breathing dots, "Let's set up your two-
    person space."
 2. Profile: name, emoji, mood.
@@ -185,6 +196,7 @@ Goal: a feed of geo-moments either of you have dropped.
 ## 7. Components Gemini should design
 
 Please produce:
+
 - Bottom nav (4 tabs), light + dark.
 - Distance Bubble in all 5 states (same / near / city / far / ghost).
 - Pulse screen full-page, light + dark.
@@ -243,6 +255,7 @@ Please produce:
 ## 12. Deliverable format
 
 Please output:
+
 1. A single mood board (1 image).
 2. A 4-screen flow sheet (Pulse, Map, Moments list, Moments composer).
 3. A token sheet (colors, type ramp, spacing scale, radii).
