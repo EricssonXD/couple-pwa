@@ -1,13 +1,17 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { locales, localizeHref } from '$lib/paraglide/runtime';
+	import { initInstallPrompt } from '$lib/pwa/install';
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
 
 	let { children } = $props();
+
+	onMount(() => {
+		initInstallPrompt();
+	});
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
 {@render children()}
 
 <div style="display:none">
