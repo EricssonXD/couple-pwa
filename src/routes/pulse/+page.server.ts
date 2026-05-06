@@ -28,11 +28,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		me: {
+			id: locals.user.id,
 			displayName: me.displayName,
 			avatarEmoji: me.avatarEmoji,
 			ghostMode: isGhostActive(me.ghostMode, me.ghostUntil)
 		},
-		partner: partnerProfile ?? null,
+		partner: partnerProfile ? { ...partnerProfile, id: partnerId } : null,
 		coupleSince: locals.couple.createdAt,
 		initialState: {
 			me: state.mine && {

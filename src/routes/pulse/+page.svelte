@@ -3,6 +3,7 @@
 	import { goto, invalidate } from '$app/navigation';
 	import { signOut } from '$lib/auth-client';
 	import { createGeolocationTracker } from '$lib/client/geolocation.svelte';
+	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { relativeTime } from '$lib/utils/time';
 	import DistanceBubble from '$lib/components/DistanceBubble.svelte';
 	import type { DistanceBucket } from '$lib/server/services/location';
@@ -26,12 +27,69 @@
 	};
 
 	const tracker = createGeolocationTracker();
+	const rt = createRealtimeClient();
 	let live = $state<StateResp>(data.initialState as unknown as StateResp);
 	let ghostOn = $state(data.me.ghostMode);
 	let ghostBusy = $state(false);
 	let now = $state(Date.now()); // ticks every 30s so relative times stay fresh
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let tickTimer: ReturnType<typeof setInterval> | null = null;
+	let tapPulse = $state(0); // bumps each time partner taps; UI animates off it
+
+	const partnerId = $derived(data.partner?.id ?? '');
+	const partnerPresence = $derived(rt.presence[partnerId] ?? 'offline');
+
+	// Apply realtime location updates from the partner directly to `live`
+	// instead of waiting for the next poll.
+	$effect(() => {
+		const u = rt.lastLocation;
+		if (!u || u.userId !== partnerId) return;
+		live = {
+			...live,
+			distanceM: u.distanceM,
+			bucket: u.bucket,
+			partner: {
+				capturedAt: u.capturedAt,
+				batteryPct: u.batteryPct,
+				charging: u.charging,
+				ghost: false
+			}
+		};
+	});
+
+	// Partner toggled ghost — flip their card without invalidating.
+	$effect(() => {
+		const g = rt.lastGhost;
+		if (!g || g.userId !== partnerId) return;
+		if (g.ghost) {
+			live = {
+				...live,
+				distanceM: null,
+				bucket: 'unknown',
+				partner: {
+					capturedAt: live.partner?.capturedAt ?? null,
+					batteryPct: null,
+					charging: null,
+					ghost: true
+				}
+			};
+		} else {
+			// Clear the ghost veil; next poll/update will repaint with real values.
+			void refreshState();
+		}
+	});
+
+	// Partner sent a heartbeat tap — vibrate and bump the pulse counter.
+	$effect(() => {
+		const t = rt.lastTap;
+		if (!t) return;
+		tapPulse = t;
+		try {
+			navigator.vibrate?.([40, 30, 40]);
+		} catch {
+			/* not supported */
+		}
+	});
 
 	async function refreshState() {
 		try {
@@ -62,20 +120,33 @@
 		}
 	}
 
+	function sendTap() {
+		rt.sendHeartbeatTap();
+		try {
+			navigator.vibrate?.(20);
+		} catch {
+			/* noop */
+		}
+	}
+
 	async function handleSignOut() {
 		tracker.stop();
+		rt.stop();
 		await signOut();
 		await goto('/');
 	}
 
 	onMount(() => {
 		if (!ghostOn) void tracker.start();
+		rt.start();
+		// Poll is now a fallback when WS is down; keep it but lengthen.
 		pollTimer = setInterval(refreshState, 30_000);
 		tickTimer = setInterval(() => (now = Date.now()), 30_000);
 	});
 
 	onDestroy(() => {
 		tracker.stop();
+		rt.stop();
 		if (pollTimer) clearInterval(pollTimer);
 		if (tickTimer) clearInterval(tickTimer);
 	});
@@ -85,6 +156,13 @@
 		live.partner ? relativeTime(live.partner.capturedAt ?? null, now) : ''
 	);
 	const myLastSeen = $derived(live.me ? relativeTime(live.me.capturedAt, now) : '');
+	const presenceDot = $derived(
+		partnerPresence === 'online'
+			? 'bg-success'
+			: partnerPresence === 'away'
+				? 'bg-warning'
+				: 'bg-base-300'
+	);
 </script>
 
 <svelte:head>
@@ -103,7 +181,14 @@
 	<div class="mt-6 flex items-center gap-4 text-5xl">
 		<span aria-label="you">{data.me.avatarEmoji ?? '💗'}</span>
 		<span class="opacity-40">·</span>
-		<span aria-label="partner">{data.partner?.avatarEmoji ?? '💗'}</span>
+		<span class="relative inline-block" aria-label="partner">
+			{data.partner?.avatarEmoji ?? '💗'}
+			<span
+				class="border-base-100 absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 {presenceDot}"
+				title={partnerPresence}
+				aria-label="partner {partnerPresence}"
+			></span>
+		</span>
 	</div>
 
 	<section class="mt-6">
@@ -166,6 +251,25 @@
 				aria-label="Toggle ghost mode"
 			/>
 		</div>
+	</section>
+
+	<section class="mt-6">
+		<button
+			type="button"
+			class="btn btn-primary btn-lg btn-block gap-3"
+			onclick={sendTap}
+			aria-label="Send heartbeat tap"
+		>
+			<span class="text-2xl">💓</span>
+			Send a heartbeat
+		</button>
+		{#if tapPulse}
+			{#key tapPulse}
+				<p class="text-primary mt-2 animate-pulse text-center text-sm">
+					{partnerName} tapped you 💞
+				</p>
+			{/key}
+		{/if}
 	</section>
 
 	{#if tracker.status === 'denied'}
