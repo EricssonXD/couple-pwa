@@ -71,6 +71,11 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 	let lastLocation = $state<LocationUpdate | null>(null);
 	let lastGhost = $state<GhostChange | null>(null);
 	let lastTap = $state<number | null>(null);
+	let lastMomentEvent = $state<{
+		t: 'dropped' | 'unlocked' | 'deleted';
+		id: string;
+		ts: number;
+	} | null>(null);
 	let presence = $state<Record<string, Presence>>({});
 
 	let channel: RealtimeChannel | null = null;
@@ -87,6 +92,15 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				return;
 			case 'heartbeat_tap':
 				lastTap = ev.ts;
+				return;
+			case 'moment_dropped':
+				lastMomentEvent = { t: 'dropped', id: ev.p.id, ts: ev.ts };
+				return;
+			case 'moment_unlocked':
+				lastMomentEvent = { t: 'unlocked', id: ev.p.id, ts: ev.ts };
+				return;
+			case 'moment_deleted':
+				lastMomentEvent = { t: 'deleted', id: ev.p.id, ts: ev.ts };
 				return;
 		}
 	}
@@ -211,6 +225,9 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		},
 		get lastTap() {
 			return lastTap;
+		},
+		get lastMomentEvent() {
+			return lastMomentEvent;
 		},
 		get presence() {
 			return presence;

@@ -19,12 +19,7 @@ export class MomentError extends Error {
 		super(code);
 	}
 }
-type MomentErrorCode =
-	| 'invalid_input'
-	| 'not_author'
-	| 'not_found'
-	| 'no_couple'
-	| 'body_too_long';
+type MomentErrorCode = 'invalid_input' | 'not_author' | 'not_found' | 'no_couple' | 'body_too_long';
 
 const MIN_RADIUS_M = 50;
 const MAX_RADIUS_M = 1000;
@@ -207,8 +202,9 @@ export async function unlockMomentsForPing(
 		returning gm.id, gm.unlocked_at
 	`);
 
-	const rows = (unlocked as unknown as { rows?: Array<{ id: string; unlocked_at: Date }> })
-		.rows ?? (unlocked as unknown as Array<{ id: string; unlocked_at: Date }>);
+	const rows =
+		(unlocked as unknown as { rows?: Array<{ id: string; unlocked_at: Date }> }).rows ??
+		(unlocked as unknown as Array<{ id: string; unlocked_at: Date }>);
 
 	for (const r of rows ?? []) {
 		void broadcastToCouple(coupleId, {
@@ -250,10 +246,7 @@ export async function deleteMoment(
 	if (row.authorId !== authorId) throw new MomentError('not_author');
 
 	if (row.unlockedAt) {
-		await db
-			.update(geoMoment)
-			.set({ deletedAt: new Date() })
-			.where(eq(geoMoment.id, momentId));
+		await db.update(geoMoment).set({ deletedAt: new Date() }).where(eq(geoMoment.id, momentId));
 	} else {
 		await db.delete(geoMoment).where(eq(geoMoment.id, momentId));
 	}
