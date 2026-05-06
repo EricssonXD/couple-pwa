@@ -1,5 +1,18 @@
-import { relations } from 'drizzle-orm';
+// DuoSync Postgres schema (Supabase-flavored).
+//
+// Key differences from the Better-Auth era:
+// - User identity lives in `auth.users` (Supabase-managed). We declare it
+//   here only so Drizzle can typecheck FKs; drizzle-kit ignores the `auth`
+//   schema in introspection (configured in drizzle.config.ts).
+// - Every former `text('user_id').references(user.id)` is now
+//   `uuid('user_id').references(authUsers.id)`.
+// - `couple.id` switched from text+gen_random_uuid to native uuid.
+// - The DuoSync `profile` table now uses the auth.users id as its PK,
+//   making it a true 1:1 extension of the Supabase user row.
+
+import { relations, sql } from 'drizzle-orm';
 import {
+	pgSchema,
 	pgTable,
 	text,
 	timestamp,
@@ -10,35 +23,37 @@ import {
 	doublePrecision,
 	integer,
 	boolean,
+	uuid,
 	customType
 } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
-import { user } from './auth.schema';
 
-// PostGIS geography point (SRID 4326). Drizzle-kit's push has trouble with the
-// `geography(Point, 4326)` typmod form, so we declare the column as plain
-// `geography` and rely on inserts that explicitly cast via ST_SetSRID/ST_MakePoint.
-// All our ST_* queries are SRID-agnostic at the function level.
+// PostGIS geography point (SRID 4326). We declare the column as plain
+// `geography`; inserts cast via ST_SetSRID/ST_MakePoint and all queries
+// are SRID-agnostic at the function level.
 const geographyPoint = customType<{ data: string; driverData: string }>({
 	dataType: () => 'geography'
 });
 
+// ─── Supabase-managed auth schema (referenced, never managed by us) ───────
+const authSchema = pgSchema('auth');
+export const authUsers = authSchema.table('users', {
+	id: uuid('id').primaryKey()
+});
+
 // ─── Couple ───────────────────────────────────────────────────────────────
-// Two-person bond. Cardinality enforced at the application layer AND via the
-// (partner_a < partner_b) check + unique pair index so the same pair cannot
-// exist twice and self-pairing is impossible.
+// Two-person bond. Cardinality enforced via the (partner_a < partner_b)
+// check + unique pair index so the same pair cannot exist twice and
+// self-pairing is impossible.
 export const couple = pgTable(
 	'couple',
 	{
-		id: text('id')
-			.primaryKey()
-			.default(sql`gen_random_uuid()`),
-		partnerA: text('partner_a')
+		id: uuid('id').primaryKey().defaultRandom(),
+		partnerA: uuid('partner_a')
 			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		partnerB: text('partner_b')
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		partnerB: uuid('partner_b')
 			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
 		nickname: text('nickname'),
 		anniversary: date('anniversary'),
 		// 'active' | 'paused' | 'broken'
@@ -53,8 +68,6 @@ export const couple = pgTable(
 	(t) => [
 		check('couple_partners_distinct_chk', sql`${t.partnerA} < ${t.partnerB}`),
 		uniqueIndex('couple_pair_uq').on(t.partnerA, t.partnerB),
-		// Each user may only be in one ACTIVE couple at a time. A partial unique
-		// index per role enforces this without blocking historical rows.
 		uniqueIndex('couple_partner_a_active_uq')
 			.on(t.partnerA)
 			.where(sql`${t.status} = 'active'`),
@@ -65,17 +78,16 @@ export const couple = pgTable(
 );
 
 // ─── Pairing link code ────────────────────────────────────────────────────
-// Single-use, short-TTL code issued by partner A so partner B can join.
 export const linkCode = pgTable(
 	'link_code',
 	{
 		code: text('code').primaryKey(),
-		issuerId: text('issuer_id')
+		issuerId: uuid('issuer_id')
 			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
 		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 		usedAt: timestamp('used_at', { withTimezone: true }),
-		consumedBy: text('consumed_by').references(() => user.id, { onDelete: 'set null' }),
+		consumedBy: uuid('consumed_by').references(() => authUsers.id, { onDelete: 'set null' }),
 		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
 	},
 	(t) => [
@@ -85,37 +97,31 @@ export const linkCode = pgTable(
 );
 
 // ─── User profile (DuoSync-specific fields) ───────────────────────────────
-// Lives separate from Better-Auth's user table so we never hand-edit the
-// generated auth schema. Joined 1:1 by userId.
+// 1:1 extension of auth.users. The PK IS the auth uid, so RLS policies
+// can use auth.uid() directly without joins.
 export const profile = pgTable('profile', {
-	userId: text('user_id')
+	userId: uuid('user_id')
 		.primaryKey()
-		.references(() => user.id, { onDelete: 'cascade' }),
+		.references(() => authUsers.id, { onDelete: 'cascade' }),
 	displayName: text('display_name'),
 	pronouns: text('pronouns'),
 	avatarUrl: text('avatar_url'),
 	avatarEmoji: text('avatar_emoji'),
 	onboardedAt: timestamp('onboarded_at', { withTimezone: true }),
 	// Ghost mode: when true, partner sees "隱身中" + last-seen instead of distance.
-	// ghostUntil lets users schedule auto-expiry (e.g. "ghost for 1 hour").
 	ghostMode: boolean('ghost_mode').notNull().default(false),
 	ghostUntil: timestamp('ghost_until', { withTimezone: true })
 });
 
 // ─── Location ping ────────────────────────────────────────────────────────
-// One row per accepted client report. Server enforces minimum interval +
-// movement threshold to keep the table small. Geography column powers
-// ST_Distance; lat/lon kept as cheap reads for non-spatial paths.
 export const locationPing = pgTable(
 	'location_ping',
 	{
-		id: text('id')
-			.primaryKey()
-			.default(sql`gen_random_uuid()`),
-		userId: text('user_id')
+		id: uuid('id').primaryKey().defaultRandom(),
+		userId: uuid('user_id')
 			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		coupleId: text('couple_id')
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		coupleId: uuid('couple_id')
 			.notNull()
 			.references(() => couple.id, { onDelete: 'cascade' }),
 		lat: doublePrecision('lat').notNull(),
@@ -136,15 +142,13 @@ export const locationPing = pgTable(
 );
 
 // ─── Location daily summary ───────────────────────────────────────────────
-// After 7d, raw pings are pruned; this row preserves coarse history for
-// future "memory resurface" / yearly heatmaps without keeping every fix.
 export const locationDailySummary = pgTable(
 	'location_daily_summary',
 	{
-		userId: text('user_id')
+		userId: uuid('user_id')
 			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		coupleId: text('couple_id')
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		coupleId: uuid('couple_id')
 			.notNull()
 			.references(() => couple.id, { onDelete: 'cascade' }),
 		day: date('day').notNull(),
@@ -162,20 +166,13 @@ export const locationDailySummary = pgTable(
 );
 
 // ─── Relations ────────────────────────────────────────────────────────────
-export const coupleRelations = relations(couple, ({ one }) => ({
-	partnerAUser: one(user, { fields: [couple.partnerA], references: [user.id], relationName: 'a' }),
-	partnerBUser: one(user, { fields: [couple.partnerB], references: [user.id], relationName: 'b' })
-}));
-
-export const linkCodeRelations = relations(linkCode, ({ one }) => ({
-	issuer: one(user, { fields: [linkCode.issuerId], references: [user.id] })
-}));
-
-export const profileRelations = relations(profile, ({ one }) => ({
-	user: one(user, { fields: [profile.userId], references: [user.id] })
+// Note: no relations() entries pointing into authUsers since drizzle-orm
+// relation queries don't traverse cross-schema FKs reliably. Joins to
+// auth.users are written by hand when needed.
+export const coupleRelations = relations(couple, ({ many }) => ({
+	pings: many(locationPing)
 }));
 
 export const locationPingRelations = relations(locationPing, ({ one }) => ({
-	user: one(user, { fields: [locationPing.userId], references: [user.id] }),
 	couple: one(couple, { fields: [locationPing.coupleId], references: [couple.id] })
 }));
