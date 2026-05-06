@@ -222,3 +222,34 @@ export const geoMomentRelations = relations(geoMoment, ({ one }) => ({
 		references: [geoMomentBody.momentId]
 	})
 }));
+
+// ─── Daily Question (M8) ────────────────────────────────────────────────
+export const dailyQuestion = pgTable('daily_question', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	promptEn: text('prompt_en').notNull(),
+	promptZh: text('prompt_zh'),
+	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+	active: boolean('active').notNull().default(true)
+});
+
+export const dailyQuestionAnswer = pgTable(
+	'daily_question_answer',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		questionId: uuid('question_id')
+			.notNull()
+			.references(() => dailyQuestion.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		body: text('body').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(t) => [
+		uniqueIndex('daily_qa_unique').on(t.coupleId, t.questionId, t.userId),
+		index('daily_qa_couple_q_idx').on(t.coupleId, t.questionId)
+	]
+);
