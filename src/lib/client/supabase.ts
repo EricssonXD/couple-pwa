@@ -11,12 +11,12 @@ let _client: SupabaseClient | null = null;
 export function getSupabaseClient(): SupabaseClient {
 	if (_client) return _client;
 	const url = pubEnv.PUBLIC_SUPABASE_URL;
-	const anon = pubEnv.PUBLIC_SUPABASE_ANON_KEY;
-	if (!url || !anon) {
+	const key = pubEnv.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+	if (!url || !key) {
 		throw new Error(
-			'PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_ANON_KEY must be set in the environment.'
+			'PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_PUBLISHABLE_KEY must be set in the environment.'
 		);
 	}
-	_client = createBrowserClient(url, anon);
+	_client = createBrowserClient(url, key);
 	return _client;
 }

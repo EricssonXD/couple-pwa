@@ -18,14 +18,14 @@ import type { RequestEvent } from '@sveltejs/kit';
 
 export function createSupabaseServerClient(event: RequestEvent) {
 	const url = pubEnv.PUBLIC_SUPABASE_URL;
-	const anon = pubEnv.PUBLIC_SUPABASE_ANON_KEY;
-	if (!url || !anon) {
+	const key = pubEnv.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+	if (!url || !key) {
 		throw new Error(
-			'PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_ANON_KEY must be set. See .env.example.'
+			'PUBLIC_SUPABASE_URL and PUBLIC_SUPABASE_PUBLISHABLE_KEY must be set. See .env.example.'
 		);
 	}
 
-	return createServerClient(url, anon, {
+	return createServerClient(url, key, {
 		cookies: {
 			getAll: () => event.cookies.getAll(),
 			setAll: (cookies) => {
@@ -42,9 +42,9 @@ export function createSupabaseServerClient(event: RequestEvent) {
 // in response to a user request without first authenticating + authorizing.
 export function createSupabaseAdminClient() {
 	const url = pubEnv.PUBLIC_SUPABASE_URL;
-	const key = env.SUPABASE_SERVICE_ROLE_KEY;
+	const key = env.SUPABASE_SECRET_KEY;
 	if (!url || !key) {
-		throw new Error('PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
+		throw new Error('PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY must be set.');
 	}
 	// Lazy import to avoid bundling the admin client into the browser if
 	// someone accidentally imports the wrong file.
