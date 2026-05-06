@@ -8,6 +8,7 @@
 	import { idbGet, idbSet } from '$lib/client/idb';
 	import { relativeTime } from '$lib/utils/time';
 	import DistanceBubble from '$lib/components/DistanceBubble.svelte';
+	import AnniversaryRibbon from '$lib/components/AnniversaryRibbon.svelte';
 	import type { DistanceBucket } from '$lib/server/services/location';
 	import type { PageData } from './$types';
 
@@ -200,21 +201,25 @@
 
 <main class="mx-auto min-h-screen max-w-md px-4 py-10">
 	{#if !net.online}
-		<div
-			role="status"
-			class="alert alert-warning mb-4 py-2 text-sm"
-			aria-live="polite"
-		>
+		<div role="status" class="mb-4 alert py-2 text-sm alert-warning" aria-live="polite">
 			<span>Offline — showing last known state.</span>
 		</div>
 	{/if}
 	<header class="flex items-center justify-between">
 		<div>
-			<p class="text-base-content/60 text-xs tracking-wider uppercase">Pulse</p>
+			<p class="text-xs tracking-wider text-base-content/60 uppercase">Pulse</p>
 			<h1 class="text-3xl font-semibold tracking-tight">You & {partnerName}</h1>
 		</div>
 		<button class="btn btn-ghost btn-sm" type="button" onclick={handleSignOut}>Sign out</button>
 	</header>
+
+	<div class="mt-4">
+		<AnniversaryRibbon
+			coupleSince={data.coupleSince}
+			anniversary={data.anniversary}
+			nickname={data.coupleNickname}
+		/>
+	</div>
 
 	<div class="mt-6 flex items-center gap-4 text-5xl">
 		<span aria-label="you">{data.me.avatarEmoji ?? '💗'}</span>
@@ -222,7 +227,7 @@
 		<span class="relative inline-block" aria-label="partner">
 			{data.partner?.avatarEmoji ?? '💗'}
 			<span
-				class="border-base-100 absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 {presenceDot}"
+				class="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-base-100 {presenceDot}"
 				title={partnerPresence}
 				aria-label="partner {partnerPresence}"
 			></span>
@@ -260,7 +265,9 @@
 			<div class="card-body p-4">
 				<p class="text-xs tracking-wider uppercase opacity-60">{partnerName}</p>
 				<p class="mt-1 text-lg font-medium">
-					{live.partner && !('ghost' in live.partner && live.partner.ghost) && live.partner.batteryPct != null
+					{live.partner &&
+					!('ghost' in live.partner && live.partner.ghost) &&
+					live.partner.batteryPct != null
 						? `${live.partner.batteryPct}%`
 						: '—'}
 					{#if live.partner && !('ghost' in live.partner && live.partner.ghost) && live.partner.charging}
@@ -273,7 +280,7 @@
 	</section>
 
 	<section class="mt-6">
-		<div class="bg-base-200 flex items-center justify-between rounded-2xl p-4">
+		<div class="flex items-center justify-between rounded-2xl bg-base-200 p-4">
 			<div>
 				<p class="font-medium">Ghost mode</p>
 				<p class="text-xs opacity-60">
@@ -294,7 +301,7 @@
 	<section class="mt-6">
 		<button
 			type="button"
-			class="btn btn-primary btn-lg btn-block gap-3"
+			class="btn btn-block gap-3 btn-lg btn-primary"
 			onclick={sendTap}
 			aria-label="Send heartbeat tap"
 		>
@@ -303,7 +310,7 @@
 		</button>
 		{#if tapPulse}
 			{#key tapPulse}
-				<p class="text-primary mt-2 animate-pulse text-center text-sm">
+				<p class="mt-2 animate-pulse text-center text-sm text-primary">
 					{partnerName} tapped you 💞
 				</p>
 			{/key}
@@ -311,13 +318,13 @@
 	</section>
 
 	{#if tracker.status === 'denied'}
-		<div role="alert" class="alert alert-warning mt-6">
+		<div role="alert" class="mt-6 alert alert-warning">
 			<span>
 				Location permission denied. Enable it in your browser settings to share live distance.
 			</span>
 		</div>
 	{:else if tracker.status === 'unsupported'}
-		<div role="alert" class="alert alert-error mt-6">
+		<div role="alert" class="mt-6 alert alert-error">
 			<span>Geolocation is not supported in this browser.</span>
 		</div>
 	{:else if tracker.status === 'requesting_permission'}
@@ -326,7 +333,7 @@
 		<p class="mt-6 text-center text-xs opacity-60">Sync issue: {tracker.lastError} · retrying…</p>
 	{/if}
 
-	<section class="prose mt-10">
+	<section class="mt-10 prose">
 		<h2 class="text-lg">Coming next</h2>
 		<ul class="text-sm">
 			<li>Heartbeat tap (haptic ping)</li>
@@ -335,4 +342,3 @@
 		</ul>
 	</section>
 </main>
-

@@ -34,6 +34,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		partner: partnerProfile ? { ...partnerProfile, id: partnerId } : null,
 		coupleId: locals.couple.id,
 		coupleSince: locals.couple.createdAt,
+		coupleNickname: locals.couple.nickname ?? null,
+		anniversary: locals.couple.anniversary ?? null,
 		initialState: {
 			me: state.mine && {
 				capturedAt: state.mine.capturedAt,
@@ -46,4 +48,3 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}
 	};
 };
-
