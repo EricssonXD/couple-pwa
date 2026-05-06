@@ -4,6 +4,20 @@ import { getTextDirection } from '$lib/paraglide/runtime';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { createSupabaseServerClient } from '$lib/server/supabase';
 import { getActiveCouple } from '$lib/server/services/couple';
+import { withDb } from '$lib/server/db';
+
+// Wrap every request in a fresh Postgres client (see src/lib/server/db
+// for the rationale — Cloudflare Workers TCP sockets can't survive past
+// the request that opened them).
+const handleDb: Handle = ({ event, resolve }) => {
+	// adapter-cloudflare exposes the execution context via event.platform.context.
+	// Falls back to undefined locally (vite dev) — no waitUntil needed there.
+	const platform = event.platform as
+		| { context?: { waitUntil?: (p: Promise<unknown>) => void } }
+		| undefined;
+	const waitUntil = platform?.context?.waitUntil?.bind(platform.context);
+	return withDb(() => Promise.resolve(resolve(event)), waitUntil);
+};
 
 const handleParaglide: Handle = ({ event, resolve }) =>
 	paraglideMiddleware(event.request, ({ request, locale }) => {
@@ -46,4 +60,4 @@ const handleSupabase: Handle = async ({ event, resolve }) => {
 	});
 };
 
-export const handle: Handle = sequence(handleParaglide, handleSupabase);
+export const handle: Handle = sequence(handleDb, handleParaglide, handleSupabase);
