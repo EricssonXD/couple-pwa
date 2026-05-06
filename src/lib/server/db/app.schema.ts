@@ -1,7 +1,27 @@
 import { relations } from 'drizzle-orm';
-import { pgTable, text, timestamp, date, uniqueIndex, index, check } from 'drizzle-orm/pg-core';
+import {
+	pgTable,
+	text,
+	timestamp,
+	date,
+	uniqueIndex,
+	index,
+	check,
+	doublePrecision,
+	integer,
+	boolean,
+	customType
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { user } from './auth.schema';
+
+// PostGIS geography point (SRID 4326). Drizzle-kit's push has trouble with the
+// `geography(Point, 4326)` typmod form, so we declare the column as plain
+// `geography` and rely on inserts that explicitly cast via ST_SetSRID/ST_MakePoint.
+// All our ST_* queries are SRID-agnostic at the function level.
+const geographyPoint = customType<{ data: string; driverData: string }>({
+	dataType: () => 'geography'
+});
 
 // ─── Couple ───────────────────────────────────────────────────────────────
 // Two-person bond. Cardinality enforced at the application layer AND via the
@@ -75,8 +95,71 @@ export const profile = pgTable('profile', {
 	pronouns: text('pronouns'),
 	avatarUrl: text('avatar_url'),
 	avatarEmoji: text('avatar_emoji'),
-	onboardedAt: timestamp('onboarded_at', { withTimezone: true })
+	onboardedAt: timestamp('onboarded_at', { withTimezone: true }),
+	// Ghost mode: when true, partner sees "隱身中" + last-seen instead of distance.
+	// ghostUntil lets users schedule auto-expiry (e.g. "ghost for 1 hour").
+	ghostMode: boolean('ghost_mode').notNull().default(false),
+	ghostUntil: timestamp('ghost_until', { withTimezone: true })
 });
+
+// ─── Location ping ────────────────────────────────────────────────────────
+// One row per accepted client report. Server enforces minimum interval +
+// movement threshold to keep the table small. Geography column powers
+// ST_Distance; lat/lon kept as cheap reads for non-spatial paths.
+export const locationPing = pgTable(
+	'location_ping',
+	{
+		id: text('id')
+			.primaryKey()
+			.default(sql`gen_random_uuid()`),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		coupleId: text('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		lat: doublePrecision('lat').notNull(),
+		lon: doublePrecision('lon').notNull(),
+		geog: geographyPoint('geog').notNull(),
+		accuracyM: doublePrecision('accuracy_m'),
+		batteryPct: integer('battery_pct'),
+		charging: boolean('charging'),
+		headingDeg: doublePrecision('heading_deg'),
+		speedMps: doublePrecision('speed_mps'),
+		capturedAt: timestamp('captured_at', { withTimezone: true }).notNull(),
+		receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(t) => [
+		index('location_ping_user_captured_idx').on(t.userId, t.capturedAt.desc()),
+		index('location_ping_couple_captured_idx').on(t.coupleId, t.capturedAt.desc())
+	]
+);
+
+// ─── Location daily summary ───────────────────────────────────────────────
+// After 7d, raw pings are pruned; this row preserves coarse history for
+// future "memory resurface" / yearly heatmaps without keeping every fix.
+export const locationDailySummary = pgTable(
+	'location_daily_summary',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		coupleId: text('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		day: date('day').notNull(),
+		pingCount: integer('ping_count').notNull().default(0),
+		firstLat: doublePrecision('first_lat'),
+		firstLon: doublePrecision('first_lon'),
+		lastLat: doublePrecision('last_lat'),
+		lastLon: doublePrecision('last_lon'),
+		distanceTraveledM: doublePrecision('distance_traveled_m').notNull().default(0)
+	},
+	(t) => [
+		uniqueIndex('location_daily_summary_pk').on(t.userId, t.day),
+		index('location_daily_summary_couple_day_idx').on(t.coupleId, t.day.desc())
+	]
+);
 
 // ─── Relations ────────────────────────────────────────────────────────────
 export const coupleRelations = relations(couple, ({ one }) => ({
@@ -90,4 +173,9 @@ export const linkCodeRelations = relations(linkCode, ({ one }) => ({
 
 export const profileRelations = relations(profile, ({ one }) => ({
 	user: one(user, { fields: [profile.userId], references: [user.id] })
+}));
+
+export const locationPingRelations = relations(locationPing, ({ one }) => ({
+	user: one(user, { fields: [locationPing.userId], references: [user.id] }),
+	couple: one(couple, { fields: [locationPing.coupleId], references: [couple.id] })
 }));
