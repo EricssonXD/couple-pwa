@@ -3,24 +3,66 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
-// DuoSync service worker — Phase 0 stub.
-// Responsibilities (filled in over later phases):
-//   - Pre-cache app shell assets at install (offline-first)
-//   - Network-first for API, cache-first for static
-//   - Web Push handler (Phase 6)
-//   - Background sync for queued location pings / messages
+// DuoSync service worker — offline-first PWA.
 //
-// SvelteKit auto-builds this file when present and ships it as /service-worker.js.
+// Strategy:
+//   - Pre-cache the app shell (hashed `build` assets, static `files`,
+//     plus the offline fallback page) at install.
+//   - Hashed build assets → cache-first, immutable.
+//   - Static files → cache-first.
+//   - HTML navigations → network-first, fall back to cached HTML, then
+//     to /offline as a last resort.
+//   - Images (own origin) → stale-while-revalidate with a small LRU cap.
+//   - Never cache /api/* or /auth/* — these hold private session data
+//     and must not be served stale or to the wrong user.
+//   - Never cache non-GET, non-2xx, opaque, or cross-origin requests.
 
 import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-const CACHE = `duosync-v${version}`;
-const ASSETS = [...build, ...files];
+const SHELL_CACHE = `duosync-shell-v${version}`;
+const HTML_CACHE = `duosync-html-v${version}`;
+const IMG_CACHE = `duosync-img-v${version}`;
+const RUNTIME_CACHES = new Set([SHELL_CACHE, HTML_CACHE, IMG_CACHE]);
+
+const OFFLINE_URL = '/offline';
+const SHELL_ASSETS = [...build, ...files, OFFLINE_URL];
+const SHELL_SET = new Set(SHELL_ASSETS);
+
+const IMG_CACHE_MAX = 60;
+
+function isPrivatePath(pathname: string): boolean {
+	return (
+		pathname.startsWith('/api/') ||
+		pathname.startsWith('/auth/') ||
+		pathname.startsWith('/ws/')
+	);
+}
+
+async function trimCache(cacheName: string, max: number): Promise<void> {
+	const cache = await caches.open(cacheName);
+	const keys = await cache.keys();
+	if (keys.length <= max) return;
+	for (const k of keys.slice(0, keys.length - max)) await cache.delete(k);
+}
 
 sw.addEventListener('install', (event) => {
-	event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+	event.waitUntil(
+		caches.open(SHELL_CACHE).then((cache) =>
+			// addAll fails atomically — guard the offline fallback so a missing
+			// route doesn't block the whole install.
+			cache.addAll(SHELL_ASSETS).catch(async () => {
+				for (const asset of SHELL_ASSETS) {
+					try {
+						await cache.add(asset);
+					} catch {
+						/* swallow */
+					}
+				}
+			})
+		)
+	);
 	sw.skipWaiting();
 });
 
@@ -28,9 +70,13 @@ sw.addEventListener('activate', (event) => {
 	event.waitUntil(
 		caches
 			.keys()
-			.then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+			.then((keys) => Promise.all(keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k))))
+			.then(() => sw.clients.claim())
 	);
-	sw.clients.claim();
+});
+
+sw.addEventListener('message', (event) => {
+	if (event.data === 'SKIP_WAITING') sw.skipWaiting();
 });
 
 sw.addEventListener('fetch', (event) => {
@@ -39,28 +85,82 @@ sw.addEventListener('fetch', (event) => {
 
 	const url = new URL(request.url);
 	if (url.origin !== sw.location.origin) return;
+	if (isPrivatePath(url.pathname)) return;
 
-	// Cache-first for built assets and static files.
-	if (ASSETS.includes(url.pathname)) {
-		event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)));
+	// 1) Hashed build + static files → cache-first.
+	if (SHELL_SET.has(url.pathname)) {
+		event.respondWith(
+			caches.match(request).then((cached) => cached ?? fetch(request))
+		);
 		return;
 	}
 
-	// Network-first for everything else, falling back to cache when offline.
-	event.respondWith(
-		fetch(request)
-			.then((response) => {
-				if (response.ok) {
-					const copy = response.clone();
-					caches.open(CACHE).then((cache) => cache.put(request, copy));
+	// 2) HTML navigations → network-first w/ offline fallback.
+	const isHtml =
+		request.mode === 'navigate' ||
+		request.headers.get('accept')?.includes('text/html');
+	if (isHtml) {
+		event.respondWith(
+			(async () => {
+				try {
+					const response = await fetch(request);
+					if (response.ok && response.type === 'basic') {
+						const copy = response.clone();
+						const cache = await caches.open(HTML_CACHE);
+						cache.put(request, copy);
+					}
+					return response;
+				} catch {
+					const cached = await caches.match(request);
+					if (cached) return cached;
+					const offline = await caches.match(OFFLINE_URL);
+					return offline ?? Response.error();
 				}
-				return response;
-			})
-			.catch(() => caches.match(request).then((c) => c ?? Response.error()))
+			})()
+		);
+		return;
+	}
+
+	// 3) Images → stale-while-revalidate.
+	if (request.destination === 'image') {
+		event.respondWith(
+			(async () => {
+				const cache = await caches.open(IMG_CACHE);
+				const cached = await cache.match(request);
+				const network = fetch(request)
+					.then((response) => {
+						if (response.ok) {
+							cache.put(request, response.clone());
+							trimCache(IMG_CACHE, IMG_CACHE_MAX);
+						}
+						return response;
+					})
+					.catch(() => cached);
+				return cached ?? network;
+			})()
+		);
+		return;
+	}
+
+	// 4) Everything else (scripts/styles/json from this origin) → SWR.
+	event.respondWith(
+		(async () => {
+			const cache = await caches.open(SHELL_CACHE);
+			const cached = await cache.match(request);
+			const network = fetch(request)
+				.then((response) => {
+					if (response.ok && response.type === 'basic') {
+						cache.put(request, response.clone());
+					}
+					return response;
+				})
+				.catch(() => cached);
+			return cached ?? network;
+		})()
 	);
 });
 
-// Web Push handler stub — Phase 6 will fill this in with VAPID payload parsing.
+// Web Push handler — Phase 6 will fill in payload contracts.
 sw.addEventListener('push', (event) => {
 	if (!event.data) return;
 	const data = (() => {

@@ -1,13 +1,18 @@
 {
+	"id": "/",
 	"name": "DuoSync",
 	"short_name": "DuoSync",
 	"description": "A private, real-time digital sanctuary for two — passive presence, whisper chat, and shared geo-moments.",
 	"start_url": "/",
 	"scope": "/",
 	"display": "standalone",
+	"display_override": ["standalone", "minimal-ui"],
 	"orientation": "portrait",
 	"background_color": "#FDF2F8",
 	"theme_color": "#E11D48",
+	"lang": "en",
+	"dir": "ltr",
+	"prefer_related_applications": false,
 	"categories": ["lifestyle", "social", "productivity"],
 	"icons": [
 		{

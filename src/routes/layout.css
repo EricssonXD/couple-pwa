@@ -1,3 +1,44 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin 'daisyui';
+
+/* Mobile-first base — viewport, safe-area insets, scrollchaining. */
+:root {
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+	color-scheme: light dark;
+}
+
+html,
+body {
+	min-height: 100dvh;
+	overscroll-behavior-y: contain;
+	-webkit-tap-highlight-color: transparent;
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+body {
+	padding-top: var(--safe-top);
+	padding-right: var(--safe-right);
+	padding-left: var(--safe-left);
+	padding-bottom: var(--safe-bottom);
+}
+
+@media (display-mode: standalone) {
+	html {
+		user-select: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+	}
+}
