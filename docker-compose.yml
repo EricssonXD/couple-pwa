@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: duosync-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: duosync
+      POSTGRES_PASSWORD: duosync
+      POSTGRES_DB: duosync
+    ports:
+      - '5433:5432'
+    volumes:
+      - duosync_pg_data:/var/lib/postgresql/data
+      - ./scripts/db-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U duosync -d duosync']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  duosync_pg_data:
