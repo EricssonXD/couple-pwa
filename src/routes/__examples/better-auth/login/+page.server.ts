@@ -6,7 +6,7 @@ import { auth } from '$lib/server/auth';
 
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) {
-		return redirect(302, '/demo/better-auth');
+		return redirect(302, '/__examples/better-auth');
 	}
 	return {};
 };
@@ -15,7 +15,7 @@ export const actions: Actions = {
 	signInSocial: async (event) => {
 		const formData = await event.request.formData();
 		const provider = formData.get('provider')?.toString() ?? 'github';
-		const callbackURL = formData.get('callbackURL')?.toString() ?? '/demo/better-auth';
+		const callbackURL = formData.get('callbackURL')?.toString() ?? '/__examples/better-auth';
 
 		const result = await auth.api.signInSocial({
 			body: {
