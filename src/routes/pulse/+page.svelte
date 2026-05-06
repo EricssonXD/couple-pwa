@@ -37,7 +37,7 @@
 	const CACHE_KEY = `pulse:${data.coupleId}`;
 
 	const tracker = createGeolocationTracker();
-	const rt = createRealtimeClient();
+	const rt = createRealtimeClient({ coupleId: data.coupleId, userId: data.me.id });
 	const net = createOnlineStatus();
 	let live = $state<StateResp>(data.initialState as unknown as StateResp);
 	let ghostOn = $state(data.me.ghostMode);
