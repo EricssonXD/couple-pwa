@@ -87,13 +87,18 @@ export function wsServerPlugin(): Plugin {
 								partnerA: unknown;
 								partnerB: unknown;
 							};
+							// drizzle-orm types are too narrow for the dynamic Record cast above;
+							// these eq/or/and calls are runtime-correct.
+							const eq = deps.eq as (a: unknown, b: unknown) => unknown;
+							const or = deps.or as (...args: unknown[]) => unknown;
+							const and = deps.and as (...args: unknown[]) => unknown;
 							const rows = (await deps.db
 								.select()
 								.from(deps.couple)
 								.where(
-									deps.and(
-										deps.eq(c.status, 'active'),
-										deps.or(deps.eq(c.partnerA, userId), deps.eq(c.partnerB, userId))
+									and(
+										eq(c.status, 'active'),
+										or(eq(c.partnerA, userId), eq(c.partnerB, userId))
 									)
 								)
 								.limit(1)) as Array<{ id: string }>;

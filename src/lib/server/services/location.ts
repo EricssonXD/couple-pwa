@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { couple, locationPing, locationDailySummary, profile } from '$lib/server/db/schema';
+import { realtime } from '$lib/server/realtime';
 
 // Server-side guard rails. Client throttles too, but never trust it.
 export const MIN_PING_INTERVAL_MS = 60 * 1000; // 60s
@@ -96,7 +97,49 @@ export async function recordPing(userId: string, coupleId: string, input: PingIn
 	// response — worst case we lose a counter increment.
 	void upsertDailySummary(userId, coupleId, input).catch(() => {});
 
+	// Push live update to partner sockets. We compute fresh distance to the
+	// partner's last known fix (if any) so the UI can update the bubble
+	// without round-tripping /api/location/state.
+	void broadcastLocation(userId, coupleId, input).catch(() => {});
+
 	return row;
+}
+
+/** Compute distance to partner's latest ping and fan out a location_update. */
+async function broadcastLocation(userId: string, coupleId: string, p: PingInput) {
+	const [c] = await db.select().from(couple).where(eq(couple.id, coupleId)).limit(1);
+	if (!c) return;
+	const partnerId = c.partnerA === userId ? c.partnerB : c.partnerA;
+	const [partnerLast] = await db
+		.select({ lat: locationPing.lat, lon: locationPing.lon })
+		.from(locationPing)
+		.where(eq(locationPing.userId, partnerId))
+		.orderBy(desc(locationPing.capturedAt))
+		.limit(1);
+
+	let distanceM: number | null = null;
+	if (partnerLast) {
+		const [{ d }] = await db.execute<{ d: number }>(
+			sql`SELECT ST_Distance(
+				ST_SetSRID(ST_MakePoint(${p.lon}, ${p.lat}), 4326)::geography,
+				ST_SetSRID(ST_MakePoint(${partnerLast.lon}, ${partnerLast.lat}), 4326)::geography
+			) AS d`
+		);
+		distanceM = Number(d);
+	}
+
+	realtime.broadcastToCouple(coupleId, {
+		t: 'location_update',
+		ts: Date.now(),
+		p: {
+			userId,
+			distanceM,
+			bucket: bucketFor(distanceM),
+			batteryPct: p.batteryPct ?? null,
+			charging: p.charging ?? null,
+			capturedAt: p.capturedAt.toISOString()
+		}
+	});
 }
 
 async function upsertDailySummary(userId: string, coupleId: string, p: PingInput) {
@@ -212,6 +255,25 @@ export async function setGhostMode(userId: string, enabled: boolean, untilMs?: n
 			ghostUntil: enabled && untilMs ? new Date(untilMs) : null
 		})
 		.where(eq(profile.userId, userId));
+
+	// Tell the partner immediately so their card flips without a refresh.
+	const [c] = await db
+		.select()
+		.from(couple)
+		.where(
+			and(
+				eq(couple.status, 'active'),
+				sql`(${couple.partnerA} = ${userId} OR ${couple.partnerB} = ${userId})`
+			)
+		)
+		.limit(1);
+	if (c) {
+		realtime.broadcastToCouple(c.id, {
+			t: 'ghost_change',
+			ts: Date.now(),
+			p: { userId, ghost: enabled }
+		});
+	}
 }
 
 // ─── Distance bucket (UI helper, server-mirror so APIs return same labels) ──
