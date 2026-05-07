@@ -10,6 +10,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import QRCode from 'qrcode';
+	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
@@ -55,7 +56,6 @@
 
 	async function celebrateAndGo() {
 		celebrating = true;
-		// 等動畫 (1.2s bloom + 600ms 留白) 後再跳.
 		await new Promise((r) => setTimeout(r, 1500));
 		await goto('/pulse', { invalidateAll: true });
 	}
@@ -72,7 +72,7 @@
 			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));
-				error = body?.message ?? 'Could not pair';
+				error = body?.message ?? m.link_pair_failure();
 				return;
 			}
 			await celebrateAndGo();
@@ -83,23 +83,23 @@
 </script>
 
 <svelte:head>
-	<title>配對 · DuoSync</title>
+	<title>{m.onboarding_link_title()} · DuoSync</title>
 </svelte:head>
 
 <main class="bg-base-100 relative min-h-screen px-5 py-10">
 	<div class="mx-auto max-w-md">
 		<div class="text-center">
-			<h1 class="text-display text-3xl font-semibold tracking-wide">配對</h1>
-			<p class="text-base-content/60 mt-2 text-sm">把碼分享給對方, 或輸入對方的碼.</p>
+			<h1 class="text-display text-3xl font-semibold tracking-wide">{m.onboarding_link_title()}</h1>
+			<p class="text-base-content/60 mt-2 text-sm">{m.link_subtitle()}</p>
 		</div>
 
 		<section
 			class="bg-base-200 shadow-paper border-base-content/5 mt-6 rounded-[var(--radius-card)] border"
 		>
 			<div class="p-6 text-center">
-				<p class="text-base-content/50 text-[10px] tracking-[0.3em] uppercase">your code</p>
+				<p class="text-base-content/50 text-[10px] tracking-[0.3em] uppercase">{m.link_your_code()}</p>
 				<p class="text-display mt-2 text-4xl font-semibold tracking-[0.4em]">{data.code}</p>
-				<p class="text-base-content/40 mt-1 text-xs">{remaining} 分鐘後過期</p>
+				<p class="text-base-content/40 mt-1 text-xs">{m.link_minutes_left({ n: remaining })}</p>
 
 				{#if qrDataUrl}
 					<img
@@ -120,14 +120,14 @@
 						onclick={copyCode}
 					>
 						<Icon icon={CopyIcon} size={14} weight="duotone" />
-						{copied ? 'copied!' : 'copy'}
+						{copied ? m.link_copied() : m.link_copy()}
 					</button>
 					<button
 						class="bg-primary text-primary-content inline-flex flex-1 items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-semibold tracking-wider uppercase"
 						type="button"
 						onclick={shareLink}
 					>
-						<Icon icon={ShareNetworkIcon} size={14} weight="duotone" /> share
+						<Icon icon={ShareNetworkIcon} size={14} weight="duotone" /> {m.link_share()}
 					</button>
 				</div>
 			</div>
@@ -137,7 +137,7 @@
 			class="text-base-content/40 my-8 flex items-center gap-3 text-[10px] tracking-[0.3em] uppercase"
 		>
 			<span class="bg-base-content/10 h-px flex-1"></span>
-			<span>or enter a code</span>
+			<span>{m.link_or_enter()}</span>
 			<span class="bg-base-content/10 h-px flex-1"></span>
 		</div>
 
@@ -157,7 +157,7 @@
 				type="submit"
 				disabled={busy || !typedCode.trim()}
 			>
-				{busy ? '配對中…' : '配對 ❤'}
+				{busy ? m.onboarding_link_pairing() : m.link_pair_btn()}
 			</button>
 			{#if error}
 				<div class="bg-error/10 text-error rounded-[var(--radius-card)] px-4 py-3 text-sm">
@@ -168,7 +168,6 @@
 	</div>
 
 	{#if celebrating}
-		<!-- 配對成功之 bloom celebration 蓋層 -->
 		<div
 			class="bg-base-100/90 fixed inset-0 z-50 grid place-items-center backdrop-blur"
 			role="status"
@@ -181,9 +180,9 @@
 					<Icon icon={HeartIcon} size={64} weight="fill" />
 				</div>
 				<p class="text-display text-base-content mt-6 text-2xl font-semibold tracking-wide">
-					心已連
+					{m.link_hearts_connected()}
 				</p>
-				<p class="text-base-content/60 mt-1 text-sm">paired</p>
+				<p class="text-base-content/60 mt-1 text-sm">{m.link_paired_caption()}</p>
 			</div>
 		</div>
 	{/if}

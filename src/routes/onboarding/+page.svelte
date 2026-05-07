@@ -7,6 +7,7 @@
 -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import type { ActionData, PageData } from './$types';
@@ -18,7 +19,7 @@
 </script>
 
 <svelte:head>
-	<title>關於你 · DuoSync</title>
+	<title>{m.onboarding_title()} · DuoSync</title>
 </svelte:head>
 
 <main class="bg-base-100 min-h-screen px-5 py-10">
@@ -29,14 +30,14 @@
 			>
 				<Icon icon={HeartIcon} size={26} weight="duotone" />
 			</div>
-			<h1 class="text-display mt-4 text-3xl font-semibold tracking-wide">關於你</h1>
-			<p class="text-base-content/60 mt-2 text-sm">只是基本資料. 之後都可改.</p>
+			<h1 class="text-display mt-4 text-3xl font-semibold tracking-wide">{m.onboarding_title()}</h1>
+			<p class="text-base-content/60 mt-2 text-sm">{m.onboarding_subtitle()}</p>
 		</div>
 
 		<form method="post" use:enhance class="mt-8 space-y-6">
 			<label class="block">
 				<span class="text-base-content/70 mb-1.5 block text-xs tracking-wider uppercase"
-					>顯示名</span
+					>{m.onboarding_form_displayname()}</span
 				>
 				<input
 					class="bg-base-200 border-base-content/10 focus:border-primary w-full rounded-[var(--radius-card)] border px-4 py-3 text-base outline-none"
@@ -50,7 +51,7 @@
 
 			<label class="block">
 				<span class="text-base-content/70 mb-1.5 block text-xs tracking-wider uppercase">
-					稱謂 <span class="text-base-content/40 normal-case">(選填)</span>
+					{m.onboarding_form_pronouns()} <span class="text-base-content/40 normal-case">{m.onboarding_form_optional()}</span>
 				</span>
 				<input
 					class="bg-base-200 border-base-content/10 focus:border-primary w-full rounded-[var(--radius-card)] border px-4 py-3 text-base outline-none"
@@ -62,7 +63,7 @@
 			</label>
 
 			<fieldset>
-				<legend class="text-base-content/70 mb-2 text-xs tracking-wider uppercase">挑頭像</legend>
+				<legend class="text-base-content/70 mb-2 text-xs tracking-wider uppercase">{m.onboarding_pick_avatar()}</legend>
 				<div class="grid grid-cols-6 gap-2">
 					{#each emojis as e (e)}
 						<label class="flex cursor-pointer items-center justify-center">
@@ -85,7 +86,7 @@
 
 			<label class="block">
 				<span class="text-base-content/70 mb-1.5 block text-xs tracking-wider uppercase">
-					紀念日 <span class="text-base-content/40 normal-case">(選填)</span>
+					{m.onboarding_form_anniversary()} <span class="text-base-content/40 normal-case">{m.onboarding_form_optional()}</span>
 				</span>
 				<input
 					class="bg-base-200 border-base-content/10 focus:border-primary w-full rounded-[var(--radius-card)] border px-4 py-3 text-base outline-none"
@@ -104,7 +105,7 @@
 				class="bg-primary text-primary-content shadow-paper w-full rounded-full py-3.5 text-base font-semibold tracking-wider uppercase transition-transform active:scale-[0.98]"
 				type="submit"
 			>
-				繼續 →
+				{m.onboarding_continue()} →
 			</button>
 		</form>
 	</div>
