@@ -1,4 +1,26 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from zh-cn!"
+"$schema": "https://inlang.com/schema/inlang-message-format",
+"hello_world": "你好, {name}!",
+"nav_pulse": "脉动",
+"nav_map": "地图",
+"nav_moments": "时刻",
+"nav_settings": "设置",
+"pulse_distance_same": "在一起",
+"pulse_distance_near": "在附近",
+"pulse_distance_city": "同城",
+"pulse_distance_far": "远方",
+"pulse_distance_ghost": "已隐身",
+"pulse_anniversary_day_n": "第 {n} 天",
+"pulse_anniversary_next_milestone": "倒数 {n} 天到{label}",
+"mood_sunny": "晴",
+"mood_cloudy": "阴",
+"mood_rainy": "雨",
+"mood_night": "夜",
+"moments_locked_cta": "再走近 {distance}m 即可阅读 🚶",
+"moments_new_drop_here": "留在这里 ✨",
+"moments_new_radius_m": "解锁半径",
+"ghost_banner": "已隐身 · 剩 {minutes} 分",
+"link_copy": "复制",
+"link_share": "分享",
+"link_paired_celebration": "已配对 ✨"
 }

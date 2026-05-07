@@ -17,6 +17,7 @@
 -->
 <script lang="ts">
 	import { page } from '$app/state';
+	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PulseIcon from 'phosphor-svelte/lib/PulseIcon';
 	import MapPinIcon from 'phosphor-svelte/lib/MapPinIcon';
@@ -27,15 +28,15 @@
 
 	type Tab = {
 		href: string;
-		label: string;
+		label: () => string;
 		icon: Component<IconComponentProps>;
 	};
 
 	const tabs: Tab[] = [
-		{ href: '/pulse', label: 'Pulse', icon: PulseIcon },
-		{ href: '/map', label: 'Map', icon: MapPinIcon },
-		{ href: '/moments', label: 'Moments', icon: BookOpenIcon },
-		{ href: '/settings', label: 'You', icon: GearIcon }
+		{ href: '/pulse', label: m.nav_pulse, icon: PulseIcon },
+		{ href: '/map', label: m.nav_map, icon: MapPinIcon },
+		{ href: '/moments', label: m.nav_moments, icon: BookOpenIcon },
+		{ href: '/settings', label: m.nav_settings, icon: GearIcon }
 	];
 
 	const current = $derived(page.url.pathname);
@@ -70,7 +71,7 @@
 					<span class="relative">
 						<Icon icon={t.icon} size={22} weight={active ? 'fill' : 'duotone'} />
 					</span>
-					<span class="relative">{t.label}</span>
+					<span class="relative">{t.label()}</span>
 				</a>
 			</li>
 		{/each}
