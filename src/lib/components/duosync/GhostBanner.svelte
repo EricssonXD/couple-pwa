@@ -1,0 +1,62 @@
+<!--
+  GhostBanner — shown at top of /pulse when self ghost mode is active.
+
+  Displays a soft slate banner with the ghost icon and a live countdown
+  to ghostUntil. Updates every 30 seconds (good enough for minute-grain
+  display, cheap on mobile). When ghostUntil is null we show "indefinite".
+
+  An onExit callback lets the parent trigger an "exit ghost mode" mutation
+  inline from the banner without a settings detour.
+-->
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
+
+	type Props = {
+		ghostUntil?: Date | string | null;
+		onExit?: () => void;
+	};
+
+	let { ghostUntil = null, onExit }: Props = $props();
+
+	let now = $state(Date.now());
+	onMount(() => {
+		const t = setInterval(() => (now = Date.now()), 30_000);
+		return () => clearInterval(t);
+	});
+
+	const untilMs = $derived(ghostUntil ? new Date(ghostUntil as string).getTime() : null);
+	const remainingMin = $derived.by(() => {
+		if (untilMs == null) return null;
+		const ms = Math.max(0, untilMs - now);
+		return Math.ceil(ms / 60_000);
+	});
+	const expired = $derived(remainingMin != null && remainingMin <= 0);
+
+	const label = $derived.by(() => {
+		if (untilMs == null) return '已隱身 · ghost mode';
+		if (expired) return '即將恢復 · ending';
+		if (remainingMin! < 60) return `已隱身 · 剩 ${remainingMin} 分`;
+		const h = Math.floor(remainingMin! / 60);
+		const m = remainingMin! % 60;
+		return `已隱身 · 剩 ${h} 小時${m ? ` ${m} 分` : ''}`;
+	});
+</script>
+
+<div
+	class="bg-base-content/10 text-base-content border-base-content/10 flex items-center gap-2 rounded-full border px-4 py-2 backdrop-blur"
+	role="status"
+>
+	<Icon icon={GhostIcon} size={18} weight="duotone" class="text-base-content/70" />
+	<span class="flex-1 text-sm">{label}</span>
+	{#if onExit}
+		<button
+			type="button"
+			class="text-primary text-xs font-semibold tracking-wider uppercase hover:underline"
+			onclick={onExit}
+		>
+			解除
+		</button>
+	{/if}
+</div>
