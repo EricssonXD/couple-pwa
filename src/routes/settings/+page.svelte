@@ -16,6 +16,7 @@
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import * as m from '$lib/paraglide/messages.js';
 	import Toggle from '$lib/components/ui/Toggle.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
@@ -80,7 +81,7 @@
 			body: JSON.stringify({ displayName, avatarEmoji })
 		});
 		busy = null;
-		msg = r.ok ? '已存' : `Profile save failed: ${r.status}`;
+		msg = r.ok ? m.settings_saved() : `Profile save failed: ${r.status}`;
 		if (r.ok) await invalidateAll();
 	}
 
@@ -97,7 +98,7 @@
 			})
 		});
 		busy = null;
-		msg = r.ok ? '已存' : `Couple save failed: ${r.status}`;
+		msg = r.ok ? m.settings_saved() : `Couple save failed: ${r.status}`;
 		if (r.ok) await invalidateAll();
 	}
 
@@ -119,12 +120,12 @@
 </script>
 
 <svelte:head>
-	<title>設定 · DuoSync</title>
+	<title>{m.settings_title()} · DuoSync</title>
 </svelte:head>
 
 <div class="bg-base-100 min-h-screen">
 	<header class="mx-auto max-w-md px-5 pt-6 pb-4">
-		<h1 class="text-display text-2xl font-semibold tracking-wide">設定</h1>
+		<h1 class="text-display text-2xl font-semibold tracking-wide">{m.settings_title()}</h1>
 		<p class="text-base-content/50 mt-1 text-xs">{data.me.email}</p>
 	</header>
 
@@ -141,10 +142,10 @@
 		>
 			<header class="flex items-center gap-2">
 				<Icon icon={UserIcon} size={18} weight="duotone" class="text-primary" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">你</h2>
+				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.pulse_you()}</h2>
 			</header>
 			<label class="block">
-				<span class="text-base-content/60 mb-1.5 block text-xs">顯示名</span>
+				<span class="text-base-content/60 mb-1.5 block text-xs">{m.settings_displayname()}</span>
 				<input
 					bind:value={displayName}
 					maxlength="40"
@@ -152,7 +153,7 @@
 				/>
 			</label>
 			<label class="block">
-				<span class="text-base-content/60 mb-1.5 block text-xs">頭像 emoji</span>
+				<span class="text-base-content/60 mb-1.5 block text-xs">{m.settings_avatar()}</span>
 				<input
 					bind:value={avatarEmoji}
 					maxlength="8"
@@ -165,7 +166,7 @@
 				disabled={busy === 'profile'}
 				onclick={saveProfile}
 			>
-				{busy === 'profile' ? '存中…' : '存'}
+				{busy === 'profile' ? m.settings_saving() : m.settings_save()}
 			</button>
 		</section>
 
@@ -175,12 +176,12 @@
 		>
 			<header class="mb-2 flex items-center gap-2">
 				<Icon icon={GhostIcon} size={18} weight="duotone" class="text-base-content/70" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">隱私</h2>
+				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_privacy()}</h2>
 			</header>
 			<Toggle
 				checked={ghost}
-				label="隱身模式"
-				hint="隱藏位置. 對方只見「已隱身」, 不見距離."
+				label={m.settings_ghost_label()}
+				hint={m.settings_ghost_hint()}
 				onchange={toggleGhost}
 			/>
 		</section>
@@ -191,10 +192,10 @@
 		>
 			<header class="flex items-center gap-2">
 				<Icon icon={SunIcon} size={18} weight="duotone" class="text-accent" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">主題</h2>
+				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_theme()}</h2>
 			</header>
 			<div class="grid grid-cols-3 gap-2">
-				{#each [{ k: 'auto' as const, label: '系統', icon: undefined }, { k: 'duosync-light' as const, label: '日', icon: SunIcon }, { k: 'duosync-dark' as const, label: '夜', icon: MoonIcon }] as o (o.k)}
+				{#each [{ k: 'auto' as const, label: m.settings_theme_auto(), icon: undefined }, { k: 'duosync-light' as const, label: m.settings_theme_light(), icon: SunIcon }, { k: 'duosync-dark' as const, label: m.settings_theme_dark(), icon: MoonIcon }] as o (o.k)}
 					<button
 						type="button"
 						onclick={() => setThemeChoice(o.k)}
@@ -219,23 +220,22 @@
 			>
 				<header class="flex items-center gap-2">
 					<Icon icon={HeartIcon} size={18} weight="duotone" class="text-primary" />
-					<h2 class="text-sm font-semibold tracking-wider uppercase">我們</h2>
+					<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_us()}</h2>
 				</header>
 				<p class="text-base-content/60 text-xs">
-					配對於 {data.partner?.avatarEmoji ?? '💞'}
-					{data.partner?.displayName ?? '夥伴'}
+					{m.settings_paired_with({ emoji: data.partner?.avatarEmoji ?? '💞', name: data.partner?.displayName ?? m.pulse_partner_fallback() })}
 				</p>
 				<label class="block">
-					<span class="text-base-content/60 mb-1.5 block text-xs">暱稱</span>
+					<span class="text-base-content/60 mb-1.5 block text-xs">{m.settings_couple_nickname()}</span>
 					<input
 						bind:value={nickname}
 						maxlength="60"
 						class="bg-base-100 border-base-content/10 focus:border-primary w-full rounded-[var(--radius-card)] border px-4 py-2.5 outline-none"
-						placeholder="我們"
+						placeholder={m.settings_couple_nickname_placeholder()}
 					/>
 				</label>
 				<label class="block">
-					<span class="text-base-content/60 mb-1.5 block text-xs">紀念日</span>
+					<span class="text-base-content/60 mb-1.5 block text-xs">{m.settings_couple_anniversary()}</span>
 					<input
 						bind:value={anniversary}
 						type="date"
@@ -247,7 +247,7 @@
 					disabled={busy === 'couple'}
 					onclick={saveCouple}
 				>
-					{busy === 'couple' ? '存中…' : '存'}
+					{busy === 'couple' ? m.settings_saving() : m.settings_save()}
 				</button>
 			</section>
 
@@ -255,16 +255,16 @@
 			<section
 				class="border-error/30 bg-error/5 mt-4 space-y-3 rounded-[var(--radius-card)] border p-5"
 			>
-				<h2 class="text-error text-sm font-semibold tracking-wider uppercase">解除配對</h2>
+				<h2 class="text-error text-sm font-semibold tracking-wider uppercase">{m.settings_unpair_section()}</h2>
 				<p class="text-base-content/70 text-xs">
-					斷連. 共享歷史保留至清理. 將回配對碼屏.
+					{m.settings_unpair_warning()}
 				</p>
 				{#if !confirmUnpair}
 					<button
 						class="border-error/50 text-error hover:bg-error/10 w-full rounded-full border py-2.5 text-xs font-semibold tracking-wider uppercase"
 						onclick={() => (confirmUnpair = true)}
 					>
-						解除…
+						{m.settings_unpair_open()}
 					</button>
 				{:else}
 					<div class="flex gap-2">
@@ -273,13 +273,13 @@
 							disabled={busy === 'unpair'}
 							onclick={doUnpair}
 						>
-							{busy === 'unpair' ? '解除中…' : '確定解除'}
+							{busy === 'unpair' ? m.settings_unpairing() : m.settings_unpair_confirm()}
 						</button>
 						<button
 							class="text-base-content/60 flex-1 rounded-full py-2.5 text-xs font-semibold tracking-wider uppercase"
 							onclick={() => (confirmUnpair = false)}
 						>
-							取消
+							{m.common_cancel()}
 						</button>
 					</div>
 				{/if}
@@ -291,7 +291,7 @@
 				class="text-base-content/60 hover:text-base-content inline-flex w-full items-center justify-center gap-2 py-3 text-xs font-semibold tracking-wider uppercase"
 				type="submit"
 			>
-				<Icon icon={SignOutIcon} size={14} weight="duotone" /> 簽出
+				<Icon icon={SignOutIcon} size={14} weight="duotone" /> {m.settings_signout()}
 			</button>
 		</form>
 	</main>

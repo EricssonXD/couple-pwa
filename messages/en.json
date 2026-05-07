@@ -83,5 +83,17 @@
 	"link_paired_caption": "paired",
 	"link_hearts_connected": "Hearts linked",
 	"link_subtitle": "Share your code with them, or enter theirs.",
-	"link_pair_failure": "Could not pair"
+	"link_pair_failure": "Could not pair",
+	"settings_section_privacy": "Privacy",
+	"settings_ghost_label": "Hidden mode",
+	"settings_ghost_hint": "Hide your location. They see only \"hidden\", no distance.",
+	"settings_section_us": "Us",
+	"settings_paired_with": "Paired with {emoji} {name}",
+	"settings_couple_nickname": "Nickname",
+	"settings_couple_nickname_placeholder": "Us",
+	"settings_couple_anniversary": "Anniversary",
+	"settings_unpair_section": "Unpair",
+	"settings_unpair_warning": "Disconnects. Shared history kept until cleared. You'll go back to the pairing-code screen.",
+	"settings_unpair_open": "Unpair…",
+	"settings_saved": "Saved"
 }

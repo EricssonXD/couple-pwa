@@ -83,5 +83,17 @@
 	"link_paired_caption": "已配對",
 	"link_hearts_connected": "心已連",
 	"link_subtitle": "把碼分享給對方, 或輸入對方的碼.",
-	"link_pair_failure": "配對失敗"
+	"link_pair_failure": "配對失敗",
+	"settings_section_privacy": "隱私",
+	"settings_ghost_label": "隱身模式",
+	"settings_ghost_hint": "隱藏位置. 對方只見「已隱身」, 不見距離.",
+	"settings_section_us": "我們",
+	"settings_paired_with": "配對於 {emoji} {name}",
+	"settings_couple_nickname": "暱稱",
+	"settings_couple_nickname_placeholder": "我們",
+	"settings_couple_anniversary": "紀念日",
+	"settings_unpair_section": "解除配對",
+	"settings_unpair_warning": "斷連. 共享歷史保留至清理. 將回配對碼屏.",
+	"settings_unpair_open": "解除…",
+	"settings_saved": "已存"
 }
