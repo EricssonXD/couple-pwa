@@ -16,3 +16,6 @@ export { default as MoodWeather } from './MoodWeather.svelte';
 export type Mood = 'sunny' | 'cloudy' | 'rainy' | 'night';
 export { default as AnniversaryRibbon } from './AnniversaryRibbon.svelte';
 export { default as GhostBanner } from './GhostBanner.svelte';
+export { default as MomentCard } from './MomentCard.svelte';
+export { default as BottomNav } from './BottomNav.svelte';
+export { default as MemoryResurface } from './MemoryResurface.svelte';
