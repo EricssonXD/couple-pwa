@@ -67,15 +67,18 @@ test.describe('production smoke — Alice + Bob', () => {
 			await expect(alice).toHaveURL(/\/pulse$/);
 			await expect(bob).toHaveURL(/\/pulse$/);
 
-			await expect(alice.getByRole('heading', { level: 1 })).toContainText(BOB.name);
-			await expect(bob.getByRole('heading', { level: 1 })).toContainText(ALICE.name);
+			// /pulse no longer has an h1; partner name is rendered under the
+			// PartnerAvatar card. Both sides should see the other's name.
+			await expect(alice.getByText(BOB.name).first()).toBeVisible();
+			await expect(bob.getByText(ALICE.name).first()).toBeVisible();
 
-			// Bottom nav (only renders when authed + paired) — both should see all 4 tabs.
+			// Bottom nav (only renders when authed + paired) — 4 tabs: Pulse / Map / Moments / You.
+			// Labels are i18n'd; match by stable href via locator.
 			for (const p of [alice, bob]) {
-				await expect(p.getByRole('link', { name: /Pulse/ })).toBeVisible();
-				await expect(p.getByRole('link', { name: /Moments/ })).toBeVisible();
-				await expect(p.getByRole('link', { name: /Daily/ })).toBeVisible();
-				await expect(p.getByRole('link', { name: /You/ })).toBeVisible();
+				await expect(p.locator('nav a[href="/pulse"]')).toBeVisible();
+				await expect(p.locator('nav a[href="/map"]')).toBeVisible();
+				await expect(p.locator('nav a[href="/moments"]')).toBeVisible();
+				await expect(p.locator('nav a[href="/settings"]')).toBeVisible();
 			}
 		} finally {
 			await aliceCtx.close();
@@ -135,13 +138,17 @@ test.describe('production smoke — Alice + Bob', () => {
 		try {
 			for (const p of [alice, bob]) {
 				await p.goto('/moments');
+				// /moments h1 is "Moments" (intentionally English in the redesign).
 				await expect(p.getByRole('heading', { name: 'Moments' })).toBeVisible();
 
 				await p.goto('/settings');
-				await expect(p.getByRole('heading', { name: 'Settings' })).toBeVisible();
-				const nameInput = p.locator('input[name="displayName"]');
+				// /settings h1 is "設定" post-redesign.
+				await expect(p.getByRole('heading', { name: '設定' })).toBeVisible();
+				// Display name is bound by value (no `name` attr in the new form).
+				// Reach it by its label.
+				const nameInput = p.getByLabel(/暱稱|display name/i);
 				if (await nameInput.count()) {
-					await expect(nameInput).not.toHaveValue('');
+					await expect(nameInput.first()).not.toHaveValue('');
 				}
 			}
 		} finally {
