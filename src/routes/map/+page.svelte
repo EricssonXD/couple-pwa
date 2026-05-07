@@ -18,6 +18,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
+	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CrosshairIcon from 'phosphor-svelte/lib/CrosshairIcon';
 	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
@@ -139,7 +140,7 @@
 </script>
 
 <svelte:head>
-	<title>地圖 · DuoSync</title>
+	<title>{m.map_title()} · DuoSync</title>
 </svelte:head>
 
 <div class="bg-base-100 fixed inset-0">
@@ -150,7 +151,7 @@
 			class="bg-base-200/85 text-base-content/80 absolute inset-x-0 top-4 mx-auto w-fit max-w-[18rem] rounded-full px-4 py-2 text-center text-xs backdrop-blur"
 		>
 			<Icon icon={GhostIcon} size={14} weight="duotone" class="mr-1 inline align-text-bottom" />
-			{data.partner.displayName} 已隱身
+			{m.map_partner_hidden({ name: data.partner.displayName })}
 		</div>
 	{/if}
 
@@ -158,7 +159,7 @@
 		type="button"
 		onclick={fitBoth}
 		class="bg-primary text-primary-content shadow-paper absolute right-5 bottom-28 z-10 grid h-12 w-12 place-items-center rounded-full"
-		aria-label="Center on us"
+		aria-label={m.map_center_on_us()}
 	>
 		<Icon icon={CrosshairIcon} size={22} weight="duotone" />
 	</button>

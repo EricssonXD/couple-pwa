@@ -95,5 +95,14 @@
 	"settings_unpair_section": "Unpair",
 	"settings_unpair_warning": "Disconnects. Shared history kept until cleared. You'll go back to the pairing-code screen.",
 	"settings_unpair_open": "Unpair…",
-	"settings_saved": "Saved"
+	"settings_saved": "Saved",
+	"map_partner_hidden": "{name} is hidden",
+	"map_center_on_us": "Center on us",
+	"moments_empty_long": "No moments yet. Walk to a place and tap {plus} to leave one for them.",
+	"pulse_offline": "Offline · showing last known state",
+	"pulse_perm_unsupported": "This browser doesn't support geolocation.",
+	"pulse_perm_requesting": "Requesting location permission…",
+	"pulse_sync_error": "Sync error: {detail} · retrying…",
+	"pulse_ghost_pause": "Pause location sharing",
+	"pulse_enable": "Enable"
 }

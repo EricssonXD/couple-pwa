@@ -95,5 +95,14 @@
 	"settings_unpair_section": "解除配对",
 	"settings_unpair_warning": "断连. 共享历史保留至清理. 将回配对码屏.",
 	"settings_unpair_open": "解除…",
-	"settings_saved": "已存"
+	"settings_saved": "已存",
+	"map_partner_hidden": "{name} 已隐身",
+	"map_center_on_us": "居中",
+	"moments_empty_long": "还没有任何时刻. 走到一处再点 {plus}, 为对方留言.",
+	"pulse_offline": "离线中 · 显示最后状态",
+	"pulse_perm_unsupported": "此浏览器不支持地理定位.",
+	"pulse_perm_requesting": "请求位置权限中…",
+	"pulse_sync_error": "同步异常: {detail} · 重试中…",
+	"pulse_ghost_pause": "暂停位置共享",
+	"pulse_enable": "开启"
 }

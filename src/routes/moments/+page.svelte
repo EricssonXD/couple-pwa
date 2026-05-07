@@ -13,6 +13,7 @@
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
+	import * as m from '$lib/paraglide/messages.js';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { MomentCard } from '$lib/components/duosync';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -101,14 +102,14 @@
 </script>
 
 <svelte:head>
-	<title>Moments · DuoSync</title>
+	<title>{m.moments_title()} · DuoSync</title>
 </svelte:head>
 
 <div class="bg-base-100 min-h-screen">
 	<header
 		class="bg-base-100/85 sticky top-0 z-10 mx-auto flex max-w-md items-baseline justify-between px-5 py-4 backdrop-blur"
 	>
-		<h1 class="text-display text-2xl font-semibold tracking-wide">Moments</h1>
+		<h1 class="text-display text-2xl font-semibold tracking-wide">{m.moments_title()}</h1>
 		<a
 			href="/moments/new"
 			class="bg-primary text-primary-content shadow-paper inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold tracking-wider uppercase"
@@ -124,7 +125,7 @@
 			>
 				<Icon icon={SparkleIcon} size={36} weight="duotone" class="text-primary/60" />
 				<p class="text-base-content/70 mt-3 max-w-[14rem] text-sm">
-					還沒有任何時刻. 走到一處再點 <em class="font-semibold">+ Drop</em>, 為對方留言.
+					{m.moments_empty_long({ plus: '+ Drop' })}
 				</p>
 			</div>
 		{:else}
