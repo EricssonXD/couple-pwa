@@ -1,3 +1,25 @@
+<!--
+  /pulse — DuoSync 主屏 main screen.
+
+  舊頁邏輯整搬:
+    - createGeolocationTracker → 持續位置 streaming
+    - createRealtimeClient → Supabase channels (presence + broadcast)
+    - createOnlineStatus → 網絡狀態
+    - IDB cache (CACHE_KEY) → 冷啟動即顯
+    - /api/location/state poll (30s 兜底)
+    - /api/location/ghost POST → ghost toggle
+    - rt.sendHeartbeatTap → POST /api/realtime/tap
+
+  視層全換:
+    - DistanceBubble 居中 (was old DistanceBubble)
+    - PartnerAvatar 取代旧 emoji + presence dot
+    - AnniversaryRibbon (rebuild)
+    - GhostBanner (新, 自隱身時顯)
+    - MemoryResurface (rebuild)
+    - HeartbeatZone (新, 雙擊觸發 sendTap; 取代旧大按鈕)
+
+  尚缺: MoodWeather (待後端 mood data; TODO).
+-->
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
@@ -7,9 +29,14 @@
 	import { createOnlineStatus } from '$lib/client/online.svelte';
 	import { idbGet, idbSet } from '$lib/client/idb';
 	import { relativeTime } from '$lib/utils/time';
-	import DistanceBubble from '$lib/components/DistanceBubble.svelte';
-	import AnniversaryRibbon from '$lib/components/AnniversaryRibbon.svelte';
-	import MemoryResurface from '$lib/components/MemoryResurface.svelte';
+	import {
+		DistanceBubble,
+		PartnerAvatar,
+		AnniversaryRibbon,
+		GhostBanner,
+		MemoryResurface,
+		HeartbeatZone
+	} from '$lib/components/duosync';
 	import type { DistanceBucket } from '$lib/server/services/location';
 	import type { PageData } from './$types';
 
@@ -30,17 +57,14 @@
 		bucket: DistanceBucket;
 	};
 
-	type CachedSnapshot = {
-		live: StateResp;
-		ghostOn: boolean;
-		savedAt: number;
-	};
+	type CachedSnapshot = { live: StateResp; ghostOn: boolean; savedAt: number };
 
 	const CACHE_KEY = `pulse:${data.coupleId}`;
 
 	const tracker = createGeolocationTracker();
 	const rt = createRealtimeClient({ coupleId: data.coupleId, userId: data.me.id });
 	const net = createOnlineStatus();
+
 	let live = $state<StateResp>(data.initialState as unknown as StateResp);
 	let ghostOn = $state(data.me.ghostMode);
 	let ghostBusy = $state(false);
@@ -48,14 +72,16 @@
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let tickTimer: ReturnType<typeof setInterval> | null = null;
 	let tapPulse = $state(0);
-	// Persistence is gated until after we've attempted to hydrate from IDB —
-	// otherwise the first $effect run would overwrite the cached snapshot with
-	// the (possibly older) server-rendered state before we get a chance to read it.
+	// hydrated 為旗: 必先讀 IDB 再寫入, 否則第一輪 effect 會以 SSR 舊狀覆蓋緩存.
 	let hydrated = $state(false);
 
 	const partnerId = $derived(data.partner?.id ?? '');
 	const partnerPresence = $derived(rt.presence[partnerId] ?? 'offline');
+	const partnerGhost = $derived(
+		Boolean(live.partner && 'ghost' in live.partner && live.partner.ghost)
+	);
 
+	// realtime: partner location update
 	$effect(() => {
 		const u = rt.lastLocation;
 		if (!u || u.userId !== partnerId) return;
@@ -72,6 +98,7 @@
 		};
 	});
 
+	// realtime: partner ghost toggle
 	$effect(() => {
 		const g = rt.lastGhost;
 		if (!g || g.userId !== partnerId) return;
@@ -92,6 +119,7 @@
 		}
 	});
 
+	// realtime: partner heartbeat tap → 自身震動 + 視覺 echo
 	$effect(() => {
 		const t = rt.lastTap;
 		if (!t) return;
@@ -99,12 +127,11 @@
 		try {
 			navigator.vibrate?.([40, 30, 40]);
 		} catch {
-			/* not supported */
+			/* unsupported */
 		}
 	});
 
-	// Persist the latest snapshot to IDB whenever live or ghostOn changes so the
-	// next cold load (even offline) can hydrate immediately.
+	// 持續寫入 IDB, 供下次冷啟動秒顯
 	$effect(() => {
 		if (!hydrated) return;
 		const snapshot: CachedSnapshot = { live, ghostOn, savedAt: Date.now() };
@@ -116,7 +143,7 @@
 			const res = await fetch('/api/location/state');
 			if (res.ok) live = (await res.json()) as StateResp;
 		} catch {
-			/* swallow — next tick will retry */
+			/* swallow — 下次 poll 重試 */
 		}
 	}
 
@@ -140,19 +167,14 @@
 		}
 	}
 
-	let lastTapAt = $state(0);
-	let tapBurst = $state(0);
+	let lastSendAt = 0;
 	function sendTap() {
-		const now = Date.now();
-		if (now - lastTapAt < 1000) return;
-		lastTapAt = now;
-		tapBurst = now;
+		// 1s throttle 防連觸
+		const t = Date.now();
+		if (t - lastSendAt < 1000) return;
+		lastSendAt = t;
 		void rt.sendHeartbeatTap();
-		try {
-			navigator.vibrate?.(20);
-		} catch {
-			/* noop */
-		}
+		// HeartbeatZone 已 vibrate(TAP_HEARTBEAT); 無需再震
 	}
 
 	async function handleSignOut() {
@@ -163,10 +185,7 @@
 	}
 
 	onMount(async () => {
-		// Try to upgrade the initial server data with a fresher cached snapshot.
-		// SSR/cached HTML may carry stale state; live realtime data persisted from
-		// a previous session can be newer. Hydrate before starting the tracker so
-		// users see something instantly even when offline.
+		// 先讀 IDB; 若緩存比 SSR 新則用緩存 (offline 友好)
 		const cached = await idbGet<CachedSnapshot>(CACHE_KEY);
 		if (cached) {
 			const cachedTs = Date.parse(cached.live?.partner?.capturedAt ?? '') || 0;
@@ -193,12 +212,20 @@
 		live.partner ? relativeTime(live.partner.capturedAt ?? null, now) : ''
 	);
 	const myLastSeen = $derived(live.me ? relativeTime(live.me.capturedAt, now) : '');
-	const presenceDot = $derived(
-		partnerPresence === 'online'
-			? 'bg-success'
-			: partnerPresence === 'away'
-				? 'bg-warning'
-				: 'bg-base-300'
+
+	// PartnerAvatar.presence = 'online'|'away'|'ghost'|'offline'
+	const partnerAvatarPresence = $derived.by(() => {
+		if (partnerGhost) return 'ghost' as const;
+		if (partnerPresence === 'online') return 'online' as const;
+		if (partnerPresence === 'away') return 'away' as const;
+		return 'offline' as const;
+	});
+
+	const partnerBattery = $derived(
+		live.partner && !partnerGhost ? (live.partner.batteryPct ?? null) : null
+	);
+	const partnerCharging = $derived(
+		Boolean(live.partner && !partnerGhost && live.partner.charging)
 	);
 </script>
 
@@ -206,150 +233,147 @@
 	<title>Pulse — DuoSync</title>
 </svelte:head>
 
-<main class="mx-auto min-h-screen max-w-md px-4 py-10">
-	{#if !net.online}
-		<div role="status" class="mb-4 alert py-2 text-sm alert-warning" aria-live="polite">
-			<span>Offline — showing last known state.</span>
-		</div>
-	{/if}
-	<header class="flex items-center justify-between">
-		<div>
-			<p class="text-xs tracking-wider text-base-content/60 uppercase">Pulse</p>
-			<h1 class="text-3xl font-semibold tracking-tight">You & {partnerName}</h1>
-		</div>
-		<button class="btn btn-ghost btn-sm" type="button" onclick={handleSignOut}>Sign out</button>
-	</header>
-
-	<div class="mt-4">
-		<AnniversaryRibbon
-			coupleSince={data.coupleSince}
-			anniversary={data.anniversary}
-			nickname={data.coupleNickname}
-		/>
-	</div>
-
-	{#if data.memory}
-		<div class="mt-3">
-			<MemoryResurface memory={data.memory} viewerId={data.me.id} {partnerName} />
-		</div>
-	{/if}
-
-	<div class="mt-6 flex items-center gap-4 text-5xl">
-		<span aria-label="you">{data.me.avatarEmoji ?? '💗'}</span>
-		<span class="opacity-40">·</span>
-		<span class="relative inline-block" aria-label="partner">
-			{data.partner?.avatarEmoji ?? '💗'}
-			<span
-				class="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-base-100 {presenceDot}"
-				title={partnerPresence}
-				aria-label="partner {partnerPresence}"
-			></span>
-		</span>
-	</div>
-
-	<section class="mt-6">
-		{#if live.partner && 'ghost' in live.partner && live.partner.ghost}
-			<div class="card bg-base-200 text-base-content shadow">
-				<div class="card-body items-center text-center">
-					<p class="text-sm tracking-wider uppercase opacity-70">Partner</p>
-					<p class="text-3xl font-semibold">隱身中</p>
-					<p class="text-sm opacity-70">
-						Last seen {partnerLastSeen || 'a while ago'}
-					</p>
-				</div>
-			</div>
-		{:else}
-			<DistanceBubble distanceM={live.distanceM} bucket={live.bucket} />
-		{/if}
-	</section>
-
-	<section class="mt-6 grid grid-cols-2 gap-3">
-		<article class="card bg-base-200">
-			<div class="card-body p-4">
-				<p class="text-xs tracking-wider uppercase opacity-60">You</p>
-				<p class="mt-1 text-lg font-medium">
-					{live.me?.batteryPct != null ? `${live.me.batteryPct}%` : '—'}
-					{#if live.me?.charging}<span aria-label="charging">⚡</span>{/if}
-				</p>
-				<p class="text-xs opacity-60">{myLastSeen || 'no fix yet'}</p>
-			</div>
-		</article>
-		<article class="card bg-base-200">
-			<div class="card-body p-4">
-				<p class="text-xs tracking-wider uppercase opacity-60">{partnerName}</p>
-				<p class="mt-1 text-lg font-medium">
-					{live.partner &&
-					!('ghost' in live.partner && live.partner.ghost) &&
-					live.partner.batteryPct != null
-						? `${live.partner.batteryPct}%`
-						: '—'}
-					{#if live.partner && !('ghost' in live.partner && live.partner.ghost) && live.partner.charging}
-						<span aria-label="charging">⚡</span>
-					{/if}
-				</p>
-				<p class="text-xs opacity-60">{partnerLastSeen || 'no fix yet'}</p>
-			</div>
-		</article>
-	</section>
-
-	<section class="mt-6">
-		<div class="flex items-center justify-between rounded-2xl bg-base-200 p-4">
-			<div>
-				<p class="font-medium">Ghost mode</p>
-				<p class="text-xs opacity-60">
-					{ghostOn ? 'Sharing paused — partner sees 隱身中' : 'You are sharing your location'}
-				</p>
-			</div>
-			<input
-				type="checkbox"
-				class="toggle toggle-primary"
-				checked={ghostOn}
-				disabled={ghostBusy}
-				onchange={toggleGhost}
-				aria-label="Toggle ghost mode"
+<main class="mx-auto min-h-screen max-w-md px-4 pt-6 pb-32">
+	<!-- 1. Top chrome: ribbon + 簽出 -->
+	<header class="flex items-start gap-2">
+		<div class="min-w-0 flex-1">
+			<AnniversaryRibbon
+				coupleSince={data.coupleSince}
+				anniversary={data.anniversary}
+				nickname={data.coupleNickname}
 			/>
 		</div>
-	</section>
-
-	<section class="mt-6">
 		<button
+			class="text-base-content/50 hover:text-base-content shrink-0 px-2 py-1 text-[11px] tracking-wider uppercase"
 			type="button"
-			class="btn relative btn-block gap-3 overflow-hidden btn-lg btn-primary"
-			onclick={sendTap}
-			aria-label="Send heartbeat tap"
+			onclick={handleSignOut}
+			aria-label="Sign out"
 		>
-			<span class="text-2xl">💓</span>
-			Send a heartbeat
-			{#if tapBurst}
-				{#key tapBurst}
-					<span
-						class="pointer-events-none absolute inset-0 animate-ping rounded-lg bg-primary-content/30"
-					></span>
-				{/key}
-			{/if}
+			簽出
 		</button>
-		{#if tapPulse}
-			{#key tapPulse}
-				<p class="mt-2 animate-pulse text-center text-sm text-primary">
-					{partnerName} tapped you 💞
-				</p>
-			{/key}
-		{/if}
+	</header>
+
+	<!-- 2. 自隱身時 banner + 解除 -->
+	{#if ghostOn}
+		<div class="mt-3">
+			<GhostBanner
+				ghostUntil={data.me.ghostUntil}
+				onExit={ghostBusy ? undefined : toggleGhost}
+			/>
+		</div>
+	{/if}
+
+	<!-- 3. 離線提示 -->
+	{#if !net.online}
+		<div
+			role="status"
+			class="bg-base-200 text-base-content/70 mt-3 rounded-full px-4 py-2 text-center text-xs"
+			aria-live="polite"
+		>
+			離線中 · showing last known state
+		</div>
+	{/if}
+
+	<!-- 4. 主距 DistanceBubble -->
+	<section class="mt-8">
+		<DistanceBubble
+			distanceM={live.distanceM}
+			bucket={live.bucket}
+			ghost={partnerGhost || ghostOn}
+		/>
 	</section>
 
+	<!-- 5. 雙人卡: 你 vs partner. avatar + battery ring + presence -->
+	<section class="mt-8 grid grid-cols-2 gap-4">
+		<article class="bg-base-200 shadow-paper rounded-[var(--radius-card)] p-4 text-center">
+			<div class="flex justify-center">
+				<PartnerAvatar
+					displayName={data.me.displayName ?? '你'}
+					avatarEmoji={data.me.avatarEmoji}
+					presence={ghostOn ? 'ghost' : 'online'}
+					batteryPct={live.me?.batteryPct ?? null}
+					charging={Boolean(live.me?.charging)}
+					size={64}
+				/>
+			</div>
+			<p class="text-base-content mt-2 text-xs font-semibold">你</p>
+			<p class="text-base-content/50 text-[11px]">{myLastSeen || 'no fix yet'}</p>
+		</article>
+		<article class="bg-base-200 shadow-paper rounded-[var(--radius-card)] p-4 text-center">
+			<div class="flex justify-center">
+				<PartnerAvatar
+					displayName={partnerName}
+					avatarEmoji={data.partner?.avatarEmoji ?? '🌱'}
+					presence={partnerAvatarPresence}
+					batteryPct={partnerBattery}
+					charging={partnerCharging}
+					size={64}
+				/>
+			</div>
+			<p class="text-base-content mt-2 text-xs font-semibold">{partnerName}</p>
+			<p class="text-base-content/50 text-[11px]">
+				{partnerGhost ? '隱身中' : partnerLastSeen || 'no fix yet'}
+			</p>
+		</article>
+	</section>
+
+	<!-- 6. Memory Resurface (如有) -->
+	{#if data.memory}
+		<section class="mt-6">
+			<MemoryResurface memory={data.memory} viewerId={data.me.id} {partnerName} />
+		</section>
+	{/if}
+
+	<!-- 7. Ghost mode 開關 (僅未隱身時; 已隱身用上方 banner 解除) -->
+	{#if !ghostOn}
+		<section class="mt-6">
+			<button
+				type="button"
+				class="bg-base-200 hover:bg-base-300/60 border-base-content/5 text-base-content flex w-full items-center justify-between rounded-full border px-4 py-3 text-left text-sm transition-colors disabled:opacity-50"
+				onclick={toggleGhost}
+				disabled={ghostBusy}
+			>
+				<span>
+					<span class="font-semibold">隱身模式</span>
+					<span class="text-base-content/50 ml-2 text-xs">暫停位置共享</span>
+				</span>
+				<span class="text-primary text-xs font-semibold tracking-wider uppercase">開啟</span>
+			</button>
+		</section>
+	{/if}
+
+	<!-- 8. tracker 狀態提示 -->
 	{#if tracker.status === 'denied'}
-		<div role="alert" class="mt-6 alert alert-warning">
-			<span>
-				Location permission denied. Enable it in your browser settings to share live distance.
-			</span>
+		<div role="alert" class="bg-base-200 text-base-content/70 mt-4 rounded-2xl p-3 text-xs">
+			位置權限已拒. 請在瀏覽器設定中開啟以共享距離.
 		</div>
 	{:else if tracker.status === 'unsupported'}
-		<div role="alert" class="mt-6 alert alert-error">
-			<span>Geolocation is not supported in this browser.</span>
+		<div role="alert" class="bg-base-200 text-error mt-4 rounded-2xl p-3 text-xs">
+			此瀏覽器不支援地理定位.
 		</div>
 	{:else if tracker.status === 'requesting_permission'}
-		<p class="mt-6 text-center text-sm opacity-70">Requesting location permission…</p>
+		<p class="text-base-content/60 mt-4 text-center text-xs">請求位置權限中…</p>
 	{:else if tracker.status === 'error' && tracker.lastError}
-		<p class="mt-6 text-center text-xs opacity-60">Sync issue: {tracker.lastError} · retrying…</p>
+		<p class="text-base-content/50 mt-4 text-center text-[11px]">
+			同步異常: {tracker.lastError} · 重試中…
+		</p>
+	{/if}
+
+	<!-- 9. partner 心跳 echo -->
+	{#if tapPulse}
+		{#key tapPulse}
+			<p class="text-primary animate-bloom mt-4 text-center text-sm">
+				{partnerName} tapped you 💞
+			</p>
+		{/key}
 	{/if}
 </main>
+
+<!-- 10. 底部固定 HeartbeatZone (在 BottomNav 之上由 layout 負責 padding) -->
+<div
+	class="bg-base-100/80 fixed right-0 bottom-0 left-0 z-20 mx-auto max-w-md backdrop-blur"
+	style="padding-bottom: calc(env(safe-area-inset-bottom) + 4.5rem);"
+	aria-hidden="false"
+>
+	<HeartbeatZone onTap={sendTap} />
+</div>
