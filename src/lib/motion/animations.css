@@ -1,0 +1,85 @@
+/**
+ * DuoSync motion primitives — animations.
+ *
+ * Imported from src/routes/+layout.svelte once globally. Keyframes only,
+ * paired with `.animate-*` utility classes so any component can opt in.
+ *
+ * All motion respects `prefers-reduced-motion` (handled by the global
+ * reset in src/routes/layout.css). Components that rely on motion to
+ * convey meaning MUST also encode that meaning via color/texture/text
+ * (e.g. Distance Bubble bucket label) so reduced-motion users don't
+ * lose information.
+ */
+
+/* Distance Bubble — slow breathing ring. ~4s cycle, transform-only so
+   it composites on the GPU without paint cost. */
+@keyframes duosync-breathe {
+	0%,
+	100% {
+		transform: scale(1);
+		opacity: 0.85;
+	}
+	50% {
+		transform: scale(1.04);
+		opacity: 1;
+	}
+}
+
+.animate-breathe {
+	animation: duosync-breathe 4s ease-in-out infinite;
+	will-change: transform, opacity;
+}
+
+/* Partner avatar presence dot — fast 2s pulse to signal liveness. */
+@keyframes duosync-presence-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+		box-shadow: 0 0 0 0 currentColor;
+	}
+	50% {
+		transform: scale(1.15);
+		box-shadow: 0 0 0 6px transparent;
+	}
+}
+
+.animate-presence-pulse {
+	animation: duosync-presence-pulse 2s ease-in-out infinite;
+}
+
+/* Heartbeat tap ripple — single-shot expanding ring spawned by the
+   HeartbeatZone component. Uses .85s so it never feels laggy. */
+@keyframes duosync-ripple {
+	0% {
+		transform: scale(0);
+		opacity: 0.55;
+	}
+	100% {
+		transform: scale(2.4);
+		opacity: 0;
+	}
+}
+
+.animate-ripple {
+	animation: duosync-ripple 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Onboarding bloom — celebrating successful pairing. ~1.2s. */
+@keyframes duosync-bloom {
+	0% {
+		transform: scale(0.6);
+		opacity: 0;
+	}
+	60% {
+		transform: scale(1.08);
+		opacity: 1;
+	}
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+.animate-bloom {
+	animation: duosync-bloom 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}

@@ -7,6 +7,7 @@
 	import UpdateBanner from '$lib/pwa/UpdateBanner.svelte';
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import './layout.css';
+	import '$lib/motion/animations.css';
 
 	let { children, data } = $props();
 
