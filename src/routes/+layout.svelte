@@ -5,7 +5,8 @@
 	import { initInstallPrompt } from '$lib/pwa/install';
 	import { registerServiceWorker } from '$lib/pwa/register';
 	import UpdateBanner from '$lib/pwa/UpdateBanner.svelte';
-	import BottomNav from '$lib/components/BottomNav.svelte';
+	import { BottomNav } from '$lib/components/duosync';
+	import { setTheme, clearTheme, type DuoSyncTheme } from '$lib/theme';
 	import './layout.css';
 	import '$lib/motion/animations.css';
 
@@ -17,6 +18,20 @@
 			!page.url.pathname.startsWith('/auth') &&
 			!page.url.pathname.startsWith('/onboarding')
 	);
+
+	// 路徑 → 強制主題. 其餘從 prefers-color-scheme.
+	const ROUTE_THEME: Array<[RegExp, DuoSyncTheme]> = [
+		[/^\/map(\/|$)/, 'duosync-dark'],
+		[/^\/moments\/new(\/|$)/, 'duosync-dark']
+	];
+	const forcedTheme = $derived(
+		ROUTE_THEME.find(([rx]) => rx.test(page.url.pathname))?.[1]
+	);
+
+	$effect(() => {
+		if (forcedTheme) setTheme(forcedTheme);
+		else clearTheme();
+	});
 
 	onMount(() => {
 		initInstallPrompt();
