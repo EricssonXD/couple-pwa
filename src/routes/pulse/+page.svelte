@@ -29,6 +29,7 @@
 	import { createOnlineStatus } from '$lib/client/online.svelte';
 	import { idbGet, idbSet } from '$lib/client/idb';
 	import { relativeTime } from '$lib/utils/time';
+	import * as m from '$lib/paraglide/messages.js';
 	import {
 		DistanceBubble,
 		PartnerAvatar,
@@ -247,9 +248,9 @@
 			class="text-base-content/50 hover:text-base-content shrink-0 px-2 py-1 text-[11px] tracking-wider uppercase"
 			type="button"
 			onclick={handleSignOut}
-			aria-label="Sign out"
+			aria-label={m.settings_signout()}
 		>
-			簽出
+			{m.settings_signout()}
 		</button>
 	</header>
 
@@ -270,7 +271,7 @@
 			class="bg-base-200 text-base-content/70 mt-3 rounded-full px-4 py-2 text-center text-xs"
 			aria-live="polite"
 		>
-			離線中 · showing last known state
+			{m.pulse_offline()}
 		</div>
 	{/if}
 
@@ -288,7 +289,7 @@
 		<article class="bg-base-200 shadow-paper rounded-[var(--radius-card)] p-4 text-center">
 			<div class="flex justify-center">
 				<PartnerAvatar
-					displayName={data.me.displayName ?? '你'}
+					displayName={data.me.displayName ?? m.pulse_you()}
 					avatarEmoji={data.me.avatarEmoji}
 					presence={ghostOn ? 'ghost' : 'online'}
 					batteryPct={live.me?.batteryPct ?? null}
@@ -296,8 +297,8 @@
 					size={64}
 				/>
 			</div>
-			<p class="text-base-content mt-2 text-xs font-semibold">你</p>
-			<p class="text-base-content/50 text-[11px]">{myLastSeen || 'no fix yet'}</p>
+			<p class="text-base-content mt-2 text-xs font-semibold">{m.pulse_you()}</p>
+			<p class="text-base-content/50 text-[11px]">{myLastSeen || m.pulse_no_fix()}</p>
 		</article>
 		<article class="bg-base-200 shadow-paper rounded-[var(--radius-card)] p-4 text-center">
 			<div class="flex justify-center">
@@ -312,7 +313,7 @@
 			</div>
 			<p class="text-base-content mt-2 text-xs font-semibold">{partnerName}</p>
 			<p class="text-base-content/50 text-[11px]">
-				{partnerGhost ? '隱身中' : partnerLastSeen || 'no fix yet'}
+				{partnerGhost ? m.pulse_partner_hidden() : partnerLastSeen || m.pulse_no_fix()}
 			</p>
 		</article>
 	</section>
@@ -334,10 +335,12 @@
 				disabled={ghostBusy}
 			>
 				<span>
-					<span class="font-semibold">隱身模式</span>
-					<span class="text-base-content/50 ml-2 text-xs">暫停位置共享</span>
+					<span class="font-semibold">{m.settings_ghost_label()}</span>
+					<span class="text-base-content/50 ml-2 text-xs">{m.pulse_ghost_pause()}</span>
 				</span>
-				<span class="text-primary text-xs font-semibold tracking-wider uppercase">開啟</span>
+				<span class="text-primary text-xs font-semibold tracking-wider uppercase"
+					>{m.pulse_enable()}</span
+				>
 			</button>
 		</section>
 	{/if}
@@ -345,17 +348,17 @@
 	<!-- 8. tracker 狀態提示 -->
 	{#if tracker.status === 'denied'}
 		<div role="alert" class="bg-base-200 text-base-content/70 mt-4 rounded-2xl p-3 text-xs">
-			位置權限已拒. 請在瀏覽器設定中開啟以共享距離.
+			{m.pulse_perm_denied()}
 		</div>
 	{:else if tracker.status === 'unsupported'}
 		<div role="alert" class="bg-base-200 text-error mt-4 rounded-2xl p-3 text-xs">
-			此瀏覽器不支援地理定位.
+			{m.pulse_perm_unsupported()}
 		</div>
 	{:else if tracker.status === 'requesting_permission'}
-		<p class="text-base-content/60 mt-4 text-center text-xs">請求位置權限中…</p>
+		<p class="text-base-content/60 mt-4 text-center text-xs">{m.pulse_perm_requesting()}</p>
 	{:else if tracker.status === 'error' && tracker.lastError}
 		<p class="text-base-content/50 mt-4 text-center text-[11px]">
-			同步異常: {tracker.lastError} · 重試中…
+			{m.pulse_sync_error({ detail: tracker.lastError })}
 		</p>
 	{/if}
 
