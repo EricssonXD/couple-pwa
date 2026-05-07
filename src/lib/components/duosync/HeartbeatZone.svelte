@@ -18,6 +18,7 @@
 	import { createHeartbeat } from '$lib/motion/heartbeat.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import WaveformIcon from 'phosphor-svelte/lib/WaveformIcon';
+	import * as m from '$lib/paraglide/messages.js';
 
 	type Props = {
 		onTap?: () => void;
@@ -25,7 +26,8 @@
 		hint?: string | null;
 	};
 
-	let { onTap, height = '6rem', hint = '雙擊送出心跳 · double-tap to pulse' }: Props = $props();
+	let { onTap, height = '6rem', hint }: Props = $props();
+	const resolvedHint = $derived(hint === null ? null : (hint ?? m.heartbeat_zone_hint()));
 
 	const heartbeat = createHeartbeat({ onTap: () => onTap?.() });
 </script>
@@ -43,11 +45,11 @@
 		<Icon icon={WaveformIcon} size={20} weight="duotone" />
 	</div>
 
-	{#if hint}
+	{#if resolvedHint}
 		<p
 			class="text-base-content/40 pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] tracking-wider"
 		>
-			{hint}
+			{resolvedHint}
 		</p>
 	{/if}
 

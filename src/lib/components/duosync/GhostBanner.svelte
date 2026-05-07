@@ -12,6 +12,7 @@
 	import { onMount } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
+	import * as m from '$lib/paraglide/messages.js';
 
 	type Props = {
 		ghostUntil?: Date | string | null;
@@ -35,12 +36,12 @@
 	const expired = $derived(remainingMin != null && remainingMin <= 0);
 
 	const label = $derived.by(() => {
-		if (untilMs == null) return '已隱身 · ghost mode';
-		if (expired) return '即將恢復 · ending';
-		if (remainingMin! < 60) return `已隱身 · 剩 ${remainingMin} 分`;
+		if (untilMs == null) return m.ghost_banner_default();
+		if (expired) return m.ghost_banner_ending();
+		if (remainingMin! < 60) return m.ghost_banner_remaining_min({ minutes: remainingMin! });
 		const h = Math.floor(remainingMin! / 60);
-		const m = remainingMin! % 60;
-		return `已隱身 · 剩 ${h} 小時${m ? ` ${m} 分` : ''}`;
+		const mm = remainingMin! % 60;
+		return m.ghost_banner_remaining_h({ hours: h, minutesPart: mm ? ` ${mm} 分` : '' });
 	});
 </script>
 
@@ -56,7 +57,7 @@
 			class="text-primary text-xs font-semibold tracking-wider uppercase hover:underline"
 			onclick={onExit}
 		>
-			解除
+			{m.ghost_banner_release()}
 		</button>
 	{/if}
 </div>

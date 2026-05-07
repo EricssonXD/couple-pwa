@@ -17,6 +17,7 @@
 -->
 <script lang="ts">
 	import type { DistanceBucket } from '$lib/server/services/location';
+	import * as m from '$lib/paraglide/messages.js';
 
 	type Props = {
 		distanceM: number | null;
@@ -26,16 +27,20 @@
 
 	let { distanceM, bucket, ghost = false }: Props = $props();
 
-	const labels: Record<DistanceBucket, { primary: string; sub: string }> = {
-		together: { primary: '同處', sub: 'Together' },
-		near: { primary: '近', sub: 'Nearby' },
-		same_city: { primary: '同城', sub: 'Same city' },
-		far: { primary: '遠', sub: 'Apart' },
-		unknown: { primary: '?', sub: 'Waiting for fix' }
-	};
-
 	const ringColorVar = $derived(ghost ? '--distance-ghost' : `--distance-${bucketKey(bucket)}`);
-	const display = $derived(ghost ? { primary: '隱', sub: 'Ghost mode' } : labels[bucket]);
+	const label = $derived(
+		ghost
+			? m.pulse_distance_ghost()
+			: bucket === 'together'
+				? m.pulse_distance_same()
+				: bucket === 'near'
+					? m.pulse_distance_near()
+					: bucket === 'same_city'
+						? m.pulse_distance_city()
+						: bucket === 'far'
+							? m.pulse_distance_far()
+							: m.pulse_distance_unknown()
+	);
 
 	const numeral = $derived.by(() => {
 		if (ghost || distanceM == null) return null;
@@ -89,12 +94,12 @@
 					>
 				</p>
 			{:else}
-				<p class="text-display text-base-content text-7xl leading-none font-semibold">
-					{display.primary}
+				<p class="text-display text-base-content text-5xl leading-none font-semibold">
+					{label}
 				</p>
 			{/if}
 			<p class="text-base-content/60 mt-2 text-xs tracking-[0.2em] uppercase">
-				{display.sub}
+				{label}
 			</p>
 		</div>
 	</div>

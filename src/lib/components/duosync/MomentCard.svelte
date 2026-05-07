@@ -20,6 +20,7 @@
 	import MapPinIcon from 'phosphor-svelte/lib/MapPinIcon';
 	import LockSimpleIcon from 'phosphor-svelte/lib/LockSimpleIcon';
 	import NavigationArrowIcon from 'phosphor-svelte/lib/NavigationArrowIcon';
+	import * as m from '$lib/paraglide/messages.js';
 
 	type Props = {
 		locked: boolean;
@@ -63,7 +64,7 @@
 >
 	<header class="flex items-baseline justify-between gap-3 px-4 pt-4 pb-2">
 		<p class="text-base-content/60 text-[10px] tracking-[0.2em] uppercase">
-			{authorIsViewer ? 'you · 你' : authorName}
+			{authorIsViewer ? m.moment_card_you() : authorName}
 		</p>
 		<time class="text-base-content/50 text-xs"
 			>{dateLabel} · <span class="text-base-content/40">{timeLabel}</span></time
@@ -78,7 +79,7 @@
 				style="filter: blur(6px) saturate(0.6);"
 				aria-hidden="true"
 			>
-				一段只有走到附近才能讀到的心意。一段只有走到附近才能讀到的心意。
+				{m.moment_card_locked_lorem()}
 			</p>
 			<div class="bg-base-200/85 absolute inset-0 grid place-items-center backdrop-blur-sm">
 				<div class="text-center">
@@ -90,13 +91,11 @@
 					/>
 					<p class="text-base-content/70 mt-2 text-sm">
 						{#if remainingM != null && remainingM > 0}
-							再走近 <span class="text-display text-base-content font-semibold"
-								>{remainingM}m</span
-							> 即可閱讀 🚶
+							{m.moment_card_locked_walk_closer({ distance: remainingM })}
 						{:else if remainingM === 0}
-							已在解鎖範圍 · refreshing…
+							{m.moment_card_locked_within_range()}
 						{:else}
-							走到地點即可閱讀 🚶
+							{m.moment_card_locked_hint()}
 						{/if}
 					</p>
 				</div>
@@ -111,7 +110,7 @@
 	<footer class="border-base-content/5 flex items-center justify-between border-t px-4 py-2">
 		<span class="text-base-content/50 inline-flex items-center gap-1 text-xs">
 			<Icon icon={MapPinIcon} size={14} weight="duotone" />
-			半徑 {radiusM}m
+			{m.moment_card_radius({ radiusM })}
 		</span>
 		{#if onOpenMap}
 			<button

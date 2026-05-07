@@ -15,6 +15,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
+	import * as m from '$lib/paraglide/messages.js';
 
 	type Memory =
 		| {
@@ -37,12 +38,11 @@
 	let { memory, viewerId, partnerName }: Props = $props();
 
 	function fmtAgo(days: number): string {
-		if (days < 60) return `${days} 天前 · ${days}d ago`;
-		if (days < 365) return `${Math.round(days / 30)} 個月前`;
+		if (days < 60) return m.memory_days_ago({ days });
+		if (days < 365) return m.memory_months_ago({ months: Math.round(days / 30) });
 		const years = days / 365;
-		return years >= 1.95
-			? `${Math.round(years)} 年前`
-			: `${Math.round(years * 10) / 10} 年前`;
+		const n = years >= 1.95 ? Math.round(years) : Math.round(years * 10) / 10;
+		return m.memory_years_ago({ years: n });
 	}
 	function fmtDate(d: Date | string): string {
 		const dt = typeof d === 'string' ? new Date(d) : d;
@@ -62,7 +62,7 @@
 			<span class="inline-flex items-center gap-1.5">
 				<Icon icon={SparkleIcon} size={16} weight="duotone" class="text-accent" />
 				<span class="text-base-content/60 text-[10px] tracking-[0.2em] uppercase">
-					on this day · 去年今日
+					{m.memory_on_this_day()}
 				</span>
 			</span>
 			<time class="text-base-content/50 text-xs">{fmtAgo(memory.daysAgo)}</time>
@@ -71,7 +71,7 @@
 		<div class="px-4 pt-2 pb-4">
 			{#if memory.kind === 'moment'}
 				<p class="text-base-content/70 text-xs">
-					{memory.authorId === viewerId ? 'You · 你' : partnerName} · {fmtDate(memory.createdAt)}
+					{memory.authorId === viewerId ? m.memory_you() : partnerName} · {fmtDate(memory.createdAt)}
 				</p>
 				<p class="text-base-content mt-2 text-sm leading-relaxed whitespace-pre-wrap italic">
 					「{memory.body}」
@@ -84,8 +84,7 @@
 				</a>
 			{:else}
 				<p class="text-base-content text-sm leading-relaxed">
-					從 <span class="text-display font-semibold">{fmtDate(memory.capturedAt)}</span>
-					起，我們開始同步。Still here. 💞
+					{m.memory_first_ping_caption({ date: fmtDate(memory.capturedAt) })}
 				</p>
 			{/if}
 		</div>

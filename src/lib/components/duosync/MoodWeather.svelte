@@ -19,6 +19,7 @@
 	import CloudIcon from 'phosphor-svelte/lib/CloudIcon';
 	import CloudRainIcon from 'phosphor-svelte/lib/CloudRainIcon';
 	import MoonIcon from 'phosphor-svelte/lib/MoonIcon';
+	import * as m from '$lib/paraglide/messages.js';
 
 	export type Mood = 'sunny' | 'cloudy' | 'rainy' | 'night';
 
@@ -30,20 +31,29 @@
 
 	let { mood, partnerName, caption = null }: Props = $props();
 
-	const config: Record<Mood, { icon: typeof SunIcon; tone: string; label: string }> = {
-		sunny: { icon: SunIcon, tone: 'text-accent', label: '晴 · sunny' },
-		cloudy: { icon: CloudIcon, tone: 'text-info', label: '陰 · cloudy' },
-		rainy: { icon: CloudRainIcon, tone: 'text-info', label: '雨 · rainy' },
-		night: { icon: MoonIcon, tone: 'text-base-content/60', label: '夜 · resting' }
+	const config: Record<Mood, { icon: typeof SunIcon; tone: string }> = {
+		sunny: { icon: SunIcon, tone: 'text-accent' },
+		cloudy: { icon: CloudIcon, tone: 'text-info' },
+		rainy: { icon: CloudRainIcon, tone: 'text-info' },
+		night: { icon: MoonIcon, tone: 'text-base-content/60' }
 	};
 
 	const c = $derived(config[mood]);
-	const text = $derived(caption ?? (partnerName ? `${partnerName} · ${c.label}` : c.label));
+	const label = $derived(
+		mood === 'sunny'
+			? m.mood_sunny()
+			: mood === 'cloudy'
+				? m.mood_cloudy()
+				: mood === 'rainy'
+					? m.mood_rainy()
+					: m.mood_night()
+	);
+	const text = $derived(caption ?? (partnerName ? `${partnerName} · ${label}` : label));
 </script>
 
 <div
 	class="bg-base-200/60 inline-flex items-center gap-2 rounded-full px-3 py-1.5 backdrop-blur"
-	aria-label="Partner mood: {c.label}"
+	aria-label="Partner mood: {label}"
 >
 	<Icon icon={c.icon} size={20} weight="duotone" class={c.tone} />
 	<span class="text-base-content/80 text-sm">{text}</span>

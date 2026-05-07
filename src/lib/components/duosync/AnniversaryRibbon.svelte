@@ -7,6 +7,8 @@
   with rose accent). Date math is unchanged.
 -->
 <script lang="ts">
+	import * as tr from '$lib/paraglide/messages.js';
+
 	type Props = {
 		coupleSince: Date | string;
 		anniversary: Date | string | null;
@@ -32,19 +34,19 @@
 		for (const d of [100, 200, 365, 500, 1000, 2000, 3650]) {
 			const t = new Date(baseDate);
 			t.setUTCDate(t.getUTCDate() + d);
-			out.push({ label: `${d} 天`, date: t });
+			out.push({ label: tr.anniversary_milestone_days({ n: d }), date: t });
 		}
 		for (let y = 1; y <= 15; y++) {
 			const t = new Date(baseDate);
 			t.setUTCFullYear(t.getUTCFullYear() + y);
-			out.push({ label: `${y} 年`, date: t });
+			out.push({ label: tr.anniversary_milestone_years({ n: y }), date: t });
 		}
 		return out.sort((a, b) => a.date.getTime() - b.date.getTime());
 	});
 
-	const next = $derived(milestones.find((m) => m.date > todayUTC) ?? null);
+	const next = $derived(milestones.find((ms) => ms.date > todayUTC) ?? null);
 	const daysToNext = $derived(next ? dayDiffUTC(todayUTC, next.date) : null);
-	const isMilestoneToday = $derived(milestones.some((m) => dayDiffUTC(m.date, todayUTC) === 0));
+	const isMilestoneToday = $derived(milestones.some((ms) => dayDiffUTC(ms.date, todayUTC) === 0));
 </script>
 
 <div
@@ -64,7 +66,7 @@
 		{/if}
 		<p class="text-display text-base-content text-lg leading-none font-semibold">
 			{daysTogether.toLocaleString()}
-			<span class="text-base-content/50 text-xs font-normal">天</span>
+			<span class="text-base-content/50 text-xs font-normal">{tr.anniversary_days_unit()}</span>
 		</p>
 	</div>
 	{#if next && daysToNext != null}
@@ -72,7 +74,7 @@
 			<p class="text-base-content/50 text-[10px] tracking-[0.2em] uppercase">next</p>
 			<p class="text-base-content text-xs">
 				<span class="text-display text-base font-semibold">{daysToNext}</span>
-				天到 {next.label}
+				{tr.anniversary_to_label({ label: next.label })}
 			</p>
 		</div>
 	{/if}
