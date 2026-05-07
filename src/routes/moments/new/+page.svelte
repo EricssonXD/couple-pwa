@@ -22,6 +22,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
@@ -50,7 +51,7 @@
 	function captureFix() {
 		geoErr = null;
 		if (!('geolocation' in navigator)) {
-			geoErr = '此瀏覽器無位置權限.';
+			geoErr = m.moments_new_err_no_geo();
 			return;
 		}
 		navigator.geolocation.getCurrentPosition(
@@ -130,12 +131,12 @@
 		e.preventDefault();
 		saveErr = null;
 		if (lat == null || lon == null) {
-			saveErr = '先取位置.';
+			saveErr = m.moments_new_err_no_fix();
 			return;
 		}
 		const text = body.trim();
 		if (text.length === 0) {
-			saveErr = '寫點什麼.';
+			saveErr = m.moments_new_err_empty();
 			return;
 		}
 		busy = true;
@@ -153,7 +154,7 @@
 			});
 			if (!r.ok) {
 				const t = await r.text().catch(() => '');
-				saveErr = `保存失敗: ${r.status} ${t}`;
+				saveErr = m.moments_new_err_save({ status: r.status, detail: t });
 				return;
 			}
 			await goto('/moments');
@@ -166,15 +167,15 @@
 </script>
 
 <svelte:head>
-	<title>留下時刻 · DuoSync</title>
+	<title>{m.moments_new_title()} · DuoSync</title>
 </svelte:head>
 
 <div class="bg-base-100 min-h-screen">
 	<header
 		class="bg-base-100/85 sticky top-0 z-10 mx-auto flex max-w-md items-center justify-between px-5 py-4 backdrop-blur"
 	>
-		<a class="text-base-content/60 text-xs tracking-wider uppercase" href="/moments">取消</a>
-		<h1 class="text-display text-lg font-semibold">留下時刻</h1>
+		<a class="text-base-content/60 text-xs tracking-wider uppercase" href="/moments">{m.common_cancel()}</a>
+		<h1 class="text-display text-lg font-semibold">{m.moments_new_title()}</h1>
 		<span class="w-10"></span>
 	</header>
 
@@ -186,7 +187,7 @@
 			<div bind:this={mapEl} class="absolute inset-0"></div>
 			{#if lat == null}
 				<div class="text-base-content/50 absolute inset-0 grid place-items-center text-xs">
-					取位置中…
+					{m.moments_new_capture_pending()}
 				</div>
 			{/if}
 			<button
@@ -194,7 +195,7 @@
 				onclick={captureFix}
 				class="bg-base-100/85 text-base-content shadow-paper absolute right-3 bottom-3 inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-semibold tracking-wider uppercase backdrop-blur"
 			>
-				<Icon icon={CrosshairIcon} size={12} weight="duotone" /> recenter
+				<Icon icon={CrosshairIcon} size={12} weight="duotone" /> {m.moments_new_recenter()}
 			</button>
 		</div>
 
@@ -231,7 +232,7 @@
 					min={30}
 					max={1000}
 					step={10}
-					label="解鎖半徑"
+					label={m.moments_new_radius_m()}
 					formatValue={(v) => `${v}m`}
 				/>
 			</section>
@@ -239,7 +240,7 @@
 			<!-- caption -->
 			<section>
 				<div class="mb-1.5 flex items-baseline justify-between">
-					<span class="text-base-content/70 text-xs tracking-wider uppercase">心意</span>
+					<span class="text-base-content/70 text-xs tracking-wider uppercase">{m.moments_new_caption_label()}</span>
 					<span class="text-base-content/40 text-[10px]">{body.length}/280</span>
 				</div>
 				<textarea
@@ -247,15 +248,15 @@
 					maxlength="280"
 					rows="4"
 					class="bg-base-200 border-base-content/10 focus:border-primary w-full resize-none rounded-[var(--radius-card)] border px-4 py-3 text-base outline-none"
-					placeholder="留一段, 等對方走到時讀到…"
+					placeholder={m.moments_new_caption_placeholder()}
 				></textarea>
 			</section>
 
 			<!-- expiry -->
 			<section>
-				<p class="text-base-content/70 mb-2 text-xs tracking-wider uppercase">何時過期</p>
+				<p class="text-base-content/70 mb-2 text-xs tracking-wider uppercase">{m.moments_new_expiry_label()}</p>
 				<div class="flex gap-2">
-					{#each [{ k: 'none' as const, label: '永久' }, { k: '24h' as const, label: '24h' }, { k: '7d' as const, label: '7d' }] as o (o.k)}
+					{#each [{ k: 'none' as const, label: m.moments_new_expiry_never() }, { k: '24h' as const, label: '24h' }, { k: '7d' as const, label: '7d' }] as o (o.k)}
 						<button
 							type="button"
 							onclick={() => (expiry = o.k)}
@@ -282,7 +283,7 @@
 				class="bg-primary text-primary-content shadow-paper inline-flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-base font-semibold tracking-wider uppercase transition-transform active:scale-[0.98] disabled:opacity-50"
 			>
 				<Icon icon={SparkleIcon} size={18} weight="duotone" />
-				{busy ? '留下中…' : 'drop here ✨'}
+				{busy ? m.moments_new_dropping() : m.moments_new_drop_here()}
 			</button>
 		</form>
 	</main>
