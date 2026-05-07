@@ -1,25 +1,87 @@
+<!--
+  /moments — timeline of geo-moments per design brief (U6c).
+
+  Server returns full list (mine + partner's, body present only when
+  unlocked or authored by me). Page renders MomentCard cards in a
+  vertical timeline grouped by year-month.
+
+  Distance-from-viewer for locked CTA: we attempt one geolocation
+  reading on mount (cached) so the locked card can show "再走近 Xm".
+  No streaming — this screen is read-mostly. Realtime invalidates
+  whole list on partner moment events.
+-->
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
+	import { MomentCard } from '$lib/components/duosync';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
+	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
 	const rt = createRealtimeClient({ coupleId: data.coupleId, userId: data.me.id });
 
+	let viewerLat = $state<number | null>(null);
+	let viewerLon = $state<number | null>(null);
 	let busyDelete = $state<string | null>(null);
 
 	onMount(() => {
 		void rt.start();
+		// 一次性 fix, 用作 locked CTA 之距離提示. 不訂閱.
+		if ('geolocation' in navigator) {
+			navigator.geolocation.getCurrentPosition(
+				(pos) => {
+					viewerLat = pos.coords.latitude;
+					viewerLon = pos.coords.longitude;
+				},
+				() => {},
+				{ enableHighAccuracy: false, maximumAge: 60_000, timeout: 8_000 }
+			);
+		}
 	});
 	onDestroy(() => {
 		void rt.stop();
 	});
 
 	$effect(() => {
-		const last = rt.lastMomentEvent;
-		if (!last) return;
-		void invalidateAll();
+		if (rt.lastMomentEvent) void invalidateAll();
+	});
+
+	function haversineM(aLat: number, aLon: number, bLat: number, bLon: number): number {
+		const R = 6_371_000;
+		const φ1 = (aLat * Math.PI) / 180;
+		const φ2 = (bLat * Math.PI) / 180;
+		const dφ = ((bLat - aLat) * Math.PI) / 180;
+		const dλ = ((bLon - aLon) * Math.PI) / 180;
+		const h = Math.sin(dφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) ** 2;
+		return 2 * R * Math.asin(Math.sqrt(h));
+	}
+
+	type M = (typeof data.moments)[number];
+
+	function distanceFor(m: M): number | null {
+		if (viewerLat == null || viewerLon == null) return null;
+		return haversineM(viewerLat, viewerLon, m.lat, m.lon);
+	}
+
+	// 分組按年月.
+	type Group = { key: string; label: string; items: M[] };
+	const groups = $derived.by<Group[]>(() => {
+		const out: Group[] = [];
+		let last: string | null = null;
+		for (const m of data.moments) {
+			const d = new Date(m.createdAt);
+			const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+			const label = d.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+			if (key !== last) {
+				out.push({ key, label, items: [] });
+				last = key;
+			}
+			out[out.length - 1].items.push(m);
+		}
+		return out;
 	});
 
 	async function remove(id: string) {
@@ -32,9 +94,9 @@
 		}
 	}
 
-	function fmt(iso: string) {
-		const d = new Date(iso);
-		return d.toLocaleString();
+	function openMap(m: M) {
+		// 暫: 跳 /map 帶 query, /map 後續 (U6b) 解析.
+		goto(`/map?focus=${m.id}&lat=${m.lat}&lon=${m.lon}`);
 	}
 </script>
 
@@ -42,60 +104,67 @@
 	<title>Moments · DuoSync</title>
 </svelte:head>
 
-<div class="mx-auto max-w-md space-y-4 p-4">
-	<header class="flex items-center justify-between">
-		<h1 class="text-2xl font-semibold">Moments</h1>
-		<a class="btn btn-sm btn-primary" href="/moments/new">+ Drop</a>
+<div class="bg-base-100 min-h-screen">
+	<header
+		class="bg-base-100/85 sticky top-0 z-10 mx-auto flex max-w-md items-baseline justify-between px-5 py-4 backdrop-blur"
+	>
+		<h1 class="text-display text-2xl font-semibold tracking-wide">Moments</h1>
+		<a
+			href="/moments/new"
+			class="bg-primary text-primary-content shadow-paper inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold tracking-wider uppercase"
+		>
+			<Icon icon={PlusIcon} size={14} weight="bold" /> drop
+		</a>
 	</header>
 
-	{#if data.moments.length === 0}
-		<p class="text-sm text-base-content/60">
-			No moments yet. Tap <em>+ Drop</em> at a place to leave a note for your partner.
-		</p>
-	{:else}
-		<ul class="space-y-3">
-			{#each data.moments as m (m.id)}
-				{@const locked = !m.isMine && m.unlockedAt == null}
-				<li class="card bg-base-200 shadow-sm">
-					<div class="card-body p-4">
-						<div class="flex items-start justify-between gap-2">
-							<div class="text-xs tracking-wide uppercase opacity-70">
-								{#if m.isMine}
-									You · {fmt(m.createdAt)}
-								{:else if locked}
-									Partner · locked
-								{:else}
-									Partner · unlocked {m.unlockedAt ? fmt(m.unlockedAt) : ''}
-								{/if}
-							</div>
-							{#if m.isMine}
-								<button
-									class="btn btn-ghost btn-xs"
-									disabled={busyDelete === m.id}
-									onclick={() => remove(m.id)}
-								>
-									Delete
-								</button>
-							{/if}
-						</div>
-
-						{#if locked}
-							<p class="italic opacity-60">
-								🔒 Walk closer to read — within ~{m.radiusM}m of the pin.
-							</p>
-						{:else if m.body}
-							<p class="whitespace-pre-wrap">{m.body}</p>
-						{:else}
-							<p class="italic opacity-60">(no content)</p>
-						{/if}
-
-						<div class="text-xs opacity-60">
-							{m.lat.toFixed(5)}, {m.lon.toFixed(5)} · r={m.radiusM}m
-							{#if m.expiresAt}· expires {fmt(m.expiresAt)}{/if}
-						</div>
-					</div>
-				</li>
-			{/each}
-		</ul>
-	{/if}
+	<main class="mx-auto max-w-md px-5 pb-32">
+		{#if data.moments.length === 0}
+			<div
+				class="border-base-content/10 mt-12 grid place-items-center rounded-[var(--radius-card)] border border-dashed py-16 text-center"
+			>
+				<Icon icon={SparkleIcon} size={36} weight="duotone" class="text-primary/60" />
+				<p class="text-base-content/70 mt-3 max-w-[14rem] text-sm">
+					還沒有任何時刻. 走到一處再點 <em class="font-semibold">+ Drop</em>, 為對方留言.
+				</p>
+			</div>
+		{:else}
+			<div class="mt-2 space-y-8">
+				{#each groups as g (g.key)}
+					<section>
+						<p class="text-base-content/40 mb-3 text-[10px] tracking-[0.2em] uppercase">
+							{g.label}
+						</p>
+						<ul class="space-y-3">
+							{#each g.items as m (m.id)}
+								{@const locked = !m.isMine && m.unlockedAt == null}
+								<li class="relative">
+									<MomentCard
+										{locked}
+										authorIsViewer={m.isMine}
+										authorName={data.partnerName}
+										body={m.body}
+										createdAt={m.createdAt}
+										radiusM={m.radiusM}
+										distanceFromViewerM={distanceFor(m)}
+										onOpenMap={() => openMap(m)}
+									/>
+									{#if m.isMine}
+										<button
+											type="button"
+											class="text-base-content/40 hover:text-error absolute top-3 right-12 text-xs"
+											disabled={busyDelete === m.id}
+											onclick={() => remove(m.id)}
+											aria-label="Delete moment"
+										>
+											{busyDelete === m.id ? '...' : '✕'}
+										</button>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</section>
+				{/each}
+			</div>
+		{/if}
+	</main>
 </div>
