@@ -10,6 +10,7 @@
 
 	const today = new Date();
 	function daysAgo(n: number) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- static fixture data for Storybook args
 		const d = new Date(today);
 		d.setDate(d.getDate() - n);
 		return d.toISOString();

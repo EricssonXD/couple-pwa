@@ -78,6 +78,7 @@ export function createGeolocationTracker() {
 			lat: pos.coords.latitude,
 			lon: pos.coords.longitude,
 			accuracyM: pos.coords.accuracy,
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot ISO serialisation, never observed reactively
 			capturedAt: new Date(pos.timestamp).toISOString()
 		};
 		if (pos.coords.heading != null && !Number.isNaN(pos.coords.heading))
@@ -96,6 +97,7 @@ export function createGeolocationTracker() {
 				body: JSON.stringify(body)
 			});
 			if (!res.ok) throw new Error(`ping ${res.status}`);
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- bookkeeping timestamp, only compared via getTime()
 			lastSentAt = new Date();
 			lastSentCoord = {
 				lat: pos.coords.latitude,

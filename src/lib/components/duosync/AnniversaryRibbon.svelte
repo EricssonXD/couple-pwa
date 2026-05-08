@@ -32,11 +32,13 @@
 	const milestones = $derived.by((): Milestone[] => {
 		const out: Milestone[] = [];
 		for (const d of [100, 200, 365, 500, 1000, 2000, 3650]) {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral derivation, mutated then frozen in the returned array
 			const t = new Date(baseDate);
 			t.setUTCDate(t.getUTCDate() + d);
 			out.push({ label: tr.anniversary_milestone_days({ n: d }), date: t });
 		}
 		for (let y = 1; y <= 15; y++) {
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral derivation, mutated then frozen in the returned array
 			const t = new Date(baseDate);
 			t.setUTCFullYear(t.getUTCFullYear() + y);
 			out.push({ label: tr.anniversary_milestone_years({ n: y }), date: t });

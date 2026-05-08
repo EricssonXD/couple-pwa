@@ -169,7 +169,11 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				if (s === 'SUBSCRIBED') {
 					status = 'open';
 					try {
-						await channel?.track({ presence: 'online', online_at: new Date().toISOString() });
+						await channel?.track({
+							presence: 'online',
+							// eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot ISO timestamp sent over the wire
+							online_at: new Date().toISOString()
+						});
 					} catch (e) {
 						lastError = String(e);
 					}
@@ -237,7 +241,11 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		async setPresence(p: Presence) {
 			if (!channel) return;
 			try {
-				await channel.track({ presence: p, online_at: new Date().toISOString() });
+				await channel.track({
+					presence: p,
+					// eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot ISO timestamp sent over the wire
+					online_at: new Date().toISOString()
+				});
 			} catch (e) {
 				lastError = String(e);
 			}
