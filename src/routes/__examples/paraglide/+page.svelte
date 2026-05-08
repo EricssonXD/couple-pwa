@@ -7,7 +7,7 @@
 
 <div>
 	<button onclick={() => setLocale('en')}>en</button>
-	<button onclick={() => setLocale('zh-cn')}>zh-cn</button>
+	<button onclick={() => setLocale('zh-hant')}>zh-hant</button>
 </div>
 
 <p>
