@@ -18,8 +18,8 @@
 	<title>{mode === 'signup' ? 'Create account' : 'Sign in'} — DuoSync</title>
 </svelte:head>
 
-<main class="hero min-h-screen bg-gradient-to-b from-rose-50 to-violet-50 px-4">
-	<div class="card w-full max-w-md bg-base-100 shadow-xl">
+<main class="hero bg-base-200 min-h-screen px-4">
+	<div class="card bg-base-100 shadow-paper w-full max-w-md">
 		<div class="card-body">
 			<h1 class="text-3xl font-semibold tracking-tight">
 				{mode === 'signup' ? 'Create your account' : 'Welcome back'}
