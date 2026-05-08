@@ -6,6 +6,8 @@
 	"overrides": {},
 	"scripts": {
 		"dev": "vite dev",
+		"dev:bootstrap": "bash scripts/dev-bootstrap.sh",
+		"seed:dev": "ALLOW_DEV_SEED=1 bun run scripts/seed-dev-couple.ts",
 		"build": "vite build",
 		"preview": "wrangler dev .svelte-kit/cloudflare/_worker.js --port 4173",
 		"prepare": "svelte-kit sync || echo ''",
