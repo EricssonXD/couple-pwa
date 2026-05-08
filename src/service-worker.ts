@@ -14,9 +14,13 @@
 //     network spinner) when those routes have been cached previously.
 //   - Hashed build assets → cache-first, immutable.
 //   - Static files → cache-first.
-//   - HTML navigations → network-first (with Navigation Preload to
-//     overlap fetch with SW boot), fall back to cached HTML, then
-//     to /offline as a last resort. HTML cache trimmed to MAX entries.
+//   - HTML navigations + SvelteKit __data.json → stale-while-revalidate.
+//     Cache wins instantly on every tab switch (native-feel response,
+//     no 1s network round-trip), then we refresh in the background so
+//     the next visit sees fresh content. First-ever visit to a route
+//     waits on the network (or navigation preload, which started in
+//     parallel); afterwards: instant. Falls back to /offline only on
+//     a cache miss + network failure. HTML cache trimmed to MAX entries.
 //   - Images (own origin) → stale-while-revalidate with a small LRU cap.
 //   - Never cache /api/* or /auth/* — these hold private session data
 //     and must not be served stale or to the wrong user.
@@ -30,6 +34,9 @@
 //     controlled by the new SW after the user-initiated reload.
 //   - UI posts {type: 'SKIP_WAITING'} on user gesture; that triggers
 //     activation; controllerchange then fires; register.ts reloads.
+//   - SWR HTML strategy means the user might see one stale paint after
+//     a deploy before the UpdateBanner appears — acceptable trade for
+//     native-feel tab switches.
 
 import { build, files, version } from '$service-worker';
 
@@ -175,37 +182,51 @@ sw.addEventListener('fetch', (event) => {
 		return;
 	}
 
-	// 2) HTML navigations + SvelteKit __data.json → network-first w/ offline fallback.
+	// 2) HTML navigations + SvelteKit __data.json → stale-while-revalidate.
+	//    Cached page paints instantly; network refreshes in the background
+	//    so the next visit sees fresh content. First-ever visit waits on
+	//    the network (which is what the user would have done anyway).
 	const isHtml =
 		request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html');
 	const isData = isDataRequest(url.pathname);
 	if (isHtml || isData) {
 		event.respondWith(
 			(async () => {
-				try {
-					// Use the navigation-preload response if available — it
-					// began before this fetch handler ran.
-					const preload =
-						isHtml && 'preloadResponse' in event
-							? await (event as FetchEvent).preloadResponse
-							: undefined;
-					const response = preload ?? (await fetch(request));
-					if (response.ok && response.type === 'basic') {
-						const copy = response.clone();
-						const cache = await caches.open(HTML_CACHE);
-						await cache.put(request, copy);
-						trimCache(HTML_CACHE, HTML_CACHE_MAX);
+				const cache = await caches.open(HTML_CACHE);
+				const cached = await cache.match(request);
+
+				const network = (async () => {
+					try {
+						// Use the navigation-preload response if available — it
+						// began before this fetch handler ran.
+						const preload =
+							isHtml && 'preloadResponse' in event
+								? await (event as FetchEvent).preloadResponse
+								: undefined;
+						const response = preload ?? (await fetch(request));
+						if (response.ok && response.type === 'basic') {
+							const copy = response.clone();
+							await cache.put(request, copy);
+							trimCache(HTML_CACHE, HTML_CACHE_MAX);
+						}
+						return response;
+					} catch {
+						if (cached) return cached;
+						if (isHtml) {
+							const offline = await caches.match(OFFLINE_URL);
+							if (offline) return offline;
+						}
+						return Response.error();
 					}
-					return response;
-				} catch {
-					const cached = await caches.match(request);
-					if (cached) return cached;
-					if (isHtml) {
-						const offline = await caches.match(OFFLINE_URL);
-						if (offline) return offline;
-					}
-					return Response.error();
+				})();
+
+				// SWR: serve cache instantly when present; let the network
+				// fetch settle (and update the cache) in the background.
+				if (cached) {
+					event.waitUntil(network.catch(() => {}));
+					return cached;
 				}
+				return network;
 			})()
 		);
 		return;
