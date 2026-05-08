@@ -22,8 +22,6 @@
 -->
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
-	import { goto, invalidate } from '$app/navigation';
-	import { getSupabaseClient } from '$lib/auth-client';
 	import { createGeolocationTracker } from '$lib/client/geolocation.svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { createOnlineStatus } from '$lib/client/online.svelte';
@@ -34,7 +32,6 @@
 		DistanceBubble,
 		PartnerAvatar,
 		AnniversaryRibbon,
-		GhostBanner,
 		MemoryResurface,
 		HeartbeatZone
 	} from '$lib/components/duosync';
@@ -67,8 +64,10 @@
 	const net = createOnlineStatus();
 
 	let live = $state<StateResp>(untrack(() => data.initialState as unknown as StateResp));
+	// Ghost mode is read-only on /pulse — toggle lives in /settings.
+	// We still track it locally so the geolocation tracker pauses and
+	// the user's own avatar shows the ghost presence dot.
 	let ghostOn = $state(untrack(() => data.me.ghostMode));
-	let ghostBusy = $state(false);
 	let now = $state(Date.now());
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let tickTimer: ReturnType<typeof setInterval> | null = null;
@@ -148,26 +147,6 @@
 		}
 	}
 
-	async function toggleGhost() {
-		ghostBusy = true;
-		const next = !ghostOn;
-		try {
-			const res = await fetch('/api/location/ghost', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ enabled: next })
-			});
-			if (res.ok) {
-				ghostOn = next;
-				if (next) tracker.stop();
-				else void tracker.start();
-				await invalidate('/pulse');
-			}
-		} finally {
-			ghostBusy = false;
-		}
-	}
-
 	let lastSendAt = 0;
 	function sendTap() {
 		// 1s throttle 防連觸
@@ -176,13 +155,6 @@
 		lastSendAt = t;
 		void rt.sendHeartbeatTap();
 		// HeartbeatZone 已 vibrate(TAP_HEARTBEAT); 無需再震
-	}
-
-	async function handleSignOut() {
-		tracker.stop();
-		void rt.stop();
-		await getSupabaseClient().auth.signOut();
-		await goto('/');
 	}
 
 	onMount(async () => {
@@ -233,31 +205,14 @@
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 pt-6 pb-32">
-	<!-- 1. Top chrome: ribbon + 簽出 -->
-	<header class="flex items-start gap-2">
-		<div class="min-w-0 flex-1">
-			<AnniversaryRibbon
-				coupleSince={data.coupleSince}
-				anniversary={data.anniversary}
-				nickname={data.coupleNickname}
-			/>
-		</div>
-		<button
-			class="shrink-0 px-2 py-1 text-[11px] tracking-wider text-base-content/50 uppercase hover:text-base-content"
-			type="button"
-			onclick={handleSignOut}
-			aria-label={m.settings_signout()}
-		>
-			{m.settings_signout()}
-		</button>
+	<!-- 1. Top chrome: ribbon (sign-out + ghost toggle live in /settings) -->
+	<header>
+		<AnniversaryRibbon
+			coupleSince={data.coupleSince}
+			anniversary={data.anniversary}
+			nickname={data.coupleNickname}
+		/>
 	</header>
-
-	<!-- 2. 自隱身時 banner + 解除 -->
-	{#if ghostOn}
-		<div class="mt-3">
-			<GhostBanner ghostUntil={data.me.ghostUntil} onExit={ghostBusy ? undefined : toggleGhost} />
-		</div>
-	{/if}
 
 	<!-- 3. 離線提示 -->
 	{#if !net.online}
@@ -317,26 +272,6 @@
 	{#if data.memory}
 		<section class="mt-6">
 			<MemoryResurface memory={data.memory} viewerId={data.me.id} {partnerName} />
-		</section>
-	{/if}
-
-	<!-- 7. Ghost mode 開關 (僅未隱身時; 已隱身用上方 banner 解除) -->
-	{#if !ghostOn}
-		<section class="mt-6">
-			<button
-				type="button"
-				class="flex w-full items-center justify-between rounded-full border border-base-content/5 bg-base-200 px-4 py-3 text-left text-sm text-base-content transition-colors hover:bg-base-300/60 disabled:opacity-50"
-				onclick={toggleGhost}
-				disabled={ghostBusy}
-			>
-				<span>
-					<span class="font-semibold">{m.settings_ghost_label()}</span>
-					<span class="ml-2 text-xs text-base-content/50">{m.pulse_ghost_pause()}</span>
-				</span>
-				<span class="text-xs font-semibold tracking-wider text-primary uppercase"
-					>{m.pulse_enable()}</span
-				>
-			</button>
 		</section>
 	{/if}
 
