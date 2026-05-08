@@ -8,14 +8,21 @@
 // Strategy:
 //   - Pre-cache the app shell (hashed `build` assets, static `files`,
 //     plus the offline fallback page) at install.
+//   - Warm the HTML cache for core routes (/pulse, /map, /moments,
+//     /settings, /) at install — best-effort, never blocks activation.
+//     This makes cold launch from the home screen feel native (no
+//     network spinner) when those routes have been cached previously.
 //   - Hashed build assets → cache-first, immutable.
 //   - Static files → cache-first.
-//   - HTML navigations → network-first, fall back to cached HTML, then
-//     to /offline as a last resort.
+//   - HTML navigations → network-first (with Navigation Preload to
+//     overlap fetch with SW boot), fall back to cached HTML, then
+//     to /offline as a last resort. HTML cache trimmed to MAX entries.
 //   - Images (own origin) → stale-while-revalidate with a small LRU cap.
 //   - Never cache /api/* or /auth/* — these hold private session data
 //     and must not be served stale or to the wrong user.
 //   - Never cache non-GET, non-2xx, opaque, or cross-origin requests.
+//   - On activate, broadcast {type: 'duosync-sw-updated', version} to
+//     all clients so the UI can show a soft "new version ready" hint.
 
 import { build, files, version } from '$service-worker';
 
@@ -30,6 +37,13 @@ const OFFLINE_URL = '/offline';
 const SHELL_ASSETS = [...build, ...files, OFFLINE_URL];
 const SHELL_SET = new Set(SHELL_ASSETS);
 
+// Routes warmed at install so the home-screen launch paints from cache
+// even on a cold network. These must be public (no auth wall) OR be
+// fine returning the unauthenticated SSR variant — which is true here
+// because protected routes redirect at the route handler, not in HTML.
+const WARM_ROUTES = ['/', '/pulse', '/map', '/moments', '/settings'];
+
+const HTML_CACHE_MAX = 24;
 const IMG_CACHE_MAX = 60;
 
 function isPrivatePath(pathname: string): boolean {
@@ -55,10 +69,13 @@ async function trimCache(cacheName: string, max: number): Promise<void> {
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(
-		caches.open(SHELL_CACHE).then((cache) =>
+		(async () => {
+			const cache = await caches.open(SHELL_CACHE);
 			// addAll fails atomically — guard the offline fallback so a missing
 			// route doesn't block the whole install.
-			cache.addAll(SHELL_ASSETS).catch(async () => {
+			try {
+				await cache.addAll(SHELL_ASSETS);
+			} catch {
 				for (const asset of SHELL_ASSETS) {
 					try {
 						await cache.add(asset);
@@ -66,20 +83,65 @@ sw.addEventListener('install', (event) => {
 						/* swallow */
 					}
 				}
-			})
-		)
+			}
+
+			// Best-effort warm of core HTML routes. Never throws — if the
+			// network is unreachable at install (common on first run from a
+			// flaky connection), the routes simply remain uncached and will
+			// be fetched on first navigation. Fetch with `cache: 'no-store'`
+			// so we don't poison the HTTP cache, then store the response
+			// ourselves in HTML_CACHE.
+			const htmlCache = await caches.open(HTML_CACHE);
+			await Promise.all(
+				WARM_ROUTES.map(async (route) => {
+					try {
+						const res = await fetch(route, {
+							cache: 'no-store',
+							credentials: 'omit',
+							redirect: 'manual'
+						});
+						if (res.ok && res.type === 'basic') {
+							await htmlCache.put(route, res);
+						}
+					} catch {
+						/* offline at install — fine */
+					}
+				})
+			);
+		})()
 	);
 	sw.skipWaiting();
 });
 
 sw.addEventListener('activate', (event) => {
 	event.waitUntil(
-		caches
-			.keys()
-			.then((keys) =>
-				Promise.all(keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k)))
-			)
-			.then(() => sw.clients.claim())
+		(async () => {
+			// Enable Navigation Preload so the network fetch starts in
+			// parallel with SW boot on every navigation. Significant TTFB
+			// win on cold SW starts; harmless where unsupported.
+			if ('navigationPreload' in sw.registration) {
+				try {
+					await sw.registration.navigationPreload.enable();
+				} catch {
+					/* unsupported */
+				}
+			}
+
+			const keys = await caches.keys();
+			await Promise.all(
+				keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k))
+			);
+
+			await sw.clients.claim();
+
+			// Notify open clients that a new SW is now controlling them so
+			// the UI can show a soft "new version ready" hint without forcing
+			// a reload mid-interaction.
+			const clients = await sw.clients.matchAll({ type: 'window' });
+			for (const client of clients) {
+				client.postMessage({ type: 'duosync-sw-updated', version });
+			}
+		})()
 	);
 });
 
@@ -109,11 +171,18 @@ sw.addEventListener('fetch', (event) => {
 		event.respondWith(
 			(async () => {
 				try {
-					const response = await fetch(request);
+					// Use the navigation-preload response if available — it
+					// began before this fetch handler ran.
+					const preload =
+						isHtml && 'preloadResponse' in event
+							? await (event as FetchEvent).preloadResponse
+							: undefined;
+					const response = preload ?? (await fetch(request));
 					if (response.ok && response.type === 'basic') {
 						const copy = response.clone();
 						const cache = await caches.open(HTML_CACHE);
-						cache.put(request, copy);
+						await cache.put(request, copy);
+						trimCache(HTML_CACHE, HTML_CACHE_MAX);
 					}
 					return response;
 				} catch {
