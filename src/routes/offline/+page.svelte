@@ -21,12 +21,17 @@
 
 <svelte:head>
 	<title>Offline — DuoSync</title>
+	<!-- Force dark theme: this page is the "absent" state. Inline so it
+	     applies even when SW serves the HTML before client hydration. -->
+	<script>
+		document.documentElement.dataset.theme = 'duosync-dark';
+	</script>
 </svelte:head>
 
 <main class="offline">
 	<div class="card">
 		<div class="emoji" aria-hidden="true">🌙</div>
-		<h1>You're offline</h1>
+		<h1 class="text-display">You're offline</h1>
 		<p>
 			DuoSync needs a connection to refresh this page. The last data you saw is still cached and
 			will reload automatically when you're back online.
@@ -44,17 +49,16 @@
 		display: grid;
 		place-items: center;
 		padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
-		background: linear-gradient(160deg, #0f172a 0%, #1e1b4b 100%);
-		color: #e5e7eb;
+		background: var(--color-base-100);
+		color: var(--color-base-content);
 	}
 	.card {
 		max-width: 26rem;
 		text-align: center;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 1.25rem;
+		background: var(--color-base-200);
+		border-radius: var(--radius-card);
 		padding: 2rem 1.5rem;
-		backdrop-filter: blur(12px);
+		box-shadow: var(--shadow-paper);
 	}
 	.emoji {
 		font-size: 3rem;
@@ -62,29 +66,32 @@
 	}
 	h1 {
 		margin: 0 0 0.5rem;
-		font-size: 1.5rem;
+		font-size: 1.75rem;
+		font-weight: 600;
+		letter-spacing: -0.01em;
 	}
 	p {
 		margin: 0.25rem 0;
-		color: #cbd5e1;
+		color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
 		font-size: 0.95rem;
 	}
 	.status {
 		margin-top: 1rem;
 		font-size: 0.85rem;
-		color: #fbbf24;
+		color: var(--color-warning);
 	}
 	.status.online {
-		color: #4ade80;
+		color: var(--color-secondary);
 	}
 	.cta {
 		margin-top: 1.25rem;
 		padding: 0.75rem 1.5rem;
 		font-weight: 600;
-		color: white;
-		background: linear-gradient(90deg, #e11d48, #6d28d9);
+		color: var(--color-primary-content);
+		background: var(--color-primary);
 		border: none;
-		border-radius: 999px;
+		border-radius: var(--radius-bubble);
 		cursor: pointer;
+		box-shadow: var(--shadow-paper);
 	}
 </style>
