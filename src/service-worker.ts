@@ -30,15 +30,18 @@
 // `$lib/pwa/register.ts`):
 //   - install does NOT call skipWaiting. New SW stays in 'installed'
 //     state until the user clicks the UpdateBanner.
-//   - activate does NOT call clients.claim. The page is only
-//     controlled by the new SW after the user-initiated reload.
+//   - activate does NOT call clients.claim. We do NOT want every deploy
+//     to auto-reload every open tab.
 //   - UI posts 'SKIP_WAITING' on user gesture (string, matches the
-//     equality check below). The new SW activates; register.ts waits
-//     for the new worker's statechange→'activated' before reloading,
-//     so the next page boot is controlled by the new version.
-//   - controllerchange does NOT fire from skipWaiting() alone (we
-//     deliberately don't claim) — the reload IS the handoff. The
-//     register.ts statechange listener is what actually triggers it.
+//     equality check below). The message handler then calls BOTH
+//     skipWaiting() AND clients.claim() — the latter is the user-opt-in
+//     handoff that makes the new SW the controller. clients.claim() is
+//     what causes `controllerchange` to fire on the page; register.ts
+//     listens for that and reloads exactly once.
+//   - Without claim() at SKIP_WAITING time, in installed-PWA / standalone
+//     contexts the page can reload while the OLD SW is still controller
+//     and observe the new SW as still "waiting" → banner re-emits in a
+//     loop. Empirically observed on iOS/Android home-screen installs.
 //   - SWR HTML strategy means the user might see one stale paint after
 //     a deploy before the UpdateBanner appears — acceptable trade for
 //     native-feel tab switches.
@@ -154,9 +157,7 @@ sw.addEventListener('activate', (event) => {
 			}
 
 			const keys = await caches.keys();
-			await Promise.all(
-				keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k))
-			);
+			await Promise.all(keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k)));
 
 			// Do NOT call sw.clients.claim(). That would trigger a
 			// controllerchange event on the page, which the registration
@@ -170,7 +171,22 @@ sw.addEventListener('activate', (event) => {
 });
 
 sw.addEventListener('message', (event) => {
-	if (event.data === 'SKIP_WAITING') sw.skipWaiting();
+	if (event.data !== 'SKIP_WAITING') return;
+	// User-gesture handoff. Two-step:
+	//   1) skipWaiting() → this SW transitions installed → activating → activated.
+	//   2) clients.claim() → this SW becomes the controller of all open clients,
+	//      which fires `controllerchange` on the page so register.ts can reload
+	//      from a known-good "new SW is in control" state.
+	// We deliberately gate claim() behind this user-gesture message rather than
+	// calling it in the activate handler — that would auto-reload every tab on
+	// every deploy (the loop we removed). Here it's safe: the page just asked
+	// for the update.
+	event.waitUntil(
+		(async () => {
+			await sw.skipWaiting();
+			await sw.clients.claim();
+		})()
+	);
 });
 
 sw.addEventListener('fetch', (event) => {

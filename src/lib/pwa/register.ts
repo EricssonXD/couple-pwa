@@ -52,22 +52,34 @@ export async function applySwUpdate(): Promise<void> {
 		return;
 	}
 
-	// CRITICAL: only reload AFTER the new SW finishes activating. We
-	// removed clients.claim() to avoid the auto-reload loop, which means
-	// `controllerchange` does NOT fire from skipWaiting() alone — the
-	// reload IS the activation handoff. If we reload before the new SW
-	// is 'activated', the new page boots controlled by the OLD SW with
-	// the new one still in 'installed' (waiting) → banner reappears
-	// immediately and the user is stuck in a "click does nothing" loop.
+	// Post SKIP_WAITING — the SW message handler will skipWaiting() AND
+	// clients.claim(). The claim is what causes `controllerchange` to
+	// fire on this page, and the page-level controllerchange listener
+	// (registered in registerServiceWorker below) calls reloadOnce().
+	//
+	// Why claim at gesture time instead of relying on statechange? In
+	// installed-PWA / standalone contexts, a location.reload() fired off
+	// the worker's 'activated' statechange can race the activation
+	// handoff: the reloaded page boots while the OLD SW is still the
+	// controller, and from that page's perspective the new SW still
+	// looks "waiting" → the UpdateBanner re-emits immediately and the
+	// user is stuck in a loop. Waiting for controllerchange — which only
+	// fires after claim() — guarantees the new SW is the controller
+	// before we reload. claim() is gated on the user gesture (this
+	// SKIP_WAITING message), so it does NOT cause auto-reload loops on
+	// every deploy.
+	//
+	// We still register a statechange→'activated' listener as a defensive
+	// fallback in case claim() fails or controllerchange is dropped.
 	worker.addEventListener('statechange', () => {
 		if (worker.state === 'activated') reloadOnce();
 	});
 	worker.postMessage('SKIP_WAITING');
 
-	// Long-tail safety net only — if the message is dropped entirely
-	// (SW died, browser swallowed it, etc.), reload after 10s so the
-	// click is never permanently silent. The shared `reloading` flag
-	// guarantees we still reload at most once.
+	// Long-tail safety net only — if both the message AND controllerchange
+	// are dropped entirely (SW died, browser swallowed it, etc.), reload
+	// after 10s so the click is never permanently silent. The shared
+	// `reloading` flag guarantees we still reload at most once.
 	setTimeout(reloadOnce, 10000);
 }
 
@@ -100,10 +112,12 @@ export async function registerServiceWorker(): Promise<void> {
 		trackInstall(reg.installing);
 		reg.addEventListener('updatefound', () => trackInstall(reg.installing));
 
-		// Fires when the user accepts an update via applySwUpdate(). With
-		// install-time skipWaiting + activate-time clients.claim removed
-		// from the SW, this event ONLY happens after a user gesture, so a
-		// reload here never interrupts the user mid-interaction.
+		// Fires when the new SW becomes the controller of this page,
+		// which happens when the SW message handler calls clients.claim()
+		// in response to the SKIP_WAITING gesture. With install-time
+		// skipWaiting AND activate-time clients.claim removed from the
+		// SW, this event ONLY happens after a user gesture, so a reload
+		// here never interrupts the user mid-interaction.
 		navigator.serviceWorker.addEventListener('controllerchange', reloadOnce);
 	} catch (err) {
 		console.warn('[duosync] SW registration failed', err);
