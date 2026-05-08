@@ -9,6 +9,12 @@
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
 	},
-	"workers_dev": true,
+	// Custom domain. `custom_domain: true` makes Cloudflare auto-manage
+	// the DNS A record and the TLS certificate for this hostname; the
+	// zone (ericssoncodes.com) must already be active on this account.
+	// Local dev (`bun run dev` → Vite, `bun run preview` → wrangler dev)
+	// is unaffected and keeps serving on localhost.
+	"routes": [{ "pattern": "cozy.ericssoncodes.com", "custom_domain": true }],
+	"workers_dev": false,
 	"preview_urls": true
 }
