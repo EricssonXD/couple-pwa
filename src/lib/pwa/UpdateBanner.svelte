@@ -19,7 +19,7 @@
 		position: fixed;
 		left: 50%;
 		transform: translateX(-50%);
-		bottom: max(1rem, env(safe-area-inset-bottom));
+		bottom: calc(env(safe-area-inset-bottom) + 4.5rem);
 		z-index: 9999;
 		display: flex;
 		gap: 0.75rem;
