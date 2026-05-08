@@ -1,0 +1,23 @@
+# Cloudflare Pages / Workers Assets headers.
+# Adapter-cloudflare copies this file to the build output and appends its
+# own auto-generated immutable headers for /_app/* afterwards.
+
+# Never cache the service worker script itself. Without this, Cloudflare
+# edges and the browser HTTP cache can serve stale or inconsistent SW
+# bytes after a deploy, causing an infinite "new version available" loop:
+# the browser fetches /service-worker.js, sees different bytes than the
+# currently-active worker, kicks off install, our register.ts emits the
+# UpdateBanner, the user clicks Reload, the page reloads, the browser
+# fetches /service-worker.js again, gets *another* different cached copy,
+# and the cycle repeats. The only escape was manually unregistering the
+# SW in DevTools. no-cache + no-store + must-revalidate forces every
+# request to hit origin and get the canonical SW for the current deploy.
+/service-worker.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+# The web manifest can change between deploys (icons, name, theme color)
+# and is cheap to refetch. Keep it fresh so PWA install metadata isn't
+# pinned to a stale build.
+/manifest.webmanifest
+  Cache-Control: no-cache

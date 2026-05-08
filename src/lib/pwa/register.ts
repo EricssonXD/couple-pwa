@@ -91,21 +91,43 @@ export async function registerServiceWorker(): Promise<void> {
 	try {
 		const reg = await navigator.serviceWorker.register('/service-worker.js', {
 			type: 'module',
-			scope: '/'
+			scope: '/',
+			// Bypass the HTTP cache when the browser checks /service-worker.js
+			// for updates. Default is 'imports', which still allows the main
+			// SW script to be served from HTTP cache subject to its
+			// Cache-Control headers. We belt-and-suspenders this with a
+			// `Cache-Control: no-cache` entry in `_headers` for /service-worker.js
+			// — together they guarantee every update check sees the canonical
+			// SW for the current deploy and never an edge-cached older copy
+			// (which was the root cause of the UpdateBanner re-emit loop on
+			// Cloudflare).
+			updateViaCache: 'none'
 		});
 		registration = reg;
+
+		// Defensive guard: don't re-emit "update-available" for a worker we
+		// already activated this page-load. After a successful update flow
+		// (SKIP_WAITING → claim → reload), the new SW is the controller and
+		// reg.waiting should be null. If a flaky CDN serves *yet another*
+		// SW build on the very next update-check, we'd loop again. Tracking
+		// the activated scriptURL gives us a kill-switch: same script ⇒
+		// stay quiet. Different script ⇒ legitimate new deploy, banner OK.
+		const controllerScript = navigator.serviceWorker.controller?.scriptURL ?? null;
+		const isSameAsController = (w: ServiceWorker | null) =>
+			!!w && !!controllerScript && w.scriptURL === controllerScript;
 
 		const trackInstall = (worker: ServiceWorker | null) => {
 			if (!worker) return;
 			worker.addEventListener('statechange', () => {
 				if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+					if (isSameAsController(worker)) return;
 					waitingWorker = worker;
 					emit('update-available');
 				}
 			});
 		};
 
-		if (reg.waiting) {
+		if (reg.waiting && !isSameAsController(reg.waiting)) {
 			waitingWorker = reg.waiting;
 			emit('update-available');
 		}
