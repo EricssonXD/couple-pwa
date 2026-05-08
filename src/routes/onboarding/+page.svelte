@@ -1,5 +1,9 @@
 <!--
-  /onboarding — name + avatar emoji + anniversary (U6e).
+  /onboarding — name + pronouns + avatar emoji.
+
+  Just basic personal info needed for pairing. Anniversary moved to
+  /settings (couple-level) — couples set it together after they pair,
+  not as a solo step.
 
   Visual rebuild only — the form action contract is unchanged so
   +page.server.ts works as-is. Mood input is intentionally deferred
@@ -87,18 +91,6 @@
 					{/each}
 				</div>
 			</fieldset>
-
-			<label class="block">
-				<span class="mb-1.5 block text-xs tracking-wider text-base-content/70 uppercase">
-					{m.onboarding_form_anniversary()}
-					<span class="text-base-content/40 normal-case">{m.onboarding_form_optional()}</span>
-				</span>
-				<input
-					class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-200 px-4 py-3 text-base outline-none focus:border-primary"
-					type="date"
-					name="anniversary"
-				/>
-			</label>
 
 			{#if form?.error}
 				<div class="rounded-[var(--radius-card)] bg-error/10 px-4 py-3 text-sm text-error">

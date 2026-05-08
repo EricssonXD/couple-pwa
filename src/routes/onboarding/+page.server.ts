@@ -21,7 +21,6 @@ export const actions: Actions = {
 		const displayName = fd.get('displayName')?.toString().trim();
 		const pronouns = fd.get('pronouns')?.toString().trim() || null;
 		const avatarEmoji = fd.get('avatarEmoji')?.toString().trim() || null;
-		const anniversary = fd.get('anniversary')?.toString().trim() || null;
 
 		if (!displayName) return fail(400, { error: 'Display name required' });
 
@@ -38,10 +37,6 @@ export const actions: Actions = {
 				target: profile.userId,
 				set: { displayName, pronouns, avatarEmoji, onboardedAt: new Date() }
 			});
-
-		// Anniversary is currently a couple-level field; we'll wire it after pairing.
-		// Stash on a cookie temporarily so the link step can pre-fill if desired.
-		void anniversary;
 
 		redirect(303, '/onboarding/link');
 	}
