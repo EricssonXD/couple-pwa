@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { beforeNavigate, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { locales, localizeHref } from '$lib/paraglide/runtime';
 	import { initInstallPrompt } from '$lib/pwa/install';
 	import { registerServiceWorker } from '$lib/pwa/register';
@@ -47,7 +48,7 @@
 		if (typeof navigator !== 'undefined' && navigator.onLine) return;
 		if (!hasAuthHint()) return;
 		cancel();
-		goto('/pulse', { replaceState: true });
+		goto(resolve('/pulse'), { replaceState: true });
 	});
 
 	onMount(() => {
@@ -66,7 +67,8 @@
 <UpdateBanner />
 
 <div style="display:none">
-	{#each locales as locale}
+	{#each locales as locale (locale)}
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- localizeHref returns a fully-resolved Pathname for the given locale; resolve() would re-prefix base. -->
 		<a href={localizeHref(page.url.pathname, { locale })}>{locale}</a>
 	{/each}
 </div>

@@ -9,6 +9,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import QRCode from 'qrcode';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -57,7 +58,7 @@
 	async function celebrateAndGo() {
 		celebrating = true;
 		await new Promise((r) => setTimeout(r, 1500));
-		await goto('/pulse', { invalidateAll: true });
+		await goto(resolve('/pulse'), { invalidateAll: true });
 	}
 
 	async function redeem(e: SubmitEvent) {

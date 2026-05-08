@@ -15,6 +15,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { SparkleIcon } from '$lib/components/ui/icons';
+	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 
 	type Memory =
@@ -79,7 +80,7 @@
 					「{memory.body}」
 				</p>
 				<a
-					href="/moments"
+					href={resolve('/moments')}
 					class="mt-3 inline-block text-xs font-semibold tracking-wider text-primary uppercase hover:underline"
 				>
 					see moments →

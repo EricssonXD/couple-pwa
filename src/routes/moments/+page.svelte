@@ -12,6 +12,7 @@
 -->
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
@@ -97,7 +98,8 @@
 
 	function openMap(m: M) {
 		// 暫: 跳 /map 帶 query, /map 後續 (U6b) 解析.
-		goto(`/map?focus=${m.id}&lat=${m.lat}&lon=${m.lon}`);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- destination already wrapped via resolve('/map')
+		goto(resolve('/map') + `?focus=${m.id}&lat=${m.lat}&lon=${m.lon}`);
 	}
 </script>
 
@@ -111,7 +113,7 @@
 	>
 		<h1 class="text-display text-2xl font-semibold tracking-wide">{m.moments_title()}</h1>
 		<a
-			href="/moments/new"
+			href={resolve('/moments/new')}
 			class="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold tracking-wider text-primary-content uppercase shadow-paper"
 		>
 			<Icon icon={PlusIcon} size={14} weight="bold" /> drop

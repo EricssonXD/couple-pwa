@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { canInstall, promptInstall, isStandalone } from '$lib/pwa/install';
 	import { iosInstallMode, type IosInstallMode } from '$lib/pwa/ios-install';
 	import { IosInstallSheet } from '$lib/components/duosync';
@@ -23,7 +24,7 @@
 		// stale anonymous welcome HTML.
 		if (hasAuthHint()) {
 			redirecting = true;
-			goto('/pulse', { replaceState: true });
+			goto(resolve('/pulse'), { replaceState: true });
 			return;
 		}
 
@@ -80,7 +81,7 @@
 		{/if}
 
 		{#if online}
-			<a class="cta secondary" href="/auth/sign-in">{m.welcome_get_started()}</a>
+			<a class="cta secondary" href={resolve('/auth/sign-in')}>{m.welcome_get_started()}</a>
 			<p class="muted">{m.welcome_get_started_hint()}</p>
 		{:else}
 			<button class="cta secondary" disabled aria-disabled="true">{m.welcome_get_started()}</button>

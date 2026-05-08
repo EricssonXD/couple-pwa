@@ -17,6 +17,7 @@
 -->
 <script lang="ts">
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { PulseIcon, MapPinIcon, BookOpenIcon, GearIcon } from '$lib/components/ui/icons';
@@ -24,7 +25,7 @@
 	import type { Component } from 'svelte';
 
 	type Tab = {
-		href: string;
+		href: '/pulse' | '/map' | '/moments' | '/settings';
 		label: () => string;
 		icon: Component<IconComponentProps>;
 	};
@@ -53,7 +54,7 @@
 			{@const active = isActive(t.href)}
 			<li class="flex-1">
 				<a
-					href={t.href}
+					href={resolve(t.href)}
 					class="relative flex flex-col items-center gap-0.5 py-2 text-[11px] tracking-wide transition-colors {active
 						? 'font-semibold text-primary'
 						: 'text-base-content/50 hover:text-base-content/80'}"

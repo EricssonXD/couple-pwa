@@ -22,6 +22,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
@@ -157,7 +158,7 @@
 				saveErr = m.moments_new_err_save({ status: r.status, detail: t });
 				return;
 			}
-			await goto('/moments');
+			await goto(resolve('/moments'));
 		} finally {
 			busy = false;
 		}
@@ -174,7 +175,7 @@
 	<header
 		class="sticky top-0 z-10 mx-auto flex max-w-md items-center justify-between bg-base-100/85 px-5 py-4 backdrop-blur"
 	>
-		<a class="text-xs tracking-wider text-base-content/60 uppercase" href="/moments"
+		<a class="text-xs tracking-wider text-base-content/60 uppercase" href={resolve('/moments')}
 			>{m.common_cancel()}</a
 		>
 		<h1 class="text-display text-lg font-semibold">{m.moments_new_title()}</h1>
