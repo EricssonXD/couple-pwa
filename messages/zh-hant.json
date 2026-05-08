@@ -1,6 +1,5 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "你好, {name}!",
 	"nav_pulse": "脈動",
 	"nav_map": "地圖",
 	"nav_moments": "時刻",

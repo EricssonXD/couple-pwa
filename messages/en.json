@@ -1,6 +1,5 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name}!",
 	"nav_pulse": "Pulse",
 	"nav_map": "Map",
 	"nav_moments": "Moments",

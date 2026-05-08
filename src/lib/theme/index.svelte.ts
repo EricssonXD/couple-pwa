@@ -113,16 +113,7 @@ function applyDom(theme: DuoSyncTheme): void {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Legacy API kept for any caller still importing the old names. New
-// code should use setUserTheme / setRouteTheme instead.
+// All public exports are above. Legacy setTheme()/clearTheme() shims
+// were removed in U8 cleanup — callers should use setRouteTheme(...)
+// from +layout.svelte and setUserTheme(...) from settings instead.
 // ──────────────────────────────────────────────────────────────────────
-
-/** @deprecated use setRouteTheme(theme) from +layout.svelte. */
-export function setTheme(theme: DuoSyncTheme): void {
-	setRouteTheme(theme);
-}
-
-/** @deprecated use setRouteTheme(null). */
-export function clearTheme(): void {
-	setRouteTheme(null);
-}
