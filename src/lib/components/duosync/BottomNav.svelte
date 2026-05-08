@@ -44,7 +44,7 @@
 </script>
 
 <nav
-	class="border-base-content/10 bg-base-100/90 fixed right-0 bottom-0 left-0 z-30 border-t backdrop-blur"
+	class="fixed right-0 bottom-0 left-0 z-30 border-t border-base-content/10 bg-base-100/90 backdrop-blur"
 	style="padding-bottom: env(safe-area-inset-bottom);"
 	aria-label="Primary"
 >
@@ -55,13 +55,13 @@
 				<a
 					href={t.href}
 					class="relative flex flex-col items-center gap-0.5 py-2 text-[11px] tracking-wide transition-colors {active
-						? 'text-primary font-semibold'
+						? 'font-semibold text-primary'
 						: 'text-base-content/50 hover:text-base-content/80'}"
 					aria-current={active ? 'page' : undefined}
 				>
 					{#if active}
 						<span
-							class="bg-primary/12 animate-breathe absolute inset-x-3 top-1 bottom-1 rounded-full"
+							class="animate-breathe absolute inset-x-3 top-1 bottom-1 rounded-full bg-primary/12"
 							aria-hidden="true"
 						></span>
 					{/if}

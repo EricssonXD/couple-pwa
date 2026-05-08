@@ -56,34 +56,36 @@
 
 {#if memory}
 	<aside
-		class="bg-base-200 shadow-paper border-base-content/5 relative overflow-hidden rounded-[var(--radius-card)] border"
+		class="relative overflow-hidden rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 shadow-paper"
 	>
 		<header class="flex items-center justify-between gap-3 px-4 pt-3">
 			<span class="inline-flex items-center gap-1.5">
 				<Icon icon={SparkleIcon} size={16} weight="duotone" class="text-accent" />
-				<span class="text-base-content/60 text-[10px] tracking-[0.2em] uppercase">
+				<span class="text-[10px] tracking-[0.2em] text-base-content/60 uppercase">
 					{m.memory_on_this_day()}
 				</span>
 			</span>
-			<time class="text-base-content/50 text-xs">{fmtAgo(memory.daysAgo)}</time>
+			<time class="text-xs text-base-content/50">{fmtAgo(memory.daysAgo)}</time>
 		</header>
 
 		<div class="px-4 pt-2 pb-4">
 			{#if memory.kind === 'moment'}
-				<p class="text-base-content/70 text-xs">
-					{memory.authorId === viewerId ? m.memory_you() : partnerName} · {fmtDate(memory.createdAt)}
+				<p class="text-xs text-base-content/70">
+					{memory.authorId === viewerId ? m.memory_you() : partnerName} · {fmtDate(
+						memory.createdAt
+					)}
 				</p>
-				<p class="text-base-content mt-2 text-sm leading-relaxed whitespace-pre-wrap italic">
+				<p class="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-base-content italic">
 					「{memory.body}」
 				</p>
 				<a
 					href="/moments"
-					class="text-primary mt-3 inline-block text-xs font-semibold tracking-wider uppercase hover:underline"
+					class="mt-3 inline-block text-xs font-semibold tracking-wider text-primary uppercase hover:underline"
 				>
 					see moments →
 				</a>
 			{:else}
-				<p class="text-base-content text-sm leading-relaxed">
+				<p class="text-sm leading-relaxed text-base-content">
 					{m.memory_first_ping_caption({ date: fmtDate(memory.capturedAt) })}
 				</p>
 			{/if}

@@ -22,7 +22,7 @@
 		<p class="text-sm">Pick a date range to filter moments by.</p>
 		<div class="mt-4 flex justify-end gap-2">
 			<button class="btn btn-ghost btn-sm">Cancel</button>
-			<button class="btn btn-primary btn-sm">Apply</button>
+			<button class="btn btn-sm btn-primary">Apply</button>
 		</div>
 	</BottomSheet>
 </Story>

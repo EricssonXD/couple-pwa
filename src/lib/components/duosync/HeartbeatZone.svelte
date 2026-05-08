@@ -41,13 +41,15 @@
 	aria-label="Send heartbeat to partner — double tap"
 >
 	<!-- top affordance glyph -->
-	<div class="text-base-content/30 pointer-events-none absolute inset-x-0 top-1 grid place-items-center">
+	<div
+		class="pointer-events-none absolute inset-x-0 top-1 grid place-items-center text-base-content/30"
+	>
 		<Icon icon={WaveformIcon} size={20} weight="duotone" />
 	</div>
 
 	{#if resolvedHint}
 		<p
-			class="text-base-content/40 pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] tracking-wider"
+			class="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] tracking-wider text-base-content/40"
 		>
 			{resolvedHint}
 		</p>
@@ -56,7 +58,7 @@
 	<!-- ripples spawned per double-tap -->
 	{#each heartbeat.ripples as r (r.id)}
 		<span
-			class="bg-primary/30 animate-ripple pointer-events-none absolute block h-24 w-24 rounded-full"
+			class="animate-ripple pointer-events-none absolute block h-24 w-24 rounded-full bg-primary/30"
 			style="left: {r.x - 48}px; top: {r.y - 48}px;"
 		></span>
 	{/each}

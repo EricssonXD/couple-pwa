@@ -37,4 +37,3 @@ test('offline page renders standalone', async ({ page }) => {
 	// Offline page must always have an h1 (it's also the SW fallback).
 	await expect(page.locator('h1').first()).toBeVisible();
 });
-

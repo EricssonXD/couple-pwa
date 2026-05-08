@@ -170,11 +170,13 @@
 	<title>{m.moments_new_title()} · DuoSync</title>
 </svelte:head>
 
-<div class="bg-base-100 min-h-screen">
+<div class="min-h-screen bg-base-100">
 	<header
-		class="bg-base-100/85 sticky top-0 z-10 mx-auto flex max-w-md items-center justify-between px-5 py-4 backdrop-blur"
+		class="sticky top-0 z-10 mx-auto flex max-w-md items-center justify-between bg-base-100/85 px-5 py-4 backdrop-blur"
 	>
-		<a class="text-base-content/60 text-xs tracking-wider uppercase" href="/moments">{m.common_cancel()}</a>
+		<a class="text-xs tracking-wider text-base-content/60 uppercase" href="/moments"
+			>{m.common_cancel()}</a
+		>
 		<h1 class="text-display text-lg font-semibold">{m.moments_new_title()}</h1>
 		<span class="w-10"></span>
 	</header>
@@ -182,30 +184,32 @@
 	<main class="mx-auto max-w-md px-5 pb-32">
 		<!-- mini map preview -->
 		<div
-			class="bg-base-200 border-base-content/10 relative mt-2 h-44 overflow-hidden rounded-[var(--radius-card)] border"
+			class="relative mt-2 h-44 overflow-hidden rounded-[var(--radius-card)] border border-base-content/10 bg-base-200"
 		>
 			<div bind:this={mapEl} class="absolute inset-0"></div>
 			{#if lat == null}
-				<div class="text-base-content/50 absolute inset-0 grid place-items-center text-xs">
+				<div class="absolute inset-0 grid place-items-center text-xs text-base-content/50">
 					{m.moments_new_capture_pending()}
 				</div>
 			{/if}
 			<button
 				type="button"
 				onclick={captureFix}
-				class="bg-base-100/85 text-base-content shadow-paper absolute right-3 bottom-3 inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-semibold tracking-wider uppercase backdrop-blur"
+				class="absolute right-3 bottom-3 inline-flex items-center gap-1 rounded-full bg-base-100/85 px-3 py-1.5 text-[10px] font-semibold tracking-wider text-base-content uppercase shadow-paper backdrop-blur"
 			>
-				<Icon icon={CrosshairIcon} size={12} weight="duotone" /> {m.moments_new_recenter()}
+				<Icon icon={CrosshairIcon} size={12} weight="duotone" />
+				{m.moments_new_recenter()}
 			</button>
 		</div>
 
 		{#if lat != null && lon != null}
-			<p class="text-base-content/40 mt-2 text-[11px]">
-				{lat.toFixed(5)}, {lon.toFixed(5)}{#if accuracyM != null} · ±{Math.round(accuracyM)}m{/if}
+			<p class="mt-2 text-[11px] text-base-content/40">
+				{lat.toFixed(5)}, {lon.toFixed(5)}{#if accuracyM != null}
+					· ±{Math.round(accuracyM)}m{/if}
 			</p>
 		{/if}
 		{#if geoErr}
-			<div class="bg-error/10 text-error mt-2 rounded-[var(--radius-card)] px-3 py-2 text-xs">
+			<div class="mt-2 rounded-[var(--radius-card)] bg-error/10 px-3 py-2 text-xs text-error">
 				{geoErr}
 			</div>
 		{/if}
@@ -240,21 +244,25 @@
 			<!-- caption -->
 			<section>
 				<div class="mb-1.5 flex items-baseline justify-between">
-					<span class="text-base-content/70 text-xs tracking-wider uppercase">{m.moments_new_caption_label()}</span>
-					<span class="text-base-content/40 text-[10px]">{body.length}/280</span>
+					<span class="text-xs tracking-wider text-base-content/70 uppercase"
+						>{m.moments_new_caption_label()}</span
+					>
+					<span class="text-[10px] text-base-content/40">{body.length}/280</span>
 				</div>
 				<textarea
 					bind:value={body}
 					maxlength="280"
 					rows="4"
-					class="bg-base-200 border-base-content/10 focus:border-primary w-full resize-none rounded-[var(--radius-card)] border px-4 py-3 text-base outline-none"
+					class="w-full resize-none rounded-[var(--radius-card)] border border-base-content/10 bg-base-200 px-4 py-3 text-base outline-none focus:border-primary"
 					placeholder={m.moments_new_caption_placeholder()}
 				></textarea>
 			</section>
 
 			<!-- expiry -->
 			<section>
-				<p class="text-base-content/70 mb-2 text-xs tracking-wider uppercase">{m.moments_new_expiry_label()}</p>
+				<p class="mb-2 text-xs tracking-wider text-base-content/70 uppercase">
+					{m.moments_new_expiry_label()}
+				</p>
 				<div class="flex gap-2">
 					{#each [{ k: 'none' as const, label: m.moments_new_expiry_never() }, { k: '24h' as const, label: '24h' }, { k: '7d' as const, label: '7d' }] as o (o.k)}
 						<button
@@ -272,7 +280,7 @@
 			</section>
 
 			{#if saveErr}
-				<div class="bg-error/10 text-error rounded-[var(--radius-card)] px-3 py-2 text-sm">
+				<div class="rounded-[var(--radius-card)] bg-error/10 px-3 py-2 text-sm text-error">
 					{saveErr}
 				</div>
 			{/if}
@@ -280,7 +288,7 @@
 			<button
 				type="submit"
 				disabled={busy}
-				class="bg-primary text-primary-content shadow-paper inline-flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-base font-semibold tracking-wider uppercase transition-transform active:scale-[0.98] disabled:opacity-50"
+				class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-base font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-transform active:scale-[0.98] disabled:opacity-50"
 			>
 				<Icon icon={SparkleIcon} size={18} weight="duotone" />
 				{busy ? m.moments_new_dropping() : m.moments_new_drop_here()}

@@ -68,4 +68,3 @@ export const load: PageServerLoad = async ({ locals }) => {
 		coupleId: locals.couple.id
 	};
 };
-

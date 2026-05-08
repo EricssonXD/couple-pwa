@@ -59,12 +59,12 @@
 		{step}
 		class="relative flex h-5 w-full touch-none items-center select-none"
 	>
-		<span class="bg-base-300 relative h-1.5 w-full grow overflow-hidden rounded-full">
-			<B.Range class="bg-secondary absolute h-full" />
+		<span class="relative h-1.5 w-full grow overflow-hidden rounded-full bg-base-300">
+			<B.Range class="absolute h-full bg-secondary" />
 		</span>
 		<B.Thumb
 			index={0}
-			class="border-primary bg-base-100 ring-primary/20 hover:ring-primary/40 block h-5 w-5 cursor-grab rounded-full border-2 shadow-paper transition-shadow focus-visible:ring-4 focus-visible:outline-none active:cursor-grabbing"
+			class="block h-5 w-5 cursor-grab rounded-full border-2 border-primary bg-base-100 shadow-paper ring-primary/20 transition-shadow hover:ring-primary/40 focus-visible:ring-4 focus-visible:outline-none active:cursor-grabbing"
 		/>
 	</B.Root>
 </div>

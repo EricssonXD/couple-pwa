@@ -46,7 +46,7 @@
 </script>
 
 <div
-	class="bg-base-content/10 text-base-content border-base-content/10 flex items-center gap-2 rounded-full border px-4 py-2 backdrop-blur"
+	class="flex items-center gap-2 rounded-full border border-base-content/10 bg-base-content/10 px-4 py-2 text-base-content backdrop-blur"
 	role="status"
 >
 	<Icon icon={GhostIcon} size={18} weight="duotone" class="text-base-content/70" />
@@ -54,7 +54,7 @@
 	{#if onExit}
 		<button
 			type="button"
-			class="text-primary text-xs font-semibold tracking-wider uppercase hover:underline"
+			class="text-xs font-semibold tracking-wider text-primary uppercase hover:underline"
 			onclick={onExit}
 		>
 			{m.ghost_banner_release()}

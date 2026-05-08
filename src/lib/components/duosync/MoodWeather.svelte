@@ -49,9 +49,9 @@
 </script>
 
 <div
-	class="bg-base-200/60 inline-flex items-center gap-2 rounded-full px-3 py-1.5 backdrop-blur"
+	class="inline-flex items-center gap-2 rounded-full bg-base-200/60 px-3 py-1.5 backdrop-blur"
 	aria-label="Partner mood: {label}"
 >
 	<Icon icon={c.icon} size={20} weight="duotone" class={c.tone} />
-	<span class="text-base-content/80 text-sm">{text}</span>
+	<span class="text-sm text-base-content/80">{text}</span>
 </div>

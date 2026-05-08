@@ -84,21 +84,21 @@
 
 	<!-- Inner paper card -->
 	<div
-		class="bg-base-200 shadow-paper relative grid h-[78%] w-[78%] place-items-center rounded-full text-center"
+		class="relative grid h-[78%] w-[78%] place-items-center rounded-full bg-base-200 text-center shadow-paper"
 	>
 		<div>
 			{#if numeral}
-				<p class="text-display text-base-content text-6xl leading-none font-semibold">
-					{numeral.value}<span class="text-base-content/50 ml-1 text-2xl font-normal"
+				<p class="text-display text-6xl leading-none font-semibold text-base-content">
+					{numeral.value}<span class="ml-1 text-2xl font-normal text-base-content/50"
 						>{numeral.unit}</span
 					>
 				</p>
 			{:else}
-				<p class="text-display text-base-content text-5xl leading-none font-semibold">
+				<p class="text-display text-5xl leading-none font-semibold text-base-content">
 					{label}
 				</p>
 			{/if}
-			<p class="text-base-content/60 mt-2 text-xs tracking-[0.2em] uppercase">
+			<p class="mt-2 text-xs tracking-[0.2em] text-base-content/60 uppercase">
 				{label}
 			</p>
 		</div>

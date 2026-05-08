@@ -45,10 +45,10 @@ Practical rules that fall out of this:
 Two DaisyUI 5 themes live in `src/routes/layout.css`. Both are normative —
 do not introduce a third without updating this section.
 
-| theme | when | base feel |
-|---|---|---|
-| `duosync-light` (default) | `/pulse`, `/moments`, `/onboarding`, `/settings`, all marketing | cream paper, dusty rose, sage. Daylight intimacy. |
-| `duosync-dark` (`prefersdark`) | `/map`, `/moments/new`, any future "deep focus" surface | midnight + slate, warm peach + mist. Quiet night. |
+| theme                          | when                                                            | base feel                                         |
+| ------------------------------ | --------------------------------------------------------------- | ------------------------------------------------- |
+| `duosync-light` (default)      | `/pulse`, `/moments`, `/onboarding`, `/settings`, all marketing | cream paper, dusty rose, sage. Daylight intimacy. |
+| `duosync-dark` (`prefersdark`) | `/map`, `/moments/new`, any future "deep focus" surface         | midnight + slate, warm peach + mist. Quiet night. |
 
 **Switching rules.**
 
@@ -119,9 +119,9 @@ no Tailwind `shadow-xl`. Match the paper feel.
 
 Two families, served by Google Fonts (`<link>` in `src/app.html`).
 
-| variable | family | use |
-|---|---|---|
-| `--font-sans` | **Inter** 400/500/600/700 | All UI: nav, buttons, body text, captions |
+| variable         | family                           | use                                                       |
+| ---------------- | -------------------------------- | --------------------------------------------------------- |
+| `--font-sans`    | **Inter** 400/500/600/700        | All UI: nav, buttons, body text, captions                 |
 | `--font-display` | **Fraunces** opsz 9-144, 400/600 | Numerals (distance, days, milestones), 1-3 word headlines |
 
 Always invoke the display family via the `.text-display` utility (not
@@ -134,17 +134,17 @@ and `ss01` stylistic set:
 
 ### Type ramp (recommended)
 
-| token | size / leading | use |
-|---|---|---|
-| `text-6xl` + `text-display` | 60px / 1 | Distance Bubble numeral |
-| `text-5xl` + `text-display` | 48px / 1 | Anniversary big day count |
-| `text-2xl` + `text-display` | 24px / 1.2 | Distance unit, milestone |
-| `text-xl`  | 20px / 1.4 | Page titles |
-| `text-base` (default) | 16px / 1.5 | Body, list items |
-| `text-sm`  | 14px / 1.4 | Secondary, captions |
-| `text-xs`  | 12px / 1.4 | Metadata, last-seen |
-| `text-[11px] tracking-wide` | 11px | Bottom nav labels (this exact size) |
-| `text-xs tracking-[0.2em] uppercase` | 12px | Bubble sub-label, section eyebrows |
+| token                                | size / leading | use                                 |
+| ------------------------------------ | -------------- | ----------------------------------- |
+| `text-6xl` + `text-display`          | 60px / 1       | Distance Bubble numeral             |
+| `text-5xl` + `text-display`          | 48px / 1       | Anniversary big day count           |
+| `text-2xl` + `text-display`          | 24px / 1.2     | Distance unit, milestone            |
+| `text-xl`                            | 20px / 1.4     | Page titles                         |
+| `text-base` (default)                | 16px / 1.5     | Body, list items                    |
+| `text-sm`                            | 14px / 1.4     | Secondary, captions                 |
+| `text-xs`                            | 12px / 1.4     | Metadata, last-seen                 |
+| `text-[11px] tracking-wide`          | 11px           | Bottom nav labels (this exact size) |
+| `text-xs tracking-[0.2em] uppercase` | 12px           | Bubble sub-label, section eyebrows  |
 
 Localized text expansion: Traditional Chinese strings ≤12 characters in
 nav and primary buttons. Tested in `messages/{en,zh-cn,zh-hant}.json`.
@@ -173,13 +173,13 @@ emoji for a Phosphor icon in a button.
 CSS keyframes in `src/lib/motion/animations.css`. JS primitives in
 `src/lib/motion/`. Imported once globally from `+layout.svelte`.
 
-| utility | timing | use |
-|---|---|---|
-| `.animate-breathe` | 4s ease-in-out infinite | Distance Bubble outer ring, active nav pill |
-| `.animate-presence-pulse` | 2s ease-in-out infinite | Partner avatar presence dot when online |
-| `.animate-ripple` | 0.85s `cubic-bezier(0.22, 1, 0.36, 1)` once | Heartbeat tap ripple |
-| `.animate-bloom` | 1.2s spring once | Onboarding pairing success, milestone unlock |
-| `.animate-map-pin-pulse` | 2.4s ease-in-out infinite | Halo under partner/self pins on `/map` |
+| utility                   | timing                                      | use                                          |
+| ------------------------- | ------------------------------------------- | -------------------------------------------- |
+| `.animate-breathe`        | 4s ease-in-out infinite                     | Distance Bubble outer ring, active nav pill  |
+| `.animate-presence-pulse` | 2s ease-in-out infinite                     | Partner avatar presence dot when online      |
+| `.animate-ripple`         | 0.85s `cubic-bezier(0.22, 1, 0.36, 1)` once | Heartbeat tap ripple                         |
+| `.animate-bloom`          | 1.2s spring once                            | Onboarding pairing success, milestone unlock |
+| `.animate-map-pin-pulse`  | 2.4s ease-in-out infinite                   | Halo under partner/self pins on `/map`       |
 
 **Hard rules.**
 
@@ -235,13 +235,13 @@ exports there.
 
 Headless behaviour from **bits-ui**, styled with our tokens.
 
-| component | role |
-|---|---|
-| `Icon.svelte` | Sole entry point for Phosphor icons (size, weight, class) |
-| `BottomSheet.svelte` | Drag-to-dismiss sheet (bits-ui Dialog) |
-| `Slider.svelte` | Radius slider, generic range input |
-| `Tabs.svelte` | Settings sub-sections |
-| `Toggle.svelte` | Ghost mode, notification toggles |
+| component            | role                                                      |
+| -------------------- | --------------------------------------------------------- |
+| `Icon.svelte`        | Sole entry point for Phosphor icons (size, weight, class) |
+| `BottomSheet.svelte` | Drag-to-dismiss sheet (bits-ui Dialog)                    |
+| `Slider.svelte`      | Radius slider, generic range input                        |
+| `Tabs.svelte`        | Settings sub-sections                                     |
+| `Toggle.svelte`      | Ghost mode, notification toggles                          |
 
 If you need a primitive (popover, dropdown, command), add a thin wrapper
 under `ui/` first; do not pull bits-ui directly into a duosync/ component.
@@ -252,6 +252,7 @@ Each component has a **contract** below. Future agents may extend them but
 must not break the contract without bumping the relevant doc section.
 
 #### `DistanceBubble`
+
 - **Inputs:** `distanceM: number | null`, `bucket: DistanceBucket`, `ghost?: boolean`
 - **Visual:** breathing radial-gradient ring + solid ring border + paper centre. Ring colour comes from `--distance-{bucket}` (or `--distance-ghost` if `ghost`).
 - **A11y:** `aria-live="polite"`. Sub-label always renders the bucket word so reduced-motion + monochrome screens still convey the bucket.
@@ -259,6 +260,7 @@ must not break the contract without bumping the relevant doc section.
 - **Bucket → colour mapping is fixed** (see §2). Do not parameterise.
 
 #### `HeartbeatZone`
+
 - Full-width invisible bottom strip. Double-tap within 350 ms inside it
   spawns a ripple at the tap coordinates and fires `TAP_HEARTBEAT` haptic.
 - Hosts the `createHeartbeat` action from `$lib/motion/heartbeat.svelte`.
@@ -266,31 +268,37 @@ must not break the contract without bumping the relevant doc section.
   broadcast — see `docs/rls-model.md`).
 
 #### `PartnerAvatar`
+
 - Shows partner emoji/img + presence dot + battery ring.
 - Presence dot uses `.animate-presence-pulse` only when online; `away` and
   `ghost` states are static colour swatches.
 
 #### `MoodWeather`
+
 - Renders one of `'sunny' | 'cloudy' | 'rainy' | 'night'` with the matching
   Phosphor icon (`Sun`, `Cloud`, `CloudRain`, `Moon`) + localized caption.
 - The mapping (mood → icon) is fixed in `index.ts`. Never swap.
 
 #### `AnniversaryRibbon`
+
 - Top-of-screen thin pill. Two slots: large day count (Fraunces) and
   next-milestone caption.
 - Uses `--color-primary` background at 12% opacity; never solid.
 
 #### `MemoryResurface`
+
 - Yesteryear card. Blurred old thumbnail + "去年今日" eyebrow + body.
 - Always a tap target; tapping opens the original moment route.
 
 #### `MomentCard`
+
 - Two states: `unlocked` (full body + author + map preview) and `locked`
   (`filter: blur(8px) saturate(.6)` on body + overlay
   "再走近 87m 即可閱讀 🚶"). Lock state is deterministic from
   `distanceM < radius_m`; do not store an unlocked flag client-side.
 
 #### `BottomNav`
+
 - 4 tabs: Pulse / Map / Moments / Settings. Daily is intentionally
   deferred — see plan §11.11.
 - Active tab gets the breathing pill (`.animate-breathe` over
@@ -298,6 +306,7 @@ must not break the contract without bumping the relevant doc section.
 - Hidden by `+layout.svelte` for unauthenticated and unpaired routes.
 
 #### `GhostBanner`
+
 - Shown when self ghost mode is active. Includes countdown timer.
 - Uses `--distance-ghost` slate. Never `--color-error`.
 
@@ -305,18 +314,18 @@ must not break the contract without bumping the relevant doc section.
 
 ## 8. Screens (information architecture)
 
-| route | theme | hero component | bottom nav |
-|---|---|---|---|
-| `/welcome` | light | marketing block | hidden |
-| `/auth/sign-in` | light | form card | hidden |
-| `/onboarding` | light | name + emoji + mood pickers | hidden |
-| `/onboarding/link` | light | 6-char `LinkCode`, paired bloom | hidden |
-| `/pulse` | light | AnniversaryRibbon → DistanceBubble → PartnerAvatar → MoodWeather → HeartbeatZone | visible |
-| `/map` | **dark** | Leaflet full-screen, two pins, distance curve, sheet | visible |
-| `/moments` | light | timeline of MomentCard, FAB `+` | visible |
-| `/moments/new` | **dark** | mini-map + radius slider + caption + Drop FAB | visible |
-| `/settings` (+ `/settings/couple`) | light | Tabs | visible |
-| `/daily` (deferred) | light | Daily question card | visible (future) |
+| route                              | theme    | hero component                                                                   | bottom nav       |
+| ---------------------------------- | -------- | -------------------------------------------------------------------------------- | ---------------- |
+| `/welcome`                         | light    | marketing block                                                                  | hidden           |
+| `/auth/sign-in`                    | light    | form card                                                                        | hidden           |
+| `/onboarding`                      | light    | name + emoji + mood pickers                                                      | hidden           |
+| `/onboarding/link`                 | light    | 6-char `LinkCode`, paired bloom                                                  | hidden           |
+| `/pulse`                           | light    | AnniversaryRibbon → DistanceBubble → PartnerAvatar → MoodWeather → HeartbeatZone | visible          |
+| `/map`                             | **dark** | Leaflet full-screen, two pins, distance curve, sheet                             | visible          |
+| `/moments`                         | light    | timeline of MomentCard, FAB `+`                                                  | visible          |
+| `/moments/new`                     | **dark** | mini-map + radius slider + caption + Drop FAB                                    | visible          |
+| `/settings` (+ `/settings/couple`) | light    | Tabs                                                                             | visible          |
+| `/daily` (deferred)                | light    | Daily question card                                                              | visible (future) |
 
 Every screen rule: **one primary action per view**. The Distance Bubble
 on `/pulse` is information, not action; the only action on `/pulse` is

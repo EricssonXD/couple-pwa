@@ -59,13 +59,13 @@
 </script>
 
 <article
-	class="bg-base-200 shadow-paper border-base-content/5 relative overflow-hidden rounded-[var(--radius-card)] border"
+	class="relative overflow-hidden rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 shadow-paper"
 >
 	<header class="flex items-baseline justify-between gap-3 px-4 pt-4 pb-2">
-		<p class="text-base-content/60 text-[10px] tracking-[0.2em] uppercase">
+		<p class="text-[10px] tracking-[0.2em] text-base-content/60 uppercase">
 			{authorIsViewer ? m.moment_card_you() : authorName}
 		</p>
-		<time class="text-base-content/50 text-xs"
+		<time class="text-xs text-base-content/50"
 			>{dateLabel} · <span class="text-base-content/40">{timeLabel}</span></time
 		>
 	</header>
@@ -74,21 +74,21 @@
 		<div class="relative px-4 pb-4">
 			<!-- blurred placeholder body -->
 			<p
-				class="text-base-content/30 select-none text-sm leading-relaxed"
+				class="text-sm leading-relaxed text-base-content/30 select-none"
 				style="filter: blur(6px) saturate(0.6);"
 				aria-hidden="true"
 			>
 				{m.moment_card_locked_lorem()}
 			</p>
-			<div class="bg-base-200/85 absolute inset-0 grid place-items-center backdrop-blur-sm">
+			<div class="absolute inset-0 grid place-items-center bg-base-200/85 backdrop-blur-sm">
 				<div class="text-center">
 					<Icon
 						icon={LockSimpleIcon}
 						size={28}
 						weight="duotone"
-						class="text-base-content/50 mx-auto"
+						class="mx-auto text-base-content/50"
 					/>
-					<p class="text-base-content/70 mt-2 text-sm">
+					<p class="mt-2 text-sm text-base-content/70">
 						{#if remainingM != null && remainingM > 0}
 							{m.moment_card_locked_walk_closer({ distance: remainingM })}
 						{:else if remainingM === 0}
@@ -101,20 +101,20 @@
 			</div>
 		</div>
 	{:else}
-		<p class="text-base-content px-4 pb-3 text-sm leading-relaxed whitespace-pre-wrap">
+		<p class="px-4 pb-3 text-sm leading-relaxed whitespace-pre-wrap text-base-content">
 			{body ?? ''}
 		</p>
 	{/if}
 
-	<footer class="border-base-content/5 flex items-center justify-between border-t px-4 py-2">
-		<span class="text-base-content/50 inline-flex items-center gap-1 text-xs">
+	<footer class="flex items-center justify-between border-t border-base-content/5 px-4 py-2">
+		<span class="inline-flex items-center gap-1 text-xs text-base-content/50">
 			<Icon icon={MapPinIcon} size={14} weight="duotone" />
 			{m.moment_card_radius({ radiusM })}
 		</span>
 		{#if onOpenMap}
 			<button
 				type="button"
-				class="text-primary inline-flex items-center gap-1 text-xs font-semibold tracking-wider uppercase hover:underline"
+				class="inline-flex items-center gap-1 text-xs font-semibold tracking-wider text-primary uppercase hover:underline"
 				onclick={onOpenMap}
 			>
 				<Icon icon={NavigationArrowIcon} size={14} weight="duotone" /> map

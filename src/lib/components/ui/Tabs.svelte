@@ -31,14 +31,11 @@
 </script>
 
 <Tabs.Root bind:value class={className}>
-	<Tabs.List
-		class="border-base-300 flex w-full gap-1 border-b"
-		role="tablist"
-	>
+	<Tabs.List class="flex w-full gap-1 border-b border-base-300" role="tablist">
 		{#each items as item (item.id)}
 			<Tabs.Trigger
 				value={item.id}
-				class="text-base-content/60 data-[state=active]:text-primary data-[state=active]:border-primary -mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium transition-colors"
+				class="-mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium text-base-content/60 transition-colors data-[state=active]:border-primary data-[state=active]:text-primary"
 			>
 				{item.label}
 			</Tabs.Trigger>

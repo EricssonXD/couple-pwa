@@ -30,16 +30,16 @@
 <Dialog.Root bind:open>
 	<Dialog.Portal>
 		<Dialog.Overlay
-			class="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in"
+			class="data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]"
 		/>
 		<Dialog.Content
-			class="bg-base-100 fixed right-0 bottom-0 left-0 z-50 mx-auto max-h-[85dvh] overflow-y-auto rounded-t-[var(--radius-card)] px-5 pt-4 shadow-paper data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom {contained
+			class="data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom fixed right-0 bottom-0 left-0 z-50 mx-auto max-h-[85dvh] overflow-y-auto rounded-t-[var(--radius-card)] bg-base-100 px-5 pt-4 shadow-paper {contained
 				? 'sm:max-w-md'
 				: ''}"
 			style="padding-bottom: calc(var(--safe-bottom) + 1rem);"
 		>
 			<!-- Drag handle (visual affordance — bits-ui doesn't ship gesture drag) -->
-			<div class="bg-base-300 mx-auto mb-3 h-1.5 w-10 rounded-full" aria-hidden="true"></div>
+			<div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-base-300" aria-hidden="true"></div>
 
 			{#if title}
 				<Dialog.Title class="mb-2 text-base font-semibold">{title}</Dialog.Title>

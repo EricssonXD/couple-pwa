@@ -16,10 +16,7 @@
 	}
 </script>
 
-<Story
-	name="EarlyDays"
-	args={{ coupleSince: daysAgo(7), anniversary: null, nickname: 'Mira' }}
-/>
+<Story name="EarlyDays" args={{ coupleSince: daysAgo(7), anniversary: null, nickname: 'Mira' }} />
 <Story
 	name="OneHundredCountdown"
 	args={{ coupleSince: daysAgo(85), anniversary: null, nickname: 'Mira' }}

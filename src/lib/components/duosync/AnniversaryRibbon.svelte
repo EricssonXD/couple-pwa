@@ -50,29 +50,27 @@
 </script>
 
 <div
-	class="bg-base-200/60 border-base-content/5 flex items-center justify-between gap-3 rounded-full border px-4 py-2 backdrop-blur"
+	class="flex items-center justify-between gap-3 rounded-full border border-base-content/5 bg-base-200/60 px-4 py-2 backdrop-blur"
 >
 	<div class="min-w-0">
 		{#if isMilestoneToday}
-			<p class="text-primary text-[10px] font-semibold tracking-[0.2em] uppercase">
-				🎉 milestone
-			</p>
+			<p class="text-[10px] font-semibold tracking-[0.2em] text-primary uppercase">🎉 milestone</p>
 		{:else if nickname}
-			<p class="text-base-content/50 truncate text-[10px] tracking-[0.2em] uppercase">
+			<p class="truncate text-[10px] tracking-[0.2em] text-base-content/50 uppercase">
 				{nickname}
 			</p>
 		{:else}
-			<p class="text-base-content/50 text-[10px] tracking-[0.2em] uppercase">together</p>
+			<p class="text-[10px] tracking-[0.2em] text-base-content/50 uppercase">together</p>
 		{/if}
-		<p class="text-display text-base-content text-lg leading-none font-semibold">
+		<p class="text-display text-lg leading-none font-semibold text-base-content">
 			{daysTogether.toLocaleString()}
-			<span class="text-base-content/50 text-xs font-normal">{tr.anniversary_days_unit()}</span>
+			<span class="text-xs font-normal text-base-content/50">{tr.anniversary_days_unit()}</span>
 		</p>
 	</div>
 	{#if next && daysToNext != null}
 		<div class="text-right">
-			<p class="text-base-content/50 text-[10px] tracking-[0.2em] uppercase">next</p>
-			<p class="text-base-content text-xs">
+			<p class="text-[10px] tracking-[0.2em] text-base-content/50 uppercase">next</p>
+			<p class="text-xs text-base-content">
 				<span class="text-display text-base font-semibold">{daysToNext}</span>
 				{tr.anniversary_to_label({ label: next.label })}
 			</p>

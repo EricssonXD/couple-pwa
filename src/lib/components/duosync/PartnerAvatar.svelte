@@ -75,12 +75,7 @@
 </script>
 
 <div class="relative inline-block" style="width: {size}px; height: {size}px;">
-	<svg
-		class="absolute inset-0 -rotate-90"
-		width={size}
-		height={size}
-		aria-hidden="true"
-	>
+	<svg class="absolute inset-0 -rotate-90" width={size} height={size} aria-hidden="true">
 		<circle
 			cx={size / 2}
 			cy={size / 2}
@@ -107,20 +102,21 @@
 	</svg>
 
 	<div
-		class="bg-base-200 absolute grid place-items-center overflow-hidden rounded-full"
+		class="absolute grid place-items-center overflow-hidden rounded-full bg-base-200"
 		style="inset: {stroke + 2}px;"
 		aria-label={displayName}
 	>
 		{#if avatarUrl}
 			<img src={avatarUrl} alt="" class="h-full w-full object-cover" />
 		{:else}
-			<span class="leading-none" style="font-size: {Math.round(size * 0.45)}px;">{avatarEmoji}</span>
+			<span class="leading-none" style="font-size: {Math.round(size * 0.45)}px;">{avatarEmoji}</span
+			>
 		{/if}
 	</div>
 
 	<!-- presence dot -->
 	<span
-		class="ring-base-100 absolute right-0 bottom-0 grid h-4 w-4 place-items-center rounded-full ring-2 {dotClass}"
+		class="absolute right-0 bottom-0 grid h-4 w-4 place-items-center rounded-full ring-2 ring-base-100 {dotClass}"
 		aria-label="presence: {presence}"
 	>
 		{#if presence === 'ghost'}
@@ -129,11 +125,7 @@
 	</span>
 
 	{#if charging && batteryPct != null}
-		<span
-			class="text-accent absolute top-0 right-0"
-			aria-label="charging"
-			title="Charging"
-		>
+		<span class="absolute top-0 right-0 text-accent" aria-label="charging" title="Charging">
 			<Icon icon={LightningIcon} size={14} weight="fill" />
 		</span>
 	{/if}
