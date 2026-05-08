@@ -6,7 +6,7 @@
 	import { registerServiceWorker } from '$lib/pwa/register';
 	import UpdateBanner from '$lib/pwa/UpdateBanner.svelte';
 	import { BottomNav } from '$lib/components/duosync';
-	import { setTheme, clearTheme, type DuoSyncTheme } from '$lib/theme';
+	import { setRouteTheme, initTheme, type DuoSyncTheme } from '$lib/theme/index.svelte';
 	import './layout.css';
 	import '$lib/motion/animations.css';
 
@@ -24,18 +24,16 @@
 		[/^\/map(\/|$)/, 'duosync-dark'],
 		[/^\/moments\/new(\/|$)/, 'duosync-dark']
 	];
-	const forcedTheme = $derived(
-		ROUTE_THEME.find(([rx]) => rx.test(page.url.pathname))?.[1]
-	);
+	const forcedTheme = $derived(ROUTE_THEME.find(([rx]) => rx.test(page.url.pathname))?.[1]);
 
 	$effect(() => {
-		if (forcedTheme) setTheme(forcedTheme);
-		else clearTheme();
+		setRouteTheme(forcedTheme ?? null);
 	});
 
 	onMount(() => {
 		initInstallPrompt();
 		registerServiceWorker();
+		return initTheme();
 	});
 </script>
 

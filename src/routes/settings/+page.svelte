@@ -25,7 +25,12 @@
 	import SunIcon from 'phosphor-svelte/lib/SunIcon';
 	import MoonIcon from 'phosphor-svelte/lib/MoonIcon';
 	import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';
-	import { setTheme, clearTheme, type DuoSyncTheme } from '$lib/theme';
+	import {
+		setUserTheme,
+		getUserChoice,
+		type DuoSyncTheme,
+		type ThemeChoice
+	} from '$lib/theme/index.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -36,7 +41,7 @@
 	let nickname = $state('');
 	let anniversary = $state('');
 	let ghost = $state(false);
-	let themeChoice = $state<'auto' | DuoSyncTheme>('auto');
+	let themeChoice = $state<ThemeChoice>('auto');
 
 	let busy = $state<string | null>(null);
 	let msg = $state<string | null>(null);
@@ -54,22 +59,14 @@
 					? new Date(ann as unknown as string).toISOString().slice(0, 10)
 					: '';
 		ghost = data.me.ghostMode;
-		const stored = localStorage.getItem('duosync-theme');
-		if (stored === 'duosync-light' || stored === 'duosync-dark') {
-			themeChoice = stored;
-			setTheme(stored);
-		}
+		// Theme is initialised globally in +layout.svelte via initTheme();
+		// here we just sync the radio-group selection to the persisted choice.
+		themeChoice = getUserChoice();
 	});
 
-	function setThemeChoice(next: 'auto' | DuoSyncTheme) {
+	function setThemeChoice(next: ThemeChoice) {
 		themeChoice = next;
-		if (next === 'auto') {
-			localStorage.removeItem('duosync-theme');
-			clearTheme();
-		} else {
-			localStorage.setItem('duosync-theme', next);
-			setTheme(next);
-		}
+		setUserTheme(next);
 	}
 
 	async function saveProfile() {
@@ -123,46 +120,48 @@
 	<title>{m.settings_title()} · DuoSync</title>
 </svelte:head>
 
-<div class="bg-base-100 min-h-screen">
+<div class="min-h-screen bg-base-100">
 	<header class="mx-auto max-w-md px-5 pt-6 pb-4">
 		<h1 class="text-display text-2xl font-semibold tracking-wide">{m.settings_title()}</h1>
-		<p class="text-base-content/50 mt-1 text-xs">{data.me.email}</p>
+		<p class="mt-1 text-xs text-base-content/50">{data.me.email}</p>
 	</header>
 
 	<main class="mx-auto max-w-md px-5 pb-32">
 		{#if msg}
-			<div class="bg-secondary/15 text-secondary-content mb-4 rounded-[var(--radius-card)] px-4 py-2.5 text-sm">
+			<div
+				class="mb-4 rounded-[var(--radius-card)] bg-secondary/15 px-4 py-2.5 text-sm text-secondary-content"
+			>
 				{msg}
 			</div>
 		{/if}
 
 		<!-- profile -->
 		<section
-			class="bg-base-200 shadow-paper border-base-content/5 mt-2 space-y-4 rounded-[var(--radius-card)] border p-5"
+			class="mt-2 space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
 		>
 			<header class="flex items-center gap-2">
 				<Icon icon={UserIcon} size={18} weight="duotone" class="text-primary" />
 				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.pulse_you()}</h2>
 			</header>
 			<label class="block">
-				<span class="text-base-content/60 mb-1.5 block text-xs">{m.settings_displayname()}</span>
+				<span class="mb-1.5 block text-xs text-base-content/60">{m.settings_displayname()}</span>
 				<input
 					bind:value={displayName}
 					maxlength="40"
-					class="bg-base-100 border-base-content/10 focus:border-primary w-full rounded-[var(--radius-card)] border px-4 py-2.5 outline-none"
+					class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
 				/>
 			</label>
 			<label class="block">
-				<span class="text-base-content/60 mb-1.5 block text-xs">{m.settings_avatar()}</span>
+				<span class="mb-1.5 block text-xs text-base-content/60">{m.settings_avatar()}</span>
 				<input
 					bind:value={avatarEmoji}
 					maxlength="8"
-					class="bg-base-100 border-base-content/10 focus:border-primary w-full rounded-[var(--radius-card)] border px-4 py-2.5 outline-none"
+					class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
 					placeholder="🌱"
 				/>
 			</label>
 			<button
-				class="bg-primary text-primary-content w-full rounded-full py-2.5 text-xs font-semibold tracking-wider uppercase disabled:opacity-50"
+				class="w-full rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase disabled:opacity-50"
 				disabled={busy === 'profile'}
 				onclick={saveProfile}
 			>
@@ -172,11 +171,13 @@
 
 		<!-- privacy / ghost -->
 		<section
-			class="bg-base-200 shadow-paper border-base-content/5 mt-4 space-y-1 rounded-[var(--radius-card)] border p-5"
+			class="mt-4 space-y-1 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
 		>
 			<header class="mb-2 flex items-center gap-2">
 				<Icon icon={GhostIcon} size={18} weight="duotone" class="text-base-content/70" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_privacy()}</h2>
+				<h2 class="text-sm font-semibold tracking-wider uppercase">
+					{m.settings_section_privacy()}
+				</h2>
 			</header>
 			<Toggle
 				checked={ghost}
@@ -188,7 +189,7 @@
 
 		<!-- theme -->
 		<section
-			class="bg-base-200 shadow-paper border-base-content/5 mt-4 space-y-3 rounded-[var(--radius-card)] border p-5"
+			class="mt-4 space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
 		>
 			<header class="flex items-center gap-2">
 				<Icon icon={SunIcon} size={18} weight="duotone" class="text-accent" />
@@ -216,34 +217,41 @@
 		<!-- couple -->
 		{#if data.couple}
 			<section
-				class="bg-base-200 shadow-paper border-base-content/5 mt-4 space-y-4 rounded-[var(--radius-card)] border p-5"
+				class="mt-4 space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
 			>
 				<header class="flex items-center gap-2">
 					<Icon icon={HeartIcon} size={18} weight="duotone" class="text-primary" />
 					<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_us()}</h2>
 				</header>
-				<p class="text-base-content/60 text-xs">
-					{m.settings_paired_with({ emoji: data.partner?.avatarEmoji ?? '💞', name: data.partner?.displayName ?? m.pulse_partner_fallback() })}
+				<p class="text-xs text-base-content/60">
+					{m.settings_paired_with({
+						emoji: data.partner?.avatarEmoji ?? '💞',
+						name: data.partner?.displayName ?? m.pulse_partner_fallback()
+					})}
 				</p>
 				<label class="block">
-					<span class="text-base-content/60 mb-1.5 block text-xs">{m.settings_couple_nickname()}</span>
+					<span class="mb-1.5 block text-xs text-base-content/60"
+						>{m.settings_couple_nickname()}</span
+					>
 					<input
 						bind:value={nickname}
 						maxlength="60"
-						class="bg-base-100 border-base-content/10 focus:border-primary w-full rounded-[var(--radius-card)] border px-4 py-2.5 outline-none"
+						class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
 						placeholder={m.settings_couple_nickname_placeholder()}
 					/>
 				</label>
 				<label class="block">
-					<span class="text-base-content/60 mb-1.5 block text-xs">{m.settings_couple_anniversary()}</span>
+					<span class="mb-1.5 block text-xs text-base-content/60"
+						>{m.settings_couple_anniversary()}</span
+					>
 					<input
 						bind:value={anniversary}
 						type="date"
-						class="bg-base-100 border-base-content/10 focus:border-primary w-full rounded-[var(--radius-card)] border px-4 py-2.5 outline-none"
+						class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
 					/>
 				</label>
 				<button
-					class="bg-primary text-primary-content w-full rounded-full py-2.5 text-xs font-semibold tracking-wider uppercase disabled:opacity-50"
+					class="w-full rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase disabled:opacity-50"
 					disabled={busy === 'couple'}
 					onclick={saveCouple}
 				>
@@ -253,15 +261,17 @@
 
 			<!-- danger -->
 			<section
-				class="border-error/30 bg-error/5 mt-4 space-y-3 rounded-[var(--radius-card)] border p-5"
+				class="mt-4 space-y-3 rounded-[var(--radius-card)] border border-error/30 bg-error/5 p-5"
 			>
-				<h2 class="text-error text-sm font-semibold tracking-wider uppercase">{m.settings_unpair_section()}</h2>
-				<p class="text-base-content/70 text-xs">
+				<h2 class="text-sm font-semibold tracking-wider text-error uppercase">
+					{m.settings_unpair_section()}
+				</h2>
+				<p class="text-xs text-base-content/70">
 					{m.settings_unpair_warning()}
 				</p>
 				{#if !confirmUnpair}
 					<button
-						class="border-error/50 text-error hover:bg-error/10 w-full rounded-full border py-2.5 text-xs font-semibold tracking-wider uppercase"
+						class="w-full rounded-full border border-error/50 py-2.5 text-xs font-semibold tracking-wider text-error uppercase hover:bg-error/10"
 						onclick={() => (confirmUnpair = true)}
 					>
 						{m.settings_unpair_open()}
@@ -269,14 +279,14 @@
 				{:else}
 					<div class="flex gap-2">
 						<button
-							class="bg-error text-error-content flex-1 rounded-full py-2.5 text-xs font-semibold tracking-wider uppercase disabled:opacity-50"
+							class="flex-1 rounded-full bg-error py-2.5 text-xs font-semibold tracking-wider text-error-content uppercase disabled:opacity-50"
 							disabled={busy === 'unpair'}
 							onclick={doUnpair}
 						>
 							{busy === 'unpair' ? m.settings_unpairing() : m.settings_unpair_confirm()}
 						</button>
 						<button
-							class="text-base-content/60 flex-1 rounded-full py-2.5 text-xs font-semibold tracking-wider uppercase"
+							class="flex-1 rounded-full py-2.5 text-xs font-semibold tracking-wider text-base-content/60 uppercase"
 							onclick={() => (confirmUnpair = false)}
 						>
 							{m.common_cancel()}
@@ -288,10 +298,11 @@
 
 		<form method="POST" action="/auth/sign-out" class="mt-6">
 			<button
-				class="text-base-content/60 hover:text-base-content inline-flex w-full items-center justify-center gap-2 py-3 text-xs font-semibold tracking-wider uppercase"
+				class="inline-flex w-full items-center justify-center gap-2 py-3 text-xs font-semibold tracking-wider text-base-content/60 uppercase hover:text-base-content"
 				type="submit"
 			>
-				<Icon icon={SignOutIcon} size={14} weight="duotone" /> {m.settings_signout()}
+				<Icon icon={SignOutIcon} size={14} weight="duotone" />
+				{m.settings_signout()}
 			</button>
 		</form>
 	</main>
