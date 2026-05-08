@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { canInstall, promptInstall, isStandalone, isIosSafari } from '$lib/pwa/install';
+	import { canInstall, promptInstall, isStandalone } from '$lib/pwa/install';
+	import { iosInstallMode, type IosInstallMode } from '$lib/pwa/ios-install';
+	import { IosInstallSheet } from '$lib/components/duosync';
 
 	let installable = $state(false);
 	let standalone = $state(false);
-	let iosHint = $state(false);
+	let iosMode = $state<IosInstallMode>(null);
+	let iosSheetOpen = $state(false);
 
 	onMount(() => {
 		standalone = isStandalone();
-		iosHint = isIosSafari() && !standalone;
+		iosMode = iosInstallMode();
 		const tick = () => (installable = canInstall());
 		tick();
 		const id = setInterval(tick, 1000);
@@ -41,8 +44,10 @@
 
 	{#if installable}
 		<button class="cta" onclick={install}>Install DuoSync</button>
-	{:else if iosHint}
-		<p class="ios-hint">Tap <strong>Share → Add to Home Screen</strong> to install.</p>
+	{:else if iosMode}
+		<button class="cta" onclick={() => (iosSheetOpen = true)}>
+			{iosMode === 'safari' ? 'Add to Home Screen' : 'How to install on iPhone'}
+		</button>
 	{:else if standalone}
 		<p class="installed">✓ Installed — welcome back.</p>
 	{/if}
@@ -51,6 +56,10 @@
 
 	<p class="muted">Sign in with email to pair up.</p>
 </main>
+
+{#if iosMode}
+	<IosInstallSheet bind:open={iosSheetOpen} mode={iosMode} />
+{/if}
 
 <style>
 	.hero {
@@ -121,7 +130,6 @@
 		border: 1.5px solid color-mix(in oklab, var(--color-primary) 40%, transparent);
 		box-shadow: none;
 	}
-	.ios-hint,
 	.installed,
 	.muted {
 		color: color-mix(in oklab, var(--color-base-content) 55%, transparent);

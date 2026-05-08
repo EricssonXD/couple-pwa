@@ -19,3 +19,4 @@ export { default as GhostBanner } from './GhostBanner.svelte';
 export { default as MomentCard } from './MomentCard.svelte';
 export { default as BottomNav } from './BottomNav.svelte';
 export { default as MemoryResurface } from './MemoryResurface.svelte';
+export { default as IosInstallSheet } from './IosInstallSheet.svelte';
