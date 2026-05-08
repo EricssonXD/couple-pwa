@@ -15,7 +15,7 @@
 -->
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
+	import { GhostIcon } from '$lib/components/ui/icons';
 	import LightningIcon from 'phosphor-svelte/lib/LightningIcon';
 
 	type Presence = 'online' | 'away' | 'ghost' | 'offline';

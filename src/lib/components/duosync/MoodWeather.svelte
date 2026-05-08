@@ -15,10 +15,7 @@
 -->
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import SunIcon from 'phosphor-svelte/lib/SunIcon';
-	import CloudIcon from 'phosphor-svelte/lib/CloudIcon';
-	import CloudRainIcon from 'phosphor-svelte/lib/CloudRainIcon';
-	import MoonIcon from 'phosphor-svelte/lib/MoonIcon';
+	import { SunIcon, CloudIcon, CloudRainIcon, MoonIcon } from '$lib/components/ui/icons';
 	import * as m from '$lib/paraglide/messages.js';
 
 	export type Mood = 'sunny' | 'cloudy' | 'rainy' | 'night';

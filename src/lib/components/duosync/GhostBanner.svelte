@@ -11,7 +11,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
+	import { GhostIcon } from '$lib/components/ui/icons';
 	import * as m from '$lib/paraglide/messages.js';
 
 	type Props = {

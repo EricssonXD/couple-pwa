@@ -17,9 +17,8 @@
 -->
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import MapPinIcon from 'phosphor-svelte/lib/MapPinIcon';
+	import { MapPinIcon, NavigationArrowIcon } from '$lib/components/ui/icons';
 	import LockSimpleIcon from 'phosphor-svelte/lib/LockSimpleIcon';
-	import NavigationArrowIcon from 'phosphor-svelte/lib/NavigationArrowIcon';
 	import * as m from '$lib/paraglide/messages.js';
 
 	type Props = {

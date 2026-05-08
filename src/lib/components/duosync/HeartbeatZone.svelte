@@ -17,7 +17,7 @@
 <script lang="ts">
 	import { createHeartbeat } from '$lib/motion/heartbeat.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import WaveformIcon from 'phosphor-svelte/lib/WaveformIcon';
+	import { WaveformIcon } from '$lib/components/ui/icons';
 	import * as m from '$lib/paraglide/messages.js';
 
 	type Props = {

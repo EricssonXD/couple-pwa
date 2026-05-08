@@ -14,7 +14,7 @@
 -->
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
+	import { SparkleIcon } from '$lib/components/ui/icons';
 	import * as m from '$lib/paraglide/messages.js';
 
 	type Memory =

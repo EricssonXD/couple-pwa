@@ -19,10 +19,7 @@
 	import { page } from '$app/state';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import PulseIcon from 'phosphor-svelte/lib/PulseIcon';
-	import MapPinIcon from 'phosphor-svelte/lib/MapPinIcon';
-	import BookOpenIcon from 'phosphor-svelte/lib/BookOpenIcon';
-	import GearIcon from 'phosphor-svelte/lib/GearIcon';
+	import { PulseIcon, MapPinIcon, BookOpenIcon, GearIcon } from '$lib/components/ui/icons';
 	import type { IconComponentProps } from 'phosphor-svelte';
 	import type { Component } from 'svelte';
 
