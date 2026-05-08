@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import * as m from '$lib/paraglide/messages.js';
 
 	let online = $state(true);
 
@@ -20,7 +21,7 @@
 </script>
 
 <svelte:head>
-	<title>Offline — DuoSync</title>
+	<title>{m.offline_title()} — DuoSync</title>
 	<!-- Force dark theme: this page is the "absent" state. Inline so it
 	     applies even when SW serves the HTML before client hydration. -->
 	<script>
@@ -31,15 +32,14 @@
 <main class="offline">
 	<div class="card">
 		<div class="emoji" aria-hidden="true">🌙</div>
-		<h1 class="text-display">You're offline</h1>
+		<h1 class="text-display">{m.offline_heading()}</h1>
 		<p>
-			DuoSync needs a connection to refresh this page. The last data you saw is still cached and
-			will reload automatically when you're back online.
+			{m.offline_body()}
 		</p>
 		<p class="status" class:online>
-			{online ? 'Connection restored — tap retry.' : 'Waiting for the network…'}
+			{online ? m.offline_status_restored() : m.offline_status_waiting()}
 		</p>
-		<button class="cta" onclick={retry}>Retry</button>
+		<button class="cta" onclick={retry}>{m.offline_retry()}</button>
 	</div>
 </main>
 

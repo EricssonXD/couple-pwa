@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import * as m from '$lib/paraglide/messages.js';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -25,7 +26,7 @@
 		});
 		submitting = false;
 		if (!r.ok) {
-			err = `Couldn't save (${r.status}).`;
+			err = m.daily_save_error({ status: String(r.status) });
 			return;
 		}
 		body = '';
@@ -39,12 +40,12 @@
 </script>
 
 <svelte:head>
-	<title>Daily · DuoSync</title>
+	<title>{m.daily_title_tag()}</title>
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 py-8">
 	<header class="mb-4">
-		<p class="text-xs tracking-wider text-base-content/60 uppercase">Daily question</p>
+		<p class="text-xs tracking-wider text-base-content/60 uppercase">{m.daily_heading()}</p>
 		<h1 class="text-2xl font-semibold">{daily.dateKey}</h1>
 	</header>
 
@@ -61,14 +62,14 @@
 		<section class="mt-6 space-y-3">
 			<label class="form-control">
 				<div class="label">
-					<span class="label-text">Your answer (private until you both answer)</span>
+					<span class="label-text">{m.daily_answer_label()}</span>
 					<span class="label-text-alt text-base-content/60">{body.length}/1000</span>
 				</div>
 				<textarea
 					bind:value={body}
 					maxlength={1000}
 					rows={5}
-					placeholder="Take your time…"
+					placeholder={m.daily_placeholder()}
 					class="textarea-bordered textarea"
 				></textarea>
 			</label>
@@ -78,7 +79,7 @@
 				disabled={submitting || !body.trim()}
 				onclick={submit}
 			>
-				{submitting ? 'Saving…' : 'Send your answer'}
+				{submitting ? m.daily_saving() : m.daily_send()}
 			</button>
 		</section>
 	{:else}
@@ -86,7 +87,7 @@
 			<article class="card bg-base-200 shadow-sm">
 				<div class="card-body p-4">
 					<header class="flex items-center justify-between">
-						<span class="text-sm font-semibold">You</span>
+						<span class="text-sm font-semibold">{m.daily_you()}</span>
 						<time class="text-xs text-base-content/60">{fmtTime(mine.createdAt)}</time>
 					</header>
 					<p class="mt-2 whitespace-pre-wrap">{mine.body}</p>
@@ -99,7 +100,7 @@
 						<header class="flex items-center justify-between">
 							<span class="text-sm font-semibold">
 								{data.partner?.avatarEmoji ?? '💞'}
-								{data.partner?.displayName ?? 'Partner'}
+								{data.partner?.displayName ?? m.pulse_partner_fallback()}
 							</span>
 							<time class="text-xs text-base-content/60">{fmtTime(partner.createdAt)}</time>
 						</header>
@@ -110,10 +111,10 @@
 				<div class="card border border-dashed border-base-300 bg-base-200/60 shadow-sm">
 					<div class="card-body items-center p-4 text-center">
 						<p class="text-sm text-base-content/70">
-							Waiting for {data.partner?.displayName ?? 'your partner'} to answer…
+							{m.daily_waiting({ name: data.partner?.displayName ?? m.daily_partner_fallback() })}
 						</p>
 						<p class="mt-1 text-xs text-base-content/50">
-							Their reply unlocks once they've sent theirs.
+							{m.daily_unlock_hint()}
 						</p>
 					</div>
 				</div>

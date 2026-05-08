@@ -1,13 +1,17 @@
+<script lang="ts">
+	import * as m from '$lib/paraglide/messages.js';
+</script>
+
 <svelte:head>
-	<title>Check your email — DuoSync</title>
+	<title>{m.auth_check_email_title()} — DuoSync</title>
 </svelte:head>
 
-<main class="hero bg-base-200 min-h-screen px-4">
-	<div class="card bg-base-100 shadow-paper max-w-md">
+<main class="hero min-h-screen bg-base-200 px-4">
+	<div class="card max-w-md bg-base-100 shadow-paper">
 		<div class="card-body text-center">
-			<h1 class="text-2xl font-semibold">Check your email</h1>
+			<h1 class="text-2xl font-semibold">{m.auth_check_email_title()}</h1>
 			<p class="mt-2 text-sm text-base-content/70">
-				We've sent you a confirmation link. Click it to finish signing in.
+				{m.auth_check_email_body()}
 			</p>
 		</div>
 	</div>

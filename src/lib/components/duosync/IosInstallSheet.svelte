@@ -20,6 +20,7 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import { dismissIosInstallHint } from '$lib/pwa/ios-install';
+	import * as m from '$lib/paraglide/messages.js';
 
 	type Props = {
 		open: boolean;
@@ -34,20 +35,19 @@
 	}
 </script>
 
-<BottomSheet bind:open title="Install DuoSync">
+<BottomSheet bind:open title={m.welcome_install()}>
 	{#if mode === 'safari'}
-		<p class="text-base-content/70 mb-4 text-sm">
-			Add DuoSync to your Home Screen for instant launch, full-screen view, and push
-			notifications when your partner pings you.
+		<p class="mb-4 text-sm text-base-content/70">
+			{m.ios_install_intro()}
 		</p>
 
 		<ol class="space-y-4">
 			<li class="flex items-start gap-3">
 				<span class="step">1</span>
 				<div class="flex-1">
-					<p class="text-sm">
-						Tap the <strong>Share</strong> button in Safari's bottom bar.
-					</p>
+					<!-- Translated copy intentionally contains <strong> markup. -->
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					<p class="text-sm">{@html m.ios_install_step1_inline_html()}</p>
 					<div class="glyph mt-2">
 						<!-- iOS share-arrow box -->
 						<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -66,9 +66,8 @@
 			<li class="flex items-start gap-3">
 				<span class="step">2</span>
 				<div class="flex-1">
-					<p class="text-sm">
-						Scroll and choose <strong>Add to Home Screen</strong>.
-					</p>
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					<p class="text-sm">{@html m.ios_install_step2_inline_html()}</p>
 					<div class="glyph mt-2">
 						<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
 							<rect
@@ -94,25 +93,24 @@
 			<li class="flex items-start gap-3">
 				<span class="step">3</span>
 				<div class="flex-1">
-					<p class="text-sm">
-						Tap <strong>Add</strong> in the top-right corner.
-					</p>
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+					<p class="text-sm">{@html m.ios_install_step3_inline_html()}</p>
 				</div>
 			</li>
 		</ol>
 	{:else}
-		<p class="text-base-content/70 mb-3 text-sm">
-			This browser can't add apps to the iPhone Home Screen — only Safari can. Open this page
-			in Safari to install.
+		<p class="mb-3 text-sm text-base-content/70">
+			{m.ios_install_non_safari()}
 		</p>
-		<p class="text-base-content/50 text-xs">
-			Tip: tap the <strong>···</strong> menu, then <strong>Open in Safari</strong>.
-		</p>
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		<p class="text-xs text-base-content/50">{@html m.ios_install_inapp_hint_html()}</p>
 	{/if}
 
 	<div class="mt-5 flex gap-2">
-		<button class="btn btn-ghost flex-1" onclick={() => (open = false)}>Maybe later</button>
-		<button class="btn btn-primary flex-1" onclick={dismiss}>Got it</button>
+		<button class="btn flex-1 btn-ghost" onclick={() => (open = false)}
+			>{m.ios_install_later()}</button
+		>
+		<button class="btn flex-1 btn-primary" onclick={dismiss}>{m.ios_install_got_it()}</button>
 	</div>
 </BottomSheet>
 

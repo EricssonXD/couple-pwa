@@ -25,12 +25,14 @@
 	import SunIcon from 'phosphor-svelte/lib/SunIcon';
 	import MoonIcon from 'phosphor-svelte/lib/MoonIcon';
 	import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';
+	import TranslateIcon from 'phosphor-svelte/lib/TranslateIcon';
 	import {
 		setUserTheme,
 		getUserChoice,
 		type DuoSyncTheme,
 		type ThemeChoice
 	} from '$lib/theme/index.svelte';
+	import { locales, getLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -42,6 +44,14 @@
 	let anniversary = $state('');
 	let ghost = $state(false);
 	let themeChoice = $state<ThemeChoice>('auto');
+	let currentLocale = $state<Locale>(getLocale());
+
+	function changeLocale(next: Locale) {
+		if (next === currentLocale) return;
+		currentLocale = next;
+		// setLocale persists via cookie + globalVariable; default reload re-renders all messages.
+		setLocale(next);
+	}
 
 	let busy = $state<string | null>(null);
 	let msg = $state<string | null>(null);
@@ -209,6 +219,32 @@
 							<Icon icon={o.icon} size={16} weight="duotone" class="mx-auto mb-1" />
 						{/if}
 						{o.label}
+					</button>
+				{/each}
+			</div>
+		</section>
+
+		<!-- language -->
+		<section
+			class="mt-4 space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
+		>
+			<header class="flex items-center gap-2">
+				<Icon icon={TranslateIcon} size={18} weight="duotone" class="text-accent" />
+				<h2 class="text-sm font-semibold tracking-wider uppercase">
+					{m.settings_section_language()}
+				</h2>
+			</header>
+			<div class="grid grid-cols-2 gap-2">
+				{#each locales as code (code)}
+					<button
+						type="button"
+						onclick={() => changeLocale(code)}
+						class="rounded-[var(--radius-card)] border px-2 py-3 text-xs font-semibold tracking-wider uppercase {currentLocale ===
+						code
+							? 'border-primary bg-primary/10 text-primary'
+							: 'border-base-content/10 text-base-content/60'}"
+					>
+						{code === 'en' ? m.settings_language_en() : m.settings_language_zh_hant()}
 					</button>
 				{/each}
 			</div>

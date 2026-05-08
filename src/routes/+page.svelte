@@ -5,6 +5,7 @@
 	import { iosInstallMode, type IosInstallMode } from '$lib/pwa/ios-install';
 	import { IosInstallSheet } from '$lib/components/duosync';
 	import { hasAuthHint } from '$lib/client/auth-hint';
+	import * as m from '$lib/paraglide/messages.js';
 
 	let installable = $state(false);
 	let standalone = $state(false);
@@ -50,7 +51,7 @@
 </script>
 
 <svelte:head>
-	<title>DuoSync — a sanctuary for two</title>
+	<title>{m.welcome_title_tag()}</title>
 </svelte:head>
 
 {#if !redirecting}
@@ -58,32 +59,32 @@
 		<div class="logo" aria-hidden="true">
 			<img src="/icon.svg" alt="" width="120" height="120" />
 		</div>
-		<h1 class="text-display">DuoSync</h1>
-		<p class="tag">A private, real-time digital sanctuary for two.</p>
+		<h1 class="text-display">{m.welcome_title()}</h1>
+		<p class="tag">{m.welcome_tag()}</p>
 
 		<ul class="features">
-			<li>🫧 The Shared Pulse — distance, mood, battery at a glance.</li>
-			<li>💬 Whisper Chat — lightweight, with read receipts.</li>
-			<li>📍 Geo-Moments — leave notes that unlock when they're near.</li>
-			<li>🔔 Proximity Alerts — quietly notified when they arrive.</li>
+			<li>{m.welcome_feature_pulse()}</li>
+			<li>{m.welcome_feature_chat()}</li>
+			<li>{m.welcome_feature_moments()}</li>
+			<li>{m.welcome_feature_proximity()}</li>
 		</ul>
 
 		{#if installable}
-			<button class="cta" onclick={install}>Install DuoSync</button>
+			<button class="cta" onclick={install}>{m.welcome_install()}</button>
 		{:else if iosMode}
 			<button class="cta" onclick={() => (iosSheetOpen = true)}>
-				{iosMode === 'safari' ? 'Add to Home Screen' : 'How to install on iPhone'}
+				{iosMode === 'safari' ? m.welcome_ios_install_safari() : m.welcome_ios_install_other()}
 			</button>
 		{:else if standalone}
-			<p class="installed">✓ Installed — welcome back.</p>
+			<p class="installed">{m.welcome_installed()}</p>
 		{/if}
 
 		{#if online}
-			<a class="cta secondary" href="/auth/sign-in">Get started</a>
-			<p class="muted">Sign in with email to pair up.</p>
+			<a class="cta secondary" href="/auth/sign-in">{m.welcome_get_started()}</a>
+			<p class="muted">{m.welcome_get_started_hint()}</p>
 		{:else}
-			<button class="cta secondary" disabled aria-disabled="true">Get started</button>
-			<p class="muted">You're offline — reconnect to sign in.</p>
+			<button class="cta secondary" disabled aria-disabled="true">{m.welcome_get_started()}</button>
+			<p class="muted">{m.welcome_offline_hint()}</p>
 		{/if}
 	</main>
 
