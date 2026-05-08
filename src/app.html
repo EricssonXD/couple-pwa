@@ -3,6 +3,23 @@
 <html lang="%paraglide.lang%" dir="%paraglide.dir%">
 	<head>
 		<meta charset="utf-8" />
+		<!--
+		  Pre-paint redirect for signed-in devices landing on `/`.
+		  Runs synchronously before the body parses. When the SW serves the
+		  cached anonymous welcome HTML (offline / cold home-screen launch)
+		  this aborts the navigation before first paint and re-routes to the
+		  cached app shell. Online: the server already 303s these users so
+		  this is a no-op. Cookie is the same `ds_auth` hint set by
+		  hooks.server.ts; cleared on sign-out.
+		  Keep this script tiny + dependency-free — it must parse instantly.
+		-->
+		<script>
+			(function () {
+				if (location.pathname !== '/') return;
+				if (!/(?:^|;\s*)ds_auth=1(?:;|$)/.test(document.cookie)) return;
+				location.replace('/pulse');
+			})();
+		</script>
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="application-name" content="DuoSync" />
 		<meta name="apple-mobile-web-app-title" content="DuoSync" />
