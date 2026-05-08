@@ -175,6 +175,7 @@ CSS keyframes in `src/lib/motion/animations.css`. JS primitives in
 | `.animate-presence-pulse` | 2s ease-in-out infinite | Partner avatar presence dot when online |
 | `.animate-ripple` | 0.85s `cubic-bezier(0.22, 1, 0.36, 1)` once | Heartbeat tap ripple |
 | `.animate-bloom` | 1.2s spring once | Onboarding pairing success, milestone unlock |
+| `.animate-map-pin-pulse` | 2.4s ease-in-out infinite | Halo under partner/self pins on `/map` |
 
 **Hard rules.**
 

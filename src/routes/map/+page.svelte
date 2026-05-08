@@ -42,7 +42,7 @@
 			className: '',
 			html: `
 				<div class="duosync-pin">
-					<span class="duosync-pin-pulse" style="background:${color}"></span>
+					<span class="duosync-pin-pulse animate-map-pin-pulse" style="background:${color}"></span>
 					<span class="duosync-pin-glyph">${emoji}</span>
 				</div>
 			`,
@@ -178,7 +178,6 @@
 		inset: 0;
 		border-radius: 9999px;
 		opacity: 0.5;
-		animation: duosync-pin-pulse 2.4s ease-in-out infinite;
 	}
 	:global(.duosync-pin-glyph) {
 		position: relative;
@@ -192,20 +191,8 @@
 		font-size: 16px;
 		line-height: 1;
 	}
-	@keyframes duosync-pin-pulse {
-		0%,
-		100% {
-			transform: scale(0.85);
-			opacity: 0.5;
-		}
-		50% {
-			transform: scale(1.25);
-			opacity: 0;
-		}
-	}
 	@media (prefers-reduced-motion: reduce) {
 		:global(.duosync-pin-pulse) {
-			animation: none;
 			opacity: 0.25;
 		}
 	}
