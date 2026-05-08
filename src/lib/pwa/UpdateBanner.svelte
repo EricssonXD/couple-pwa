@@ -25,18 +25,18 @@
 		gap: 0.75rem;
 		align-items: center;
 		padding: 0.6rem 1rem;
-		background: #111827;
-		color: white;
-		border-radius: 999px;
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+		background: var(--color-base-100);
+		color: var(--color-base-content);
+		border-radius: var(--radius-bubble);
+		box-shadow: var(--shadow-paper);
 		font-size: 0.9rem;
 	}
 	button {
-		background: linear-gradient(90deg, #e11d48, #6d28d9);
+		background: var(--color-primary);
+		color: var(--color-primary-content);
 		border: none;
-		color: white;
 		padding: 0.35rem 0.85rem;
-		border-radius: 999px;
+		border-radius: var(--radius-bubble);
 		font-weight: 600;
 		cursor: pointer;
 	}

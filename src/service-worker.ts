@@ -21,8 +21,15 @@
 //   - Never cache /api/* or /auth/* — these hold private session data
 //     and must not be served stale or to the wrong user.
 //   - Never cache non-GET, non-2xx, opaque, or cross-origin requests.
-//   - On activate, broadcast {type: 'duosync-sw-updated', version} to
-//     all clients so the UI can show a soft "new version ready" hint.
+//
+// Update-flow contract (do NOT change without updating
+// `$lib/pwa/register.ts`):
+//   - install does NOT call skipWaiting. New SW stays in 'installed'
+//     state until the user clicks the UpdateBanner.
+//   - activate does NOT call clients.claim. The page is only
+//     controlled by the new SW after the user-initiated reload.
+//   - UI posts {type: 'SKIP_WAITING'} on user gesture; that triggers
+//     activation; controllerchange then fires; register.ts reloads.
 
 import { build, files, version } from '$service-worker';
 
@@ -110,7 +117,14 @@ sw.addEventListener('install', (event) => {
 			);
 		})()
 	);
-	sw.skipWaiting();
+	// Do NOT call sw.skipWaiting() here. We want the lifecycle's natural
+	// wait state so the UI can show an UpdateBanner before activating —
+	// otherwise every deploy auto-reloads the user's tab mid-interaction
+	// (combined with the controllerchange→reload handler in
+	// $lib/pwa/register.ts). First install has no previous SW so the
+	// browser activates immediately; subsequent installs wait for the
+	// user to click "Reload" which posts SKIP_WAITING (see message
+	// handler below).
 });
 
 sw.addEventListener('activate', (event) => {
@@ -132,15 +146,13 @@ sw.addEventListener('activate', (event) => {
 				keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k))
 			);
 
-			await sw.clients.claim();
-
-			// Notify open clients that a new SW is now controlling them so
-			// the UI can show a soft "new version ready" hint without forcing
-			// a reload mid-interaction.
-			const clients = await sw.clients.matchAll({ type: 'window' });
-			for (const client of clients) {
-				client.postMessage({ type: 'duosync-sw-updated', version });
-			}
+			// Do NOT call sw.clients.claim(). That would trigger a
+			// controllerchange event on the page, which the registration
+			// helper turns into a forced location.reload(). The user has
+			// either just reloaded (after pressing the UpdateBanner
+			// button) or this is a first install with no prior controller
+			// — in both cases the natural lifecycle is correct without
+			// claim().
 		})()
 	);
 });
