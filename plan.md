@@ -341,6 +341,8 @@ v1.1+: Co-Listening, Camera Roll, Sleep Mode, Date Roulette, Theme Sync 等.
 - ✅ M5/1 scripts rewrite (seed + test-realtime now use Supabase Admin SDK + supabase channels; `ws` + `@types/ws` removed; `auth:schema` script was already gone)
 - ✅ M5/2 live smoke test PASSED (9 steps green: presence sync, location_update broadcast, distanceM=283m near-bucket, ghost_change toggle, heartbeat_tap, presence meta update, cleanup). Required clean install (`rm -rf node_modules .svelte-kit && bun install`) to purge stale `@better-auth/*` + `@simplewebauthn/*` from old lockfile state — that was the source of the Vite SSR `getBuiltins` 60s transport timeout AND the mysterious `WARN [Better Auth]` boot log. Both gone now.
 - ✅ M6 complete — private channels live, RLS on `realtime.messages`, server-only broadcast, tap endpoint, token refresh, RLS smoke test (all green vs live Supabase: SELECT visibility, 4× WITH CHECK 42501, 2× invisible-UPDATE 0 rows, charlie blocked from couple topic with CHANNEL_ERROR), docs/rls-model.md. `bun run check` + `bun run lint` (M6 files) + `bun run build` clean. Realtime smoke test still 9/9 green against private channels.
+- ✅ P7 theme persistence — 用戶於 /settings 選之主題, 過去因 layout `$effect` 每導航即 `clearTheme()` 而被抹. 重寫 `src/lib/theme/index.svelte.ts` 為 runes-backed ThemeState (user > route > system 三層). `initTheme()` 裝 prefers-color-scheme 監聽; `setUserTheme()` 持久化; `setRouteTheme()` 由 layout `$effect` 呼. 用戶選永勝路徑強制. Commit `a44e4fa`.
+- ✅ P8 /map light tiles — 過去 tile URL 寫死 `dark_all`, 縱切 light 亦見黑底. 新 `tileUrlFor(theme)` 按 `themeState.effective` 在 CartoDB `light_all` / `dark_all` 間切換, `$effect` 監變化即 swap layer. Commit `c26c4a0`.
 
 ### PWA shell hardening (P-series) — 全完 ALL DONE
 
