@@ -77,6 +77,10 @@ new code. Hex literals in components are a review block.
                    → "same place" / milestone glow
 --color-info       mist blue (both themes)
                    → "far" bucket, neutral hints
+--color-warning    warm gold (both themes)
+                   → soft alerts (low battery, expiring link). Never alarming.
+--color-success    sage (both themes)
+                   → mirror of `--color-secondary` for affirmative confirmations
 --color-error      muted red (light) / soft red (dark)
                    → SOS beacon ONLY
 ```

@@ -7,11 +7,17 @@
   Battery ring: stroke length encodes batteryPct. Color shifts red
   under 20% so the partner's low battery is glanceable.
 
-  Presence states:
+  presence states:
     online  — sage dot, animate-presence-pulse
     away    — warm gold dot, no pulse
     ghost   — slate dot, ghost icon overlay
     offline — empty/grey dot, no pulse
+
+  Battery ring color steps:
+    null         → base-300 (no data)
+    <20%         → --color-warning (gold, soft alert — never red, per voice)
+    <40%         → --color-accent (warmer gold)
+    ≥40%         → --color-secondary (sage)
 -->
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -50,8 +56,8 @@
 	});
 
 	const ringColor = $derived.by(() => {
-		if (batteryPct == null) return 'var(--color-base-300, #e5dcd0)';
-		if (batteryPct < 20) return 'var(--color-error)';
+		if (batteryPct == null) return 'var(--color-base-300)';
+		if (batteryPct < 20) return 'var(--color-warning)';
 		if (batteryPct < 40) return 'var(--color-accent)';
 		return 'var(--color-secondary)';
 	});
@@ -80,7 +86,7 @@
 			cy={size / 2}
 			r={radius}
 			fill="none"
-			stroke="var(--color-base-300, #e5dcd0)"
+			stroke="var(--color-base-300)"
 			stroke-width={stroke}
 			opacity="0.4"
 		/>
