@@ -500,8 +500,7 @@ Edit `src/routes/layout.css`:
 
 ### 11.7 國際化 i18n (U7)
 
-- `messages/zh-cn.json` 已存在 → 補新 keys; 另加 `messages/zh-hant.json` (Traditional, brief 主推 雙心同步/距離/被動共在).
-- 全新 UI 字串列入 keys (no hardcoded text in components):
+- `messages/en.json` + `messages/zh-hant.json` 為唯二目標 locale (`zh-cn` 已棄, 24f4253). zh-hant 為 HK 用戶之 default after browser locale negotiation. 需補以下 keys:
   - `pulse.distance.same`, `pulse.distance.near`, `pulse.distance.city`, `pulse.distance.far`, `pulse.distance.ghost`
   - `pulse.anniversary.day_n`, `pulse.anniversary.next_milestone`
   - `mood.sunny`, `mood.cloudy`, `mood.rainy`, `mood.night`
