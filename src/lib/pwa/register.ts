@@ -7,7 +7,7 @@ import { dev } from '$app/environment';
 
 export type SwUpdateState = 'idle' | 'update-available' | 'controller-changed';
 
-let listeners = new Set<(s: SwUpdateState) => void>();
+const listeners = new Set<(s: SwUpdateState) => void>();
 let waitingWorker: ServiceWorker | null = null;
 let registration: ServiceWorkerRegistration | null = null;
 // Single source of truth so the controllerchange handler and the safety-net

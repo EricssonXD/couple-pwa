@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * RLS smoke test — DuoSync.
  *

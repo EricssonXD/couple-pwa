@@ -56,7 +56,7 @@ export async function broadcastToCouple(coupleId: string, event: ServerEvent): P
 
 	if (!res.ok && dev) {
 		const text = await res.text().catch(() => '');
-		// eslint-disable-next-line no-console
+
 		console.warn('[realtime] broadcast failed', res.status, text);
 	}
 }

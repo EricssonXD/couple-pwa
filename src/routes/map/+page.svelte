@@ -34,14 +34,8 @@
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let map: any = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let mePin: any = null;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let partnerPin: any = null;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let connector: any = null;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let tileLayer: any = null;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 	let leaflet: typeof import('leaflet') | null = null;
 
 	function tileUrlFor(theme: 'duosync-light' | 'duosync-dark'): string {
@@ -110,18 +104,18 @@
 			.addTo(map);
 
 		if (mePos) {
-			mePin = L.marker(mePos, {
+			L.marker(mePos, {
 				icon: buildPinIcon(L, data.me.avatarEmoji, 'var(--color-primary)')
 			}).addTo(map);
 		}
 		if (partnerPos) {
-			partnerPin = L.marker(partnerPos, {
+			L.marker(partnerPos, {
 				icon: buildPinIcon(L, data.partner.avatarEmoji, 'var(--color-secondary)')
 			}).addTo(map);
 		}
 
 		if (mePos && partnerPos) {
-			connector = L.polyline([mePos, partnerPos], {
+			L.polyline([mePos, partnerPos], {
 				color: 'rgba(244, 177, 160, 0.5)',
 				weight: 2,
 				dashArray: '6 8'

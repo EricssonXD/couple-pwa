@@ -42,7 +42,7 @@
 <Story name="LongContent">
 	<BottomSheet open={true} title="Scrollable">
 		<div class="space-y-3">
-			{#each Array(20) as _, i}
+			{#each Array.from({ length: 20 }, (_, i) => i) as i (i)}
 				<p class="text-sm">Row {i + 1} — long content scrolls within the sheet.</p>
 			{/each}
 		</div>

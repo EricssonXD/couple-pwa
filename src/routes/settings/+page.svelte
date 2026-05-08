@@ -15,6 +15,7 @@
 -->
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import Toggle from '$lib/components/ui/Toggle.svelte';
@@ -26,12 +27,7 @@
 	import MoonIcon from 'phosphor-svelte/lib/MoonIcon';
 	import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';
 	import TranslateIcon from 'phosphor-svelte/lib/TranslateIcon';
-	import {
-		setUserTheme,
-		getUserChoice,
-		type DuoSyncTheme,
-		type ThemeChoice
-	} from '$lib/theme/index.svelte';
+	import { setUserTheme, getUserChoice, type ThemeChoice } from '$lib/theme/index.svelte';
 	import { locales, getLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
 	import type { PageData } from './$types';
 
@@ -122,7 +118,7 @@
 		busy = 'unpair';
 		await fetch('/api/couple', { method: 'DELETE' });
 		busy = null;
-		await goto('/onboarding/link');
+		await goto(resolve('/onboarding/link'));
 	}
 </script>
 
