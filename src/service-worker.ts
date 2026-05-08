@@ -32,8 +32,13 @@
 //     state until the user clicks the UpdateBanner.
 //   - activate does NOT call clients.claim. The page is only
 //     controlled by the new SW after the user-initiated reload.
-//   - UI posts {type: 'SKIP_WAITING'} on user gesture; that triggers
-//     activation; controllerchange then fires; register.ts reloads.
+//   - UI posts 'SKIP_WAITING' on user gesture (string, matches the
+//     equality check below). The new SW activates; register.ts waits
+//     for the new worker's statechange→'activated' before reloading,
+//     so the next page boot is controlled by the new version.
+//   - controllerchange does NOT fire from skipWaiting() alone (we
+//     deliberately don't claim) — the reload IS the handoff. The
+//     register.ts statechange listener is what actually triggers it.
 //   - SWR HTML strategy means the user might see one stale paint after
 //     a deploy before the UpdateBanner appears — acceptable trade for
 //     native-feel tab switches.

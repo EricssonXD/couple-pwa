@@ -38,13 +38,37 @@ export async function applySwUpdate(): Promise<void> {
 	// skipWaiting a no-op and the user's click feel broken).
 	const reg = registration ?? (await navigator.serviceWorker.getRegistration()) ?? null;
 	const worker = reg?.waiting ?? waitingWorker;
-	worker?.postMessage('SKIP_WAITING');
 
-	// Safety net: if controllerchange doesn't fire within 1.5s (waiting
-	// worker already gone, browser swallowed the message, etc.), force a
-	// reload so the click is never silent. The shared `reloading` flag
-	// guarantees we still only reload once.
-	setTimeout(reloadOnce, 1500);
+	// If there's nothing to activate, just reload — best-effort recovery
+	// so the click is never silent.
+	if (!worker) {
+		reloadOnce();
+		return;
+	}
+
+	// Already activated (we missed the transition somehow): reload now.
+	if (worker.state === 'activated') {
+		reloadOnce();
+		return;
+	}
+
+	// CRITICAL: only reload AFTER the new SW finishes activating. We
+	// removed clients.claim() to avoid the auto-reload loop, which means
+	// `controllerchange` does NOT fire from skipWaiting() alone — the
+	// reload IS the activation handoff. If we reload before the new SW
+	// is 'activated', the new page boots controlled by the OLD SW with
+	// the new one still in 'installed' (waiting) → banner reappears
+	// immediately and the user is stuck in a "click does nothing" loop.
+	worker.addEventListener('statechange', () => {
+		if (worker.state === 'activated') reloadOnce();
+	});
+	worker.postMessage('SKIP_WAITING');
+
+	// Long-tail safety net only — if the message is dropped entirely
+	// (SW died, browser swallowed it, etc.), reload after 10s so the
+	// click is never permanently silent. The shared `reloading` flag
+	// guarantees we still reload at most once.
+	setTimeout(reloadOnce, 10000);
 }
 
 export async function registerServiceWorker(): Promise<void> {
