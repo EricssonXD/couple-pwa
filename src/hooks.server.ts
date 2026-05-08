@@ -31,6 +31,17 @@ const handleParaglide: Handle = ({ event, resolve }) =>
 		});
 	});
 
+// Non-HttpOnly client-readable hint cookie. Holds NO secrets — purely a
+// flag the client/SW-cached pages can read to know "this device has a
+// signed-in session" without reaching the server. Used for two things:
+//   1. Skipping the welcome flash on `/` when offline (cached HTML may
+//      still be the unauth welcome variant).
+//   2. Suppressing client navigations to `/auth/*` when offline — those
+//      routes are intentionally not cached by the SW (private), so a
+//      stranded user with a valid session would otherwise hit a dead end.
+// Cleared the moment the server stops seeing a user.
+const AUTH_HINT_COOKIE = 'ds_auth';
+
 const handleSupabase: Handle = async ({ event, resolve }) => {
 	const supabase = createSupabaseServerClient(event);
 
@@ -50,6 +61,18 @@ const handleSupabase: Handle = async ({ event, resolve }) => {
 
 		const c = await getActiveCouple(user.id);
 		if (c) event.locals.couple = c;
+
+		if (event.cookies.get(AUTH_HINT_COOKIE) !== '1') {
+			event.cookies.set(AUTH_HINT_COOKIE, '1', {
+				path: '/',
+				httpOnly: false,
+				sameSite: 'lax',
+				secure: event.url.protocol === 'https:',
+				maxAge: 60 * 60 * 24 * 365
+			});
+		}
+	} else if (event.cookies.get(AUTH_HINT_COOKIE)) {
+		event.cookies.delete(AUTH_HINT_COOKIE, { path: '/' });
 	}
 
 	return resolve(event, {

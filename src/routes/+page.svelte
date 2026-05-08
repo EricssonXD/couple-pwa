@@ -1,21 +1,46 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { canInstall, promptInstall, isStandalone } from '$lib/pwa/install';
 	import { iosInstallMode, type IosInstallMode } from '$lib/pwa/ios-install';
 	import { IosInstallSheet } from '$lib/components/duosync';
+	import { hasAuthHint } from '$lib/client/auth-hint';
 
 	let installable = $state(false);
 	let standalone = $state(false);
 	let iosMode = $state<IosInstallMode>(null);
 	let iosSheetOpen = $state(false);
+	let online = $state(true);
+	let redirecting = $state(false);
 
 	onMount(() => {
+		// If the auth-hint cookie is present, this device has a signed-in
+		// session — skip the welcome flash and head straight to /pulse.
+		// Online: the server already redirected us via +page.server.ts and
+		// we wouldn't be here. This branch covers the offline / SW-cached
+		// landing where the server load did not run and we got served the
+		// stale anonymous welcome HTML.
+		if (hasAuthHint()) {
+			redirecting = true;
+			goto('/pulse', { replaceState: true });
+			return;
+		}
+
 		standalone = isStandalone();
 		iosMode = iosInstallMode();
+		online = navigator.onLine;
 		const tick = () => (installable = canInstall());
 		tick();
 		const id = setInterval(tick, 1000);
-		return () => clearInterval(id);
+		const onOnline = () => (online = true);
+		const onOffline = () => (online = false);
+		addEventListener('online', onOnline);
+		addEventListener('offline', onOffline);
+		return () => {
+			clearInterval(id);
+			removeEventListener('online', onOnline);
+			removeEventListener('offline', onOffline);
+		};
 	});
 
 	async function install() {
@@ -28,37 +53,43 @@
 	<title>DuoSync — a sanctuary for two</title>
 </svelte:head>
 
-<main class="hero">
-	<div class="logo" aria-hidden="true">
-		<img src="/icon.svg" alt="" width="120" height="120" />
-	</div>
-	<h1 class="text-display">DuoSync</h1>
-	<p class="tag">A private, real-time digital sanctuary for two.</p>
+{#if !redirecting}
+	<main class="hero">
+		<div class="logo" aria-hidden="true">
+			<img src="/icon.svg" alt="" width="120" height="120" />
+		</div>
+		<h1 class="text-display">DuoSync</h1>
+		<p class="tag">A private, real-time digital sanctuary for two.</p>
 
-	<ul class="features">
-		<li>🫧 The Shared Pulse — distance, mood, battery at a glance.</li>
-		<li>💬 Whisper Chat — lightweight, with read receipts.</li>
-		<li>📍 Geo-Moments — leave notes that unlock when they're near.</li>
-		<li>🔔 Proximity Alerts — quietly notified when they arrive.</li>
-	</ul>
+		<ul class="features">
+			<li>🫧 The Shared Pulse — distance, mood, battery at a glance.</li>
+			<li>💬 Whisper Chat — lightweight, with read receipts.</li>
+			<li>📍 Geo-Moments — leave notes that unlock when they're near.</li>
+			<li>🔔 Proximity Alerts — quietly notified when they arrive.</li>
+		</ul>
 
-	{#if installable}
-		<button class="cta" onclick={install}>Install DuoSync</button>
-	{:else if iosMode}
-		<button class="cta" onclick={() => (iosSheetOpen = true)}>
-			{iosMode === 'safari' ? 'Add to Home Screen' : 'How to install on iPhone'}
-		</button>
-	{:else if standalone}
-		<p class="installed">✓ Installed — welcome back.</p>
+		{#if installable}
+			<button class="cta" onclick={install}>Install DuoSync</button>
+		{:else if iosMode}
+			<button class="cta" onclick={() => (iosSheetOpen = true)}>
+				{iosMode === 'safari' ? 'Add to Home Screen' : 'How to install on iPhone'}
+			</button>
+		{:else if standalone}
+			<p class="installed">✓ Installed — welcome back.</p>
+		{/if}
+
+		{#if online}
+			<a class="cta secondary" href="/auth/sign-in">Get started</a>
+			<p class="muted">Sign in with email to pair up.</p>
+		{:else}
+			<button class="cta secondary" disabled aria-disabled="true">Get started</button>
+			<p class="muted">You're offline — reconnect to sign in.</p>
+		{/if}
+	</main>
+
+	{#if iosMode}
+		<IosInstallSheet bind:open={iosSheetOpen} mode={iosMode} />
 	{/if}
-
-	<a class="cta secondary" href="/auth/sign-in">Get started</a>
-
-	<p class="muted">Sign in with email to pair up.</p>
-</main>
-
-{#if iosMode}
-	<IosInstallSheet bind:open={iosSheetOpen} mode={iosMode} />
 {/if}
 
 <style>
