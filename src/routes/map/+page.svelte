@@ -1,9 +1,11 @@
 <!--
   /map — shared 2D map (U6b).
 
-  Forced dark theme via +layout.svelte ROUTE_THEME match. Tiles:
-  CartoDB dark_matter (no API key, attribution required); we honour
-  it in the bottom-right credits.
+  Honours user theme (set in /settings) over the route default. When
+  the user has no preference, /map defaults to dark via ROUTE_THEME in
+  +layout.svelte. Tile layer is swapped reactively when the effective
+  theme changes: CartoDB dark_all (dark) / light_all (light), no API
+  key. Attribution credited bottom-right.
 
   Two pulsing pins (me / partner). When both have a fix, a polyline
   connects them with the distance label centered. Center FAB
@@ -16,12 +18,13 @@
   that point when present.
 -->
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CrosshairIcon from 'phosphor-svelte/lib/CrosshairIcon';
 	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
+	import { themeState } from '$lib/theme/index.svelte';
 	import type { PageData } from './$types';
 	import 'leaflet/dist/leaflet.css';
 
@@ -36,6 +39,29 @@
 	let partnerPin: any = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let connector: any = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let tileLayer: any = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let leaflet: typeof import('leaflet') | null = null;
+
+	function tileUrlFor(theme: 'duosync-light' | 'duosync-dark'): string {
+		// CartoDB Positron (light) / Dark Matter (dark) — both warm-toned
+		// minimalist raster tiles, no API key, attribution required.
+		return theme === 'duosync-dark'
+			? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+			: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+	}
+
+	function applyTileLayer(theme: 'duosync-light' | 'duosync-dark') {
+		if (!leaflet || !map) return;
+		const next = leaflet.tileLayer(tileUrlFor(theme), {
+			subdomains: 'abcd',
+			maxZoom: 19
+		});
+		next.addTo(map);
+		if (tileLayer) map.removeLayer(tileLayer);
+		tileLayer = next;
+	}
 
 	function buildPinIcon(L: typeof import('leaflet'), emoji: string, color: string) {
 		return L.divIcon({
@@ -54,6 +80,7 @@
 	async function init() {
 		if (!mapEl) return;
 		const L = await import('leaflet');
+		leaflet = L;
 
 		const fallback: [number, number] = [22.3193, 114.1694]; // 香港 placeholder
 		const mePos: [number, number] | null =
@@ -75,10 +102,7 @@
 			preferCanvas: true
 		}).setView(focusPos ?? mePos ?? partnerPos ?? fallback, 14);
 
-		L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-			subdomains: 'abcd',
-			maxZoom: 19
-		}).addTo(map);
+		applyTileLayer(untrack(() => themeState.effective));
 
 		L.control
 			.attribution({ position: 'bottomright', prefix: false })
@@ -114,6 +138,12 @@
 		}
 	}
 
+	// React to theme changes (user toggle in /settings, OS pref change).
+	$effect(() => {
+		const t = themeState.effective;
+		if (map && leaflet) applyTileLayer(t);
+	});
+
 	function fitBoth() {
 		if (!map) return;
 		const pts: [number, number][] = [];
@@ -136,6 +166,8 @@
 			map.remove();
 			map = null;
 		}
+		tileLayer = null;
+		leaflet = null;
 	});
 </script>
 
@@ -143,12 +175,12 @@
 	<title>{m.map_title()} · DuoSync</title>
 </svelte:head>
 
-<div class="bg-base-100 fixed inset-0">
+<div class="fixed inset-0 bg-base-100">
 	<div bind:this={mapEl} class="absolute inset-0"></div>
 
 	{#if data.partner.ghost}
 		<div
-			class="bg-base-200/85 text-base-content/80 absolute inset-x-0 top-4 mx-auto w-fit max-w-[18rem] rounded-full px-4 py-2 text-center text-xs backdrop-blur"
+			class="absolute inset-x-0 top-4 mx-auto w-fit max-w-[18rem] rounded-full bg-base-200/85 px-4 py-2 text-center text-xs text-base-content/80 backdrop-blur"
 		>
 			<Icon icon={GhostIcon} size={14} weight="duotone" class="mr-1 inline align-text-bottom" />
 			{m.map_partner_hidden({ name: data.partner.displayName })}
@@ -158,7 +190,7 @@
 	<button
 		type="button"
 		onclick={fitBoth}
-		class="bg-primary text-primary-content shadow-paper absolute right-5 bottom-28 z-10 grid h-12 w-12 place-items-center rounded-full"
+		class="absolute right-5 bottom-28 z-10 grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-content shadow-paper"
 		aria-label={m.map_center_on_us()}
 	>
 		<Icon icon={CrosshairIcon} size={22} weight="duotone" />
