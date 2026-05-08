@@ -197,7 +197,11 @@ export const geoMoment = pgTable(
 			.references(() => authUsers.id, { onDelete: 'cascade' }),
 		lat: doublePrecision('lat').notNull(),
 		lon: doublePrecision('lon').notNull(),
-		geog: geographyPoint('geog').notNull(),
+		geog: geographyPoint('geog')
+			.notNull()
+			.generatedAlwaysAs(
+				sql`st_setsrid(st_makepoint(lon, lat), 4326)::geography`
+			),
 		radiusM: integer('radius_m').notNull().default(100),
 		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 		expiresAt: timestamp('expires_at', { withTimezone: true }),

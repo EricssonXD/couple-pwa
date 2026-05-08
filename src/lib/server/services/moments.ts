@@ -71,7 +71,6 @@ export async function createMoment(
 				authorId,
 				lat,
 				lon,
-				geog: sql`st_setsrid(st_makepoint(${lon}, ${lat}), 4326)::geography` as unknown as string,
 				radiusM,
 				expiresAt
 			})
