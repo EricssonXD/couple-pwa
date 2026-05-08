@@ -12,7 +12,7 @@
 -->
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { MomentCard } from '$lib/components/duosync';
@@ -22,7 +22,7 @@
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
-	const rt = createRealtimeClient({ coupleId: data.coupleId, userId: data.me.id });
+	const rt = createRealtimeClient(untrack(() => ({ coupleId: data.coupleId, userId: data.me.id })));
 
 	let viewerLat = $state<number | null>(null);
 	let viewerLon = $state<number | null>(null);
@@ -105,14 +105,14 @@
 	<title>{m.moments_title()} · DuoSync</title>
 </svelte:head>
 
-<div class="bg-base-100 min-h-screen">
+<div class="min-h-screen bg-base-100">
 	<header
-		class="bg-base-100/85 sticky top-0 z-10 mx-auto flex max-w-md items-baseline justify-between px-5 py-4 backdrop-blur"
+		class="sticky top-0 z-10 mx-auto flex max-w-md items-baseline justify-between bg-base-100/85 px-5 py-4 backdrop-blur"
 	>
 		<h1 class="text-display text-2xl font-semibold tracking-wide">{m.moments_title()}</h1>
 		<a
 			href="/moments/new"
-			class="bg-primary text-primary-content shadow-paper inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold tracking-wider uppercase"
+			class="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold tracking-wider text-primary-content uppercase shadow-paper"
 		>
 			<Icon icon={PlusIcon} size={14} weight="bold" /> drop
 		</a>
@@ -121,10 +121,10 @@
 	<main class="mx-auto max-w-md px-5 pb-32">
 		{#if data.moments.length === 0}
 			<div
-				class="border-base-content/10 mt-12 grid place-items-center rounded-[var(--radius-card)] border border-dashed py-16 text-center"
+				class="mt-12 grid place-items-center rounded-[var(--radius-card)] border border-dashed border-base-content/10 py-16 text-center"
 			>
 				<Icon icon={SparkleIcon} size={36} weight="duotone" class="text-primary/60" />
-				<p class="text-base-content/70 mt-3 max-w-[14rem] text-sm">
+				<p class="mt-3 max-w-[14rem] text-sm text-base-content/70">
 					{m.moments_empty_long({ plus: '+ Drop' })}
 				</p>
 			</div>
@@ -132,7 +132,7 @@
 			<div class="mt-2 space-y-8">
 				{#each groups as g (g.key)}
 					<section>
-						<p class="text-base-content/40 mb-3 text-[10px] tracking-[0.2em] uppercase">
+						<p class="mb-3 text-[10px] tracking-[0.2em] text-base-content/40 uppercase">
 							{g.label}
 						</p>
 						<ul class="space-y-3">
@@ -152,7 +152,7 @@
 									{#if m.isMine}
 										<button
 											type="button"
-											class="text-base-content/40 hover:text-error absolute top-3 right-12 text-xs"
+											class="absolute top-3 right-12 text-xs text-base-content/40 hover:text-error"
 											disabled={busyDelete === m.id}
 											onclick={() => remove(m.id)}
 											aria-label="Delete moment"

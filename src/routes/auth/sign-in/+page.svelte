@@ -1,13 +1,16 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let mode = $state<'login' | 'signup'>(
-		((form?.mode as 'login' | 'signup' | undefined) ?? data.mode) as 'login' | 'signup'
+		untrack(
+			() => ((form?.mode as 'login' | 'signup' | undefined) ?? data.mode) as 'login' | 'signup'
+		)
 	);
-	let email = $state((form?.email as string) ?? '');
+	let email = $state(untrack(() => (form?.email as string) ?? ''));
 	let busy = $state(false);
 </script>
 

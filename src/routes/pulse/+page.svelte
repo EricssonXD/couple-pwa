@@ -21,7 +21,7 @@
   尚缺: MoodWeather (待後端 mood data; TODO).
 -->
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
 	import { getSupabaseClient } from '$lib/auth-client';
 	import { createGeolocationTracker } from '$lib/client/geolocation.svelte';
@@ -60,14 +60,14 @@
 
 	type CachedSnapshot = { live: StateResp; ghostOn: boolean; savedAt: number };
 
-	const CACHE_KEY = `pulse:${data.coupleId}`;
+	const CACHE_KEY = `pulse:${untrack(() => data.coupleId)}`;
 
 	const tracker = createGeolocationTracker();
-	const rt = createRealtimeClient({ coupleId: data.coupleId, userId: data.me.id });
+	const rt = createRealtimeClient(untrack(() => ({ coupleId: data.coupleId, userId: data.me.id })));
 	const net = createOnlineStatus();
 
-	let live = $state<StateResp>(data.initialState as unknown as StateResp);
-	let ghostOn = $state(data.me.ghostMode);
+	let live = $state<StateResp>(untrack(() => data.initialState as unknown as StateResp));
+	let ghostOn = $state(untrack(() => data.me.ghostMode));
 	let ghostBusy = $state(false);
 	let now = $state(Date.now());
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -225,9 +225,7 @@
 	const partnerBattery = $derived(
 		live.partner && !partnerGhost ? (live.partner.batteryPct ?? null) : null
 	);
-	const partnerCharging = $derived(
-		Boolean(live.partner && !partnerGhost && live.partner.charging)
-	);
+	const partnerCharging = $derived(Boolean(live.partner && !partnerGhost && live.partner.charging));
 </script>
 
 <svelte:head>
@@ -245,7 +243,7 @@
 			/>
 		</div>
 		<button
-			class="text-base-content/50 hover:text-base-content shrink-0 px-2 py-1 text-[11px] tracking-wider uppercase"
+			class="shrink-0 px-2 py-1 text-[11px] tracking-wider text-base-content/50 uppercase hover:text-base-content"
 			type="button"
 			onclick={handleSignOut}
 			aria-label={m.settings_signout()}
@@ -257,10 +255,7 @@
 	<!-- 2. 自隱身時 banner + 解除 -->
 	{#if ghostOn}
 		<div class="mt-3">
-			<GhostBanner
-				ghostUntil={data.me.ghostUntil}
-				onExit={ghostBusy ? undefined : toggleGhost}
-			/>
+			<GhostBanner ghostUntil={data.me.ghostUntil} onExit={ghostBusy ? undefined : toggleGhost} />
 		</div>
 	{/if}
 
@@ -268,7 +263,7 @@
 	{#if !net.online}
 		<div
 			role="status"
-			class="bg-base-200 text-base-content/70 mt-3 rounded-full px-4 py-2 text-center text-xs"
+			class="mt-3 rounded-full bg-base-200 px-4 py-2 text-center text-xs text-base-content/70"
 			aria-live="polite"
 		>
 			{m.pulse_offline()}
@@ -286,7 +281,7 @@
 
 	<!-- 5. 雙人卡: 你 vs partner. avatar + battery ring + presence -->
 	<section class="mt-8 grid grid-cols-2 gap-4">
-		<article class="bg-base-200 shadow-paper rounded-[var(--radius-card)] p-4 text-center">
+		<article class="rounded-[var(--radius-card)] bg-base-200 p-4 text-center shadow-paper">
 			<div class="flex justify-center">
 				<PartnerAvatar
 					displayName={data.me.displayName ?? m.pulse_you()}
@@ -297,10 +292,10 @@
 					size={64}
 				/>
 			</div>
-			<p class="text-base-content mt-2 text-xs font-semibold">{m.pulse_you()}</p>
-			<p class="text-base-content/50 text-[11px]">{myLastSeen || m.pulse_no_fix()}</p>
+			<p class="mt-2 text-xs font-semibold text-base-content">{m.pulse_you()}</p>
+			<p class="text-[11px] text-base-content/50">{myLastSeen || m.pulse_no_fix()}</p>
 		</article>
-		<article class="bg-base-200 shadow-paper rounded-[var(--radius-card)] p-4 text-center">
+		<article class="rounded-[var(--radius-card)] bg-base-200 p-4 text-center shadow-paper">
 			<div class="flex justify-center">
 				<PartnerAvatar
 					displayName={partnerName}
@@ -311,8 +306,8 @@
 					size={64}
 				/>
 			</div>
-			<p class="text-base-content mt-2 text-xs font-semibold">{partnerName}</p>
-			<p class="text-base-content/50 text-[11px]">
+			<p class="mt-2 text-xs font-semibold text-base-content">{partnerName}</p>
+			<p class="text-[11px] text-base-content/50">
 				{partnerGhost ? m.pulse_partner_hidden() : partnerLastSeen || m.pulse_no_fix()}
 			</p>
 		</article>
@@ -330,15 +325,15 @@
 		<section class="mt-6">
 			<button
 				type="button"
-				class="bg-base-200 hover:bg-base-300/60 border-base-content/5 text-base-content flex w-full items-center justify-between rounded-full border px-4 py-3 text-left text-sm transition-colors disabled:opacity-50"
+				class="flex w-full items-center justify-between rounded-full border border-base-content/5 bg-base-200 px-4 py-3 text-left text-sm text-base-content transition-colors hover:bg-base-300/60 disabled:opacity-50"
 				onclick={toggleGhost}
 				disabled={ghostBusy}
 			>
 				<span>
 					<span class="font-semibold">{m.settings_ghost_label()}</span>
-					<span class="text-base-content/50 ml-2 text-xs">{m.pulse_ghost_pause()}</span>
+					<span class="ml-2 text-xs text-base-content/50">{m.pulse_ghost_pause()}</span>
 				</span>
-				<span class="text-primary text-xs font-semibold tracking-wider uppercase"
+				<span class="text-xs font-semibold tracking-wider text-primary uppercase"
 					>{m.pulse_enable()}</span
 				>
 			</button>
@@ -347,17 +342,17 @@
 
 	<!-- 8. tracker 狀態提示 -->
 	{#if tracker.status === 'denied'}
-		<div role="alert" class="bg-base-200 text-base-content/70 mt-4 rounded-2xl p-3 text-xs">
+		<div role="alert" class="mt-4 rounded-2xl bg-base-200 p-3 text-xs text-base-content/70">
 			{m.pulse_perm_denied()}
 		</div>
 	{:else if tracker.status === 'unsupported'}
-		<div role="alert" class="bg-base-200 text-error mt-4 rounded-2xl p-3 text-xs">
+		<div role="alert" class="mt-4 rounded-2xl bg-base-200 p-3 text-xs text-error">
 			{m.pulse_perm_unsupported()}
 		</div>
 	{:else if tracker.status === 'requesting_permission'}
-		<p class="text-base-content/60 mt-4 text-center text-xs">{m.pulse_perm_requesting()}</p>
+		<p class="mt-4 text-center text-xs text-base-content/60">{m.pulse_perm_requesting()}</p>
 	{:else if tracker.status === 'error' && tracker.lastError}
-		<p class="text-base-content/50 mt-4 text-center text-[11px]">
+		<p class="mt-4 text-center text-[11px] text-base-content/50">
 			{m.pulse_sync_error({ detail: tracker.lastError })}
 		</p>
 	{/if}
@@ -365,7 +360,7 @@
 	<!-- 9. partner 心跳 echo -->
 	{#if tapPulse}
 		{#key tapPulse}
-			<p class="text-primary animate-bloom mt-4 text-center text-sm">
+			<p class="animate-bloom mt-4 text-center text-sm text-primary">
 				{partnerName} tapped you 💞
 			</p>
 		{/key}
@@ -374,7 +369,7 @@
 
 <!-- 10. 底部固定 HeartbeatZone (在 BottomNav 之上由 layout 負責 padding) -->
 <div
-	class="bg-base-100/80 fixed right-0 bottom-0 left-0 z-20 mx-auto max-w-md backdrop-blur"
+	class="fixed right-0 bottom-0 left-0 z-20 mx-auto max-w-md bg-base-100/80 backdrop-blur"
 	style="padding-bottom: calc(env(safe-area-inset-bottom) + 4.5rem);"
 	aria-hidden="false"
 >

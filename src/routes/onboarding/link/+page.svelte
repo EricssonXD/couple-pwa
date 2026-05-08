@@ -7,7 +7,7 @@
   (animate-bloom on a heart) before goto('/pulse').
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import QRCode from 'qrcode';
 	import * as m from '$lib/paraglide/messages.js';
@@ -20,7 +20,7 @@
 	let { data }: { data: PageData } = $props();
 
 	let qrDataUrl = $state<string | null>(null);
-	let typedCode = $state(data.prefillCode ?? '');
+	let typedCode = $state(untrack(() => data.prefillCode ?? ''));
 	let busy = $state(false);
 	let error = $state<string | null>(null);
 	let copied = $state(false);
@@ -86,20 +86,22 @@
 	<title>{m.onboarding_link_title()} · DuoSync</title>
 </svelte:head>
 
-<main class="bg-base-100 relative min-h-screen px-5 py-10">
+<main class="relative min-h-screen bg-base-100 px-5 py-10">
 	<div class="mx-auto max-w-md">
 		<div class="text-center">
 			<h1 class="text-display text-3xl font-semibold tracking-wide">{m.onboarding_link_title()}</h1>
-			<p class="text-base-content/60 mt-2 text-sm">{m.link_subtitle()}</p>
+			<p class="mt-2 text-sm text-base-content/60">{m.link_subtitle()}</p>
 		</div>
 
 		<section
-			class="bg-base-200 shadow-paper border-base-content/5 mt-6 rounded-[var(--radius-card)] border"
+			class="mt-6 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 shadow-paper"
 		>
 			<div class="p-6 text-center">
-				<p class="text-base-content/50 text-[10px] tracking-[0.3em] uppercase">{m.link_your_code()}</p>
+				<p class="text-[10px] tracking-[0.3em] text-base-content/50 uppercase">
+					{m.link_your_code()}
+				</p>
 				<p class="text-display mt-2 text-4xl font-semibold tracking-[0.4em]">{data.code}</p>
-				<p class="text-base-content/40 mt-1 text-xs">{m.link_minutes_left({ n: remaining })}</p>
+				<p class="mt-1 text-xs text-base-content/40">{m.link_minutes_left({ n: remaining })}</p>
 
 				{#if qrDataUrl}
 					<img
@@ -110,12 +112,14 @@
 						class="mx-auto mt-5 rounded-[var(--radius-card)]"
 					/>
 				{:else}
-					<div class="bg-base-300 mx-auto mt-5 h-60 w-60 animate-pulse rounded-[var(--radius-card)]"></div>
+					<div
+						class="mx-auto mt-5 h-60 w-60 animate-pulse rounded-[var(--radius-card)] bg-base-300"
+					></div>
 				{/if}
 
 				<div class="mt-5 flex gap-2">
 					<button
-						class="border-base-content/15 hover:bg-base-300 inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border py-2.5 text-xs font-semibold tracking-wider uppercase"
+						class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-base-content/15 py-2.5 text-xs font-semibold tracking-wider uppercase hover:bg-base-300"
 						type="button"
 						onclick={copyCode}
 					>
@@ -123,27 +127,28 @@
 						{copied ? m.link_copied() : m.link_copy()}
 					</button>
 					<button
-						class="bg-primary text-primary-content inline-flex flex-1 items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-semibold tracking-wider uppercase"
+						class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase"
 						type="button"
 						onclick={shareLink}
 					>
-						<Icon icon={ShareNetworkIcon} size={14} weight="duotone" /> {m.link_share()}
+						<Icon icon={ShareNetworkIcon} size={14} weight="duotone" />
+						{m.link_share()}
 					</button>
 				</div>
 			</div>
 		</section>
 
 		<div
-			class="text-base-content/40 my-8 flex items-center gap-3 text-[10px] tracking-[0.3em] uppercase"
+			class="my-8 flex items-center gap-3 text-[10px] tracking-[0.3em] text-base-content/40 uppercase"
 		>
-			<span class="bg-base-content/10 h-px flex-1"></span>
+			<span class="h-px flex-1 bg-base-content/10"></span>
 			<span>{m.link_or_enter()}</span>
-			<span class="bg-base-content/10 h-px flex-1"></span>
+			<span class="h-px flex-1 bg-base-content/10"></span>
 		</div>
 
 		<form class="space-y-3" onsubmit={redeem}>
 			<input
-				class="bg-base-200 border-base-content/10 focus:border-primary text-display w-full rounded-[var(--radius-card)] border px-4 py-3 text-center text-2xl tracking-[0.3em] uppercase outline-none"
+				class="text-display w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-200 px-4 py-3 text-center text-2xl tracking-[0.3em] uppercase outline-none focus:border-primary"
 				type="text"
 				minlength="4"
 				maxlength="10"
@@ -153,14 +158,14 @@
 				inputmode="text"
 			/>
 			<button
-				class="bg-primary text-primary-content shadow-paper w-full rounded-full py-3.5 text-base font-semibold tracking-wider uppercase transition-transform active:scale-[0.98] disabled:opacity-50"
+				class="w-full rounded-full bg-primary py-3.5 text-base font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-transform active:scale-[0.98] disabled:opacity-50"
 				type="submit"
 				disabled={busy || !typedCode.trim()}
 			>
 				{busy ? m.onboarding_link_pairing() : m.link_pair_btn()}
 			</button>
 			{#if error}
-				<div class="bg-error/10 text-error rounded-[var(--radius-card)] px-4 py-3 text-sm">
+				<div class="rounded-[var(--radius-card)] bg-error/10 px-4 py-3 text-sm text-error">
 					{error}
 				</div>
 			{/if}
@@ -169,20 +174,20 @@
 
 	{#if celebrating}
 		<div
-			class="bg-base-100/90 fixed inset-0 z-50 grid place-items-center backdrop-blur"
+			class="fixed inset-0 z-50 grid place-items-center bg-base-100/90 backdrop-blur"
 			role="status"
 			aria-live="polite"
 		>
 			<div class="text-center">
 				<div
-					class="bg-primary/15 text-primary animate-bloom mx-auto grid h-32 w-32 place-items-center rounded-full"
+					class="animate-bloom mx-auto grid h-32 w-32 place-items-center rounded-full bg-primary/15 text-primary"
 				>
 					<Icon icon={HeartIcon} size={64} weight="fill" />
 				</div>
-				<p class="text-display text-base-content mt-6 text-2xl font-semibold tracking-wide">
+				<p class="text-display mt-6 text-2xl font-semibold tracking-wide text-base-content">
 					{m.link_hearts_connected()}
 				</p>
-				<p class="text-base-content/60 mt-1 text-sm">{m.link_paired_caption()}</p>
+				<p class="mt-1 text-sm text-base-content/60">{m.link_paired_caption()}</p>
 			</div>
 		</div>
 	{/if}
