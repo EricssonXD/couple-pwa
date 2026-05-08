@@ -29,7 +29,7 @@
 	<div class="logo" aria-hidden="true">
 		<img src="/icon.svg" alt="" width="120" height="120" />
 	</div>
-	<h1>DuoSync</h1>
+	<h1 class="text-display">DuoSync</h1>
 	<p class="tag">A private, real-time digital sanctuary for two.</p>
 
 	<ul class="features">
@@ -49,7 +49,7 @@
 
 	<a class="cta secondary" href="/auth/sign-in">Get started</a>
 
-	<p class="muted">Sign in with a passkey or Google to pair up.</p>
+	<p class="muted">Sign in with email to pair up.</p>
 </main>
 
 <style>
@@ -62,25 +62,23 @@
 		gap: 1.25rem;
 		padding: 2rem 1.5rem;
 		text-align: center;
-		background: linear-gradient(160deg, #fdf2f8 0%, #f3e8ff 100%);
+		background: var(--color-base-100);
+		color: var(--color-base-content);
 	}
 	.logo img {
-		filter: drop-shadow(0 8px 24px rgba(225, 29, 72, 0.25));
+		filter: drop-shadow(0 8px 24px color-mix(in oklab, var(--color-primary) 25%, transparent));
 	}
 	h1 {
-		font-size: clamp(2.5rem, 8vw, 4rem);
+		font-size: clamp(2.75rem, 9vw, 4.25rem);
 		margin: 0;
-		background: linear-gradient(90deg, #e11d48, #6d28d9);
-		-webkit-background-clip: text;
-		background-clip: text;
-		color: transparent;
-		font-weight: 800;
+		color: var(--color-base-content);
+		font-weight: 600;
 		letter-spacing: -0.02em;
 	}
 	.tag {
 		margin: 0;
 		max-width: 28rem;
-		color: #4b5563;
+		color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
 		font-size: 1.1rem;
 	}
 	.features {
@@ -93,40 +91,40 @@
 		text-align: left;
 	}
 	.features li {
-		background: rgba(255, 255, 255, 0.7);
-		backdrop-filter: blur(8px);
+		background: var(--color-base-200);
+		box-shadow: var(--shadow-paper);
 		padding: 0.75rem 1rem;
-		border-radius: 0.75rem;
-		color: #374151;
+		border-radius: var(--radius-card);
+		color: var(--color-base-content);
 	}
 	.cta {
 		margin-top: 0.5rem;
 		padding: 0.85rem 1.75rem;
 		font-size: 1rem;
 		font-weight: 600;
-		color: white;
-		background: linear-gradient(90deg, #e11d48, #6d28d9);
+		color: var(--color-primary-content);
+		background: var(--color-primary);
 		border: none;
-		border-radius: 999px;
+		border-radius: var(--radius-bubble);
 		cursor: pointer;
-		box-shadow: 0 8px 24px rgba(109, 40, 217, 0.3);
+		box-shadow: var(--shadow-paper);
+		transition: transform 120ms ease;
 	}
 	.cta:hover {
 		transform: translateY(-1px);
-		transition: transform 120ms ease;
 	}
 	.cta.secondary {
 		text-decoration: none;
 		display: inline-block;
 		background: transparent;
-		color: #6d28d9;
-		border: 1.5px solid rgba(109, 40, 217, 0.4);
+		color: var(--color-primary);
+		border: 1.5px solid color-mix(in oklab, var(--color-primary) 40%, transparent);
 		box-shadow: none;
 	}
 	.ios-hint,
 	.installed,
 	.muted {
-		color: #6b7280;
+		color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
 		font-size: 0.9rem;
 		margin: 0;
 	}
