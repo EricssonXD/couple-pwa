@@ -145,3 +145,38 @@ export async function registerServiceWorker(): Promise<void> {
 		console.warn('[duosync] SW registration failed', err);
 	}
 }
+
+// Asks the controlling SW to drop HTML_CACHE + IMG_CACHE so the next paint
+// can't surface the just-signed-out user's data on a shared device. Resolves
+// when the SW confirms (or after a 1s timeout if the SW is unresponsive —
+// privacy is best-effort, we never want sign-out to hang). Safe to call
+// when no SW is registered.
+export async function purgeUserCaches(): Promise<void> {
+	if (typeof navigator === 'undefined') return;
+	if (!('serviceWorker' in navigator)) return;
+	const controller = navigator.serviceWorker.controller;
+	if (!controller) {
+		// First visit / SW not yet controlling: fall back to a direct
+		// CacheStorage wipe of the same caches the SW would clear. Names
+		// are versioned (duosync-html-v<version>) so we match by prefix.
+		if (typeof caches === 'undefined') return;
+		try {
+			const keys = await caches.keys();
+			await Promise.all(
+				keys
+					.filter((k) => k.startsWith('duosync-html-') || k.startsWith('duosync-img-'))
+					.map((k) => caches.delete(k))
+			);
+		} catch {
+			/* private mode / quota — best-effort */
+		}
+		return;
+	}
+	await new Promise<void>((resolve) => {
+		const channel = new MessageChannel();
+		const done = () => resolve();
+		channel.port1.onmessage = done;
+		setTimeout(done, 1000);
+		controller.postMessage('PURGE_USER_CACHES', [channel.port2]);
+	});
+}

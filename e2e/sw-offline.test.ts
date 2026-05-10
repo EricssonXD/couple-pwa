@@ -104,3 +104,56 @@ test('service worker falls back to /offline for uncached routes when offline', a
 	await expect(page.getByText(/offline/i).first()).toBeVisible();
 	await context.setOffline(false);
 });
+
+test('PURGE_USER_CACHES message wipes HTML + IMG caches but preserves SHELL', async ({
+	page
+}) => {
+	await page.goto('/');
+	await waitForSwActive(page);
+	await page.reload();
+	await waitForController(page);
+	await waitForCachedHtml(page, '/');
+
+	// Plant a synthetic entry in the image cache so we can prove it gets
+	// wiped. The SW only opens IMG_CACHE on the first image fetch, and
+	// the welcome page ships no images — so derive the canonical cache
+	// name from the SHELL cache key (which IS open) and pre-create it.
+	await page.evaluate(async () => {
+		const keys = await caches.keys();
+		const shell = keys.find((k) => k.startsWith('duosync-shell-v'));
+		if (!shell) throw new Error('expected the shell cache to exist');
+		const version = shell.replace('duosync-shell-v', '');
+		const cache = await caches.open(`duosync-img-v${version}`);
+		await cache.put(
+			new Request('/__test__/probe.png'),
+			new Response('x', { status: 200, headers: { 'content-type': 'image/png' } })
+		);
+	});
+
+	// Send the purge message and wait for the SW's MessagePort reply.
+	const purged = await page.evaluate(
+		() =>
+			new Promise<boolean>((resolve) => {
+				const ctrl = navigator.serviceWorker.controller;
+				if (!ctrl) return resolve(false);
+				const channel = new MessageChannel();
+				channel.port1.onmessage = (e) => resolve(!!(e.data as { ok?: boolean })?.ok);
+				setTimeout(() => resolve(false), 5000);
+				ctrl.postMessage('PURGE_USER_CACHES', [channel.port2]);
+			})
+	);
+	expect(purged).toBe(true);
+
+	// HTML + IMG caches gone; SHELL cache (with /offline) untouched.
+	const state = await page.evaluate(async () => {
+		const keys = await caches.keys();
+		return {
+			hasHtml: keys.some((k) => k.startsWith('duosync-html-')),
+			hasImg: keys.some((k) => k.startsWith('duosync-img-')),
+			offlineStillCached: !!(await caches.match('/offline'))
+		};
+	});
+	expect(state.hasHtml).toBe(false);
+	expect(state.hasImg).toBe(false);
+	expect(state.offlineStillCached).toBe(true);
+});

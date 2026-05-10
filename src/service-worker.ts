@@ -171,22 +171,44 @@ sw.addEventListener('activate', (event) => {
 });
 
 sw.addEventListener('message', (event) => {
-	if (event.data !== 'SKIP_WAITING') return;
-	// User-gesture handoff. Two-step:
-	//   1) skipWaiting() → this SW transitions installed → activating → activated.
-	//   2) clients.claim() → this SW becomes the controller of all open clients,
-	//      which fires `controllerchange` on the page so register.ts can reload
-	//      from a known-good "new SW is in control" state.
-	// We deliberately gate claim() behind this user-gesture message rather than
-	// calling it in the activate handler — that would auto-reload every tab on
-	// every deploy (the loop we removed). Here it's safe: the page just asked
-	// for the update.
-	event.waitUntil(
-		(async () => {
-			await sw.skipWaiting();
-			await sw.clients.claim();
-		})()
-	);
+	if (event.data === 'SKIP_WAITING') {
+		// User-gesture handoff. Two-step:
+		//   1) skipWaiting() → this SW transitions installed → activating → activated.
+		//   2) clients.claim() → this SW becomes the controller of all open clients,
+		//      which fires `controllerchange` on the page so register.ts can reload
+		//      from a known-good "new SW is in control" state.
+		// We deliberately gate claim() behind this user-gesture message rather than
+		// calling it in the activate handler — that would auto-reload every tab on
+		// every deploy (the loop we removed). Here it's safe: the page just asked
+		// for the update.
+		event.waitUntil(
+			(async () => {
+				await sw.skipWaiting();
+				await sw.clients.claim();
+			})()
+		);
+		return;
+	}
+
+	if (event.data === 'PURGE_USER_CACHES') {
+		// Shared-device privacy: when a user signs out we drop every cache
+		// that could surface their data. SHELL_CACHE is kept because it
+		// only holds hashed build assets + the public /offline page —
+		// nothing user-scoped. HTML_CACHE / IMG_CACHE may hold rendered
+		// pages with personal content (their partner's name, photos,
+		// daily-question answers) so we wipe them outright. The page
+		// posting this message is responsible for awaiting the
+		// MessagePort reply before navigating away, so the next user's
+		// first paint can't pull a stale cached HTML.
+		const port = event.ports[0];
+		event.waitUntil(
+			(async () => {
+				await Promise.all([caches.delete(HTML_CACHE), caches.delete(IMG_CACHE)]);
+				port?.postMessage({ ok: true });
+			})()
+		);
+		return;
+	}
 });
 
 sw.addEventListener('fetch', (event) => {
