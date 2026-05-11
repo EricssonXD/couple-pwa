@@ -51,6 +51,7 @@
 	"ghost_banner_release": "解除",
 	"ghost_banner_remaining_h": "已隱身 · 剩 {hours} 小時{minutesPart}",
 	"ghost_banner_remaining_min": "已隱身 · 剩 {minutes} 分",
+	"heartbeat_sent_announce": "心跳已送出",
 	"heartbeat_zone_aria": "雙擊向夥伴送出心跳",
 	"heartbeat_zone_hint": "雙擊送出心跳",
 	"ios_install_got_it": "好的",

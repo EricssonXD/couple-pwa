@@ -51,6 +51,7 @@
 	"ghost_banner_release": "Release",
 	"ghost_banner_remaining_h": "Hidden · {hours}h{minutesPart} left",
 	"ghost_banner_remaining_min": "Hidden · {minutes} min left",
+	"heartbeat_sent_announce": "Heartbeat sent",
 	"heartbeat_zone_aria": "Send heartbeat to partner — double tap",
 	"heartbeat_zone_hint": "Double-tap to send a pulse",
 	"ios_install_got_it": "Got it",

@@ -29,7 +29,15 @@
 	let { onTap, height = '6rem', hint }: Props = $props();
 	const resolvedHint = $derived(hint === null ? null : (hint ?? m.heartbeat_zone_hint()));
 
-	const heartbeat = createHeartbeat({ onTap: () => onTap?.() });
+	// Screen-reader announcement for the visual ripple. Bumped per tap so
+	// aria-live="polite" re-announces even on identical messages.
+	let tapCount = $state(0);
+	const heartbeat = createHeartbeat({
+		onTap: () => {
+			tapCount += 1;
+			onTap?.();
+		}
+	});
 </script>
 
 <div
@@ -50,10 +58,16 @@
 	{#if resolvedHint}
 		<p
 			class="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] tracking-wider text-base-content/40"
+			aria-live="polite"
 		>
 			{resolvedHint}
 		</p>
 	{/if}
+
+	<!-- screen-reader-only live announcement per heartbeat tap -->
+	<span class="sr-only" aria-live="polite" aria-atomic="true">
+		{#if tapCount > 0}{m.heartbeat_sent_announce()}{/if}
+	</span>
 
 	<!-- ripples spawned per double-tap -->
 	{#each heartbeat.ripples as r (r.id)}
