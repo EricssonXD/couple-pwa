@@ -38,7 +38,7 @@
 	use:heartbeat.action
 	role="button"
 	tabindex="0"
-	aria-label="Send heartbeat to partner — double tap"
+	aria-label={m.heartbeat_zone_aria()}
 >
 	<!-- top affordance glyph -->
 	<div

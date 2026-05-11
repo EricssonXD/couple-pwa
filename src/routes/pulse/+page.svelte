@@ -292,11 +292,14 @@
 		</p>
 	{/if}
 
-	<!-- 9. partner 心跳 echo -->
+	<!-- 9. partner 心跳 echo (aria-live polite so SR reads new taps) -->
+	<div role="status" aria-live="polite" aria-atomic="true" class="sr-only">
+		{#if tapPulse}{m.pulse_partner_tapped({ name: partnerName })}{/if}
+	</div>
 	{#if tapPulse}
 		{#key tapPulse}
-			<p class="animate-bloom mt-4 text-center text-sm text-primary">
-				{partnerName} tapped you 💞
+			<p class="animate-bloom mt-4 text-center text-sm text-primary" aria-hidden="true">
+				{m.pulse_partner_tapped({ name: partnerName })}
 			</p>
 		{/key}
 	{/if}

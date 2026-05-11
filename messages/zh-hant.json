@@ -113,6 +113,8 @@
 	"ghost_banner_remaining_h": "已隱身 · 剩 {hours} 小時{minutesPart}",
 	"ghost_banner_release": "解除",
 	"heartbeat_zone_hint": "雙擊送出心跳",
+	"heartbeat_zone_aria": "雙擊向夥伴送出心跳",
+	"pulse_partner_tapped": "{name} 點了你 💞",
 	"memory_on_this_day": "去年今日",
 	"memory_you": "你",
 	"memory_days_ago": "{days} 天前",

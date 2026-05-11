@@ -113,6 +113,8 @@
 	"ghost_banner_remaining_h": "Hidden · {hours}h{minutesPart} left",
 	"ghost_banner_release": "Release",
 	"heartbeat_zone_hint": "Double-tap to send a pulse",
+	"heartbeat_zone_aria": "Send heartbeat to partner — double tap",
+	"pulse_partner_tapped": "{name} tapped you 💞",
 	"memory_on_this_day": "On this day · last year",
 	"memory_you": "You",
 	"memory_days_ago": "{days}d ago",
