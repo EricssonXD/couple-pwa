@@ -63,7 +63,10 @@ const SHELL_SET = new Set(SHELL_ASSETS);
 // even on a cold network. These must be public (no auth wall) OR be
 // fine returning the unauthenticated SSR variant — which is true here
 // because protected routes redirect at the route handler, not in HTML.
-const WARM_ROUTES = ['/', '/pulse', '/map', '/moments', '/settings'];
+// `/` is a redirect-only stub; `/welcome` is the cacheable marketing
+// page anonymous users land on. Both are warmed so a cold offline
+// launch resolves locally regardless of auth state.
+const WARM_ROUTES = ['/', '/welcome', '/pulse', '/map', '/moments', '/settings'];
 
 const HTML_CACHE_MAX = 24;
 const IMG_CACHE_MAX = 60;

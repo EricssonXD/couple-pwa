@@ -4,22 +4,24 @@
 	<head>
 		<meta charset="utf-8" />
 		<!--
-		  Pre-paint redirect for signed-in devices landing on `/`.
-		  Runs synchronously before the body parses. When the SW serves the
-		  cached anonymous welcome HTML (offline / cold home-screen launch)
-		  this aborts the navigation before first paint and re-routes to the
-		  cached app shell. Online: the server already 303s these users so
-		  this is a no-op. Cookie value is `pulse | onboarding` (or legacy
-		  `1` from older clients, treated as pulse) — set by hooks.server.ts
-		  and cleared on sign-out.
+		  Pre-paint redirect for `/`. Runs synchronously before the body
+		  parses so even when the SW serves the cached `/` HTML offline
+		  the user never sees a flash of the wrong screen.
+		    cookie missing  → /welcome  (cached marketing page)
+		    cookie=onboarding → /onboarding
+		    cookie=pulse / legacy "1" → /pulse
+		  The cookie is set + cleared by hooks.server.ts; it's
+		  client-readable but holds NO secrets — purely a routing flag.
 		  Keep this script tiny + dependency-free — it must parse instantly.
 		-->
 		<script>
 			(function () {
 				if (location.pathname !== '/') return;
 				var m = document.cookie.match(/(?:^|;\s*)ds_auth=([^;]+)/);
-				if (!m) return;
-				var dest = m[1] === 'onboarding' ? '/onboarding' : '/pulse';
+				var dest;
+				if (!m) dest = '/welcome';
+				else if (m[1] === 'onboarding') dest = '/onboarding';
+				else dest = '/pulse';
 				location.replace(dest);
 			})();
 		</script>

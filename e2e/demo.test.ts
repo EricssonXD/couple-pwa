@@ -7,8 +7,8 @@ import { expect, test } from '@playwright/test';
 // playwright.prod.config.ts and global-setup.ts for the same pattern).
 test.use({ serviceWorkers: 'block' });
 
-test('home page renders the welcome hero', async ({ page }) => {
-	await page.goto('/');
+test('welcome page renders the hero', async ({ page }) => {
+	await page.goto('/welcome');
 	await expect(page.locator('h1').first()).toBeVisible();
 
 	// Welcome hero advertises 4 product pillars.
@@ -16,6 +16,13 @@ test('home page renders the welcome hero', async ({ page }) => {
 
 	// Primary CTA links to /auth/sign-in (only when online — preview is online).
 	await expect(page.locator('a[href="/auth/sign-in"]')).toBeVisible();
+});
+
+test('anonymous visit to / redirects to /welcome', async ({ page }) => {
+	await page.goto('/');
+	await expect(page).toHaveURL(/\/welcome$/);
+	// And once on /welcome, the hero must render — not a blank router stub.
+	await expect(page.locator('main ul.features li')).toHaveCount(4);
 });
 
 test('unauthenticated visit to /pulse redirects to sign-in', async ({ page }) => {
@@ -45,25 +52,49 @@ test('offline page renders standalone', async ({ page }) => {
 // (We can't reach a real authed /pulse without a live Supabase session,
 // so the assertion is "URL no longer points at /" — proving the script
 // fired and routed to the right destination.)
+// The inline pre-paint script in app.html is the offline guarantee: when
+// the SW serves the cached `/` HTML and the device has a `ds_auth` hint
+// cookie, the script must `location.replace()` to the right destination
+// before the body paints. The live preview server doesn't reach that
+// code path online (its server load 303s anonymous traffic to /welcome),
+// so we simulate the cached scenario by route-intercepting `/` with a
+// minimal HTML body that embeds the same redirect script. This way the
+// test actually exercises the script we ship instead of duplicating it.
+async function readInlineRedirectScript(): Promise<string> {
+	const fs = await import('node:fs/promises');
+	const path = await import('node:path');
+	const html = await fs.readFile(path.resolve('src/app.html'), 'utf8');
+	const m = html.match(/<script>([\s\S]*?)<\/script>/);
+	if (!m) throw new Error('inline redirect script not found in app.html');
+	return m[1];
+}
+
 for (const [cookieValue, expectedPath, label] of [
 	['pulse', '/pulse', 'pulse'],
 	['onboarding', '/onboarding', 'onboarding'],
-	['1', '/pulse', 'legacy "1"']
+	['1', '/pulse', 'legacy "1"'],
+	['', '/welcome', 'no cookie → welcome']
 ] as const) {
-	test(`signed-in hint cookie (${label}) pre-paint redirects away from welcome`, async ({
+	test(`pre-paint script (${label}) redirects from / to ${expectedPath}`, async ({
 		context,
 		page
 	}) => {
-		// Set the hint via init script so it's available to the inline pre-paint
-		// script before any server Set-Cookie can clear it. Mirrors the offline
-		// PWA scenario where the SW serves cached HTML and the cookie from a
-		// prior session is still on the device.
-		await context.addInitScript((value: string) => {
-			document.cookie = `ds_auth=${value}; path=/`;
-		}, cookieValue);
-		// Track every document request so we can assert the inline script
-		// routed to the correct destination — even if a server redirect
-		// chain follows (e.g. /pulse → /auth/sign-in when no real session).
+		const script = await readInlineRedirectScript();
+		if (cookieValue) {
+			await context.addInitScript((value: string) => {
+				document.cookie = `ds_auth=${value}; path=/`;
+			}, cookieValue);
+		}
+		// Intercept ONLY the `/` document request so child requests
+		// (favicon, fonts, etc.) still hit the preview server normally.
+		await context.route('**/', (route, req) => {
+			if (req.resourceType() !== 'document') return route.continue();
+			return route.fulfill({
+				status: 200,
+				contentType: 'text/html',
+				body: `<!doctype html><html><head><script>${script}</script></head><body></body></html>`
+			});
+		});
 		const requested: string[] = [];
 		page.on('request', (req) => {
 			if (req.resourceType() === 'document') requested.push(new URL(req.url()).pathname);
@@ -72,7 +103,11 @@ for (const [cookieValue, expectedPath, label] of [
 		const path = new URL(page.url()).pathname;
 		expect(path).not.toBe('/');
 		expect(requested).toContain(expectedPath);
-		// Welcome features list must never have rendered.
-		await expect(page.locator('main ul.features li')).toHaveCount(0);
+		// The features list must not have rendered on the synthetic stub
+		// (it has no body content). For the /welcome target it WILL render
+		// after the redirect — only assert it's absent for app destinations.
+		if (expectedPath !== '/welcome') {
+			await expect(page.locator('main ul.features li')).toHaveCount(0);
+		}
 	});
 }
