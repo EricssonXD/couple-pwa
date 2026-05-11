@@ -20,6 +20,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Toggle from '$lib/components/ui/Toggle.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import PushSubscribeCard from '$lib/components/duosync/PushSubscribeCard.svelte';
 	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import UserIcon from 'phosphor-svelte/lib/UserIcon';
@@ -224,6 +225,9 @@
 				hint={m.settings_ghost_hint()}
 				onchange={toggleGhost}
 			/>
+			<div class="mt-3">
+				<PushSubscribeCard />
+			</div>
 		</section>
 
 		<!-- theme -->

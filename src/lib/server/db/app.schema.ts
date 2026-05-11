@@ -260,3 +260,28 @@ export const dailyQuestionAnswer = pgTable(
 		index('daily_qa_couple_q_idx').on(t.coupleId, t.questionId)
 	]
 );
+
+// ─── Push subscriptions (N1) ────────────────────────────────────────────
+// One row per browser/device subscription. The endpoint URL is unique per
+// subscription so it doubles as the natural key. p256dh/auth are the
+// Web Push body-encryption keys. RLS: only the owning user can SELECT or
+// DELETE; the delivery worker uses the service-role to read across users.
+export const pushSubscription = pgTable(
+	'push_subscription',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		endpoint: text('endpoint').notNull(),
+		p256dh: text('p256dh').notNull(),
+		auth: text('auth').notNull(),
+		userAgent: text('user_agent'),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+		lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(t) => [
+		uniqueIndex('push_subscription_endpoint_idx').on(t.endpoint),
+		index('push_subscription_user_idx').on(t.userId)
+	]
+);
