@@ -28,6 +28,8 @@
 	import MoonIcon from 'phosphor-svelte/lib/MoonIcon';
 	import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';
 	import TranslateIcon from 'phosphor-svelte/lib/TranslateIcon';
+	import WrenchIcon from 'phosphor-svelte/lib/WrenchIcon';
+	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
 	import { setUserTheme, getUserChoice, type ThemeChoice } from '$lib/theme/index.svelte';
 	import { locales, getLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
 	import type { PageData } from './$types';
@@ -364,6 +366,25 @@
 				{/if}
 			</section>
 		{/if}
+
+		<!-- diagnostics -->
+		<section
+			class="mt-4 space-y-2 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
+		>
+			<header class="mb-1 flex items-center gap-2">
+				<Icon icon={WrenchIcon} size={18} weight="duotone" class="text-base-content/70" />
+				<h2 class="text-sm font-semibold tracking-wider uppercase">
+					{m.settings_section_diagnostics()}
+				</h2>
+			</header>
+			<a
+				href={resolve('/settings/offline-queue')}
+				class="-mx-2 flex items-center justify-between rounded-[var(--radius-card)] px-2 py-2.5 text-sm hover:bg-base-100"
+			>
+				<span>{m.settings_diagnostics_offline_queue()}</span>
+				<Icon icon={CaretRightIcon} size={14} weight="bold" class="text-base-content/40" />
+			</a>
+		</section>
 
 		<!-- delete account (H4) -->
 		<section
