@@ -66,7 +66,11 @@
 	async function celebrateAndGo() {
 		celebrating = true;
 		await new Promise((r) => setTimeout(r, 1500));
-		await goto(resolve('/pulse'), { invalidateAll: true });
+		const seen =
+			typeof localStorage !== 'undefined' &&
+			localStorage.getItem('duosync.onboarded.perms') === '1';
+		const target = seen ? '/pulse' : '/onboarding/permissions';
+		await goto(resolve(target), { invalidateAll: true });
 	}
 
 	async function redeem(e: SubmitEvent) {
