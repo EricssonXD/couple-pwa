@@ -38,6 +38,8 @@
 	"moments_new_err_save": "保存失敗: {status} {detail}",
 	"moments_new_err_no_geo": "此瀏覽器無位置權限.",
 	"common_cancel": "取消",
+	"a11y_bottom_sheet_title": "底部面板",
+	"a11y_bottom_sheet_description": "底部面板內容",
 	"settings_title": "設定",
 	"settings_section_profile": "資料",
 	"settings_section_ghost": "隱身模式",

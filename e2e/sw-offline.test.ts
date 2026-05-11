@@ -105,9 +105,7 @@ test('service worker falls back to /offline for uncached routes when offline', a
 	await context.setOffline(false);
 });
 
-test('PURGE_USER_CACHES message wipes HTML + IMG caches but preserves SHELL', async ({
-	page
-}) => {
+test('PURGE_USER_CACHES message wipes HTML + IMG caches but preserves SHELL', async ({ page }) => {
 	await page.goto('/');
 	await waitForSwActive(page);
 	await page.reload();

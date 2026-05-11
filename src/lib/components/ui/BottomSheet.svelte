@@ -16,6 +16,7 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
 	import type { Snippet } from 'svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	type Props = {
 		open: boolean;
@@ -44,9 +45,9 @@
 			{#if title}
 				<Dialog.Title class="mb-2 text-base font-semibold">{title}</Dialog.Title>
 			{:else}
-				<Dialog.Title class="sr-only">Sheet</Dialog.Title>
+				<Dialog.Title class="sr-only">{m.a11y_bottom_sheet_title()}</Dialog.Title>
 			{/if}
-			<Dialog.Description class="sr-only">Bottom sheet content</Dialog.Description>
+			<Dialog.Description class="sr-only">{m.a11y_bottom_sheet_description()}</Dialog.Description>
 
 			{@render children()}
 		</Dialog.Content>

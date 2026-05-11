@@ -38,6 +38,8 @@
 	"moments_new_err_save": "Save failed: {status} {detail}",
 	"moments_new_err_no_geo": "This browser has no location access.",
 	"common_cancel": "Cancel",
+	"a11y_bottom_sheet_title": "Bottom sheet",
+	"a11y_bottom_sheet_description": "Bottom sheet content",
 	"settings_title": "Settings",
 	"settings_section_profile": "Profile",
 	"settings_section_ghost": "Hidden Mode",
