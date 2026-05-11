@@ -82,6 +82,53 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 	let stopped = false;
 	let authSub: Subscription | null = null;
 
+	// R2: reconnect-with-backoff + stale-presence detection + re-broadcast
+	// on visibility change. The Supabase client has its own internal
+	// socket-level reconnect, but channel-level errors (auth, RLS, server
+	// reboot) leave us stuck in 'error'/'reconnecting' until we manually
+	// re-subscribe.
+	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+	let reconnectAttempt = 0;
+	let staleTicker: ReturnType<typeof setInterval> | null = null;
+	let lastPresence: Presence = 'online';
+	const RECONNECT_BASE_MS = 1_000;
+	const RECONNECT_MAX_MS = 30_000;
+	const STALE_AFTER_MS = 90_000;
+	const STALE_TICK_MS = 15_000;
+
+	function clearReconnect() {
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
+	}
+
+	function scheduleReconnect() {
+		if (stopped || reconnectTimer) return;
+		const exp = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** reconnectAttempt);
+		const jitter = Math.floor(Math.random() * Math.min(1_000, exp / 4));
+		reconnectAttempt = Math.min(reconnectAttempt + 1, 6);
+		status = 'reconnecting';
+		reconnectTimer = setTimeout(() => {
+			reconnectTimer = null;
+			void rejoin();
+		}, exp + jitter);
+	}
+
+	async function rejoin() {
+		if (stopped) return;
+		const c = channel;
+		channel = null;
+		if (c) {
+			try {
+				await getSupabaseClient().removeChannel(c);
+			} catch {
+				/* noop */
+			}
+		}
+		await start();
+	}
+
 	function ingest(ev: ServerEvent) {
 		switch (ev.t) {
 			case 'location_update':
@@ -109,10 +156,27 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		if (!channel) return;
 		const state = channel.presenceState() as Record<string, PresenceMeta[]>;
 		const next: Record<string, Presence> = {};
+		const now = Date.now();
 		for (const [key, metas] of Object.entries(state)) {
 			if (!metas?.length) continue;
-			if (metas.some((m) => m.presence === 'online')) next[key] = 'online';
-			else if (metas.some((m) => m.presence === 'away')) next[key] = 'away';
+			// R2: derive freshness from the most recent online_at on each
+			// key. If nothing's been heard in STALE_AFTER_MS, surface the
+			// peer as 'away' so the UI can dim them. The peer might be
+			// truly offline (tab crashed, lost network) — better to show
+			// stale than lie about being online.
+			let freshest = 0;
+			let preferred: Presence | undefined;
+			for (const m of metas) {
+				const t = m.online_at ? Date.parse(m.online_at) : 0;
+				if (Number.isFinite(t) && t > freshest) {
+					freshest = t;
+					preferred = m.presence;
+				}
+				if (!preferred && m.presence) preferred = m.presence;
+			}
+			const stale = freshest > 0 && now - freshest > STALE_AFTER_MS;
+			if (stale) next[key] = 'away';
+			else if (preferred === 'away') next[key] = 'away';
 			else next[key] = 'online';
 		}
 		presence = next;
@@ -168,9 +232,10 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 			.subscribe(async (s) => {
 				if (s === 'SUBSCRIBED') {
 					status = 'open';
+					reconnectAttempt = 0;
 					try {
 						await channel?.track({
-							presence: 'online',
+							presence: lastPresence,
 							// eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot ISO timestamp sent over the wire
 							online_at: new Date().toISOString()
 						});
@@ -180,14 +245,63 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				} else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') {
 					status = 'error';
 					lastError = s;
+					scheduleReconnect();
 				} else if (s === 'CLOSED') {
-					status = stopped ? 'idle' : 'reconnecting';
+					if (!stopped) scheduleReconnect();
+					else status = 'idle';
 				}
 			});
+
+		// R2: stale ticker — recompute presence on a timer so a partner
+		// whose tab dies stops looking online once their last online_at
+		// exceeds STALE_AFTER_MS. Cheap (a Map walk every 15s).
+		if (!staleTicker) staleTicker = setInterval(recomputePresence, STALE_TICK_MS);
+
+		// R2: re-broadcast presence (and force a re-subscribe if dead) when
+		// the tab becomes visible. Backgrounded mobile tabs frequently
+		// have their socket killed by the OS; without this the partner
+		// stays "online" until the next manual interaction.
+		installVisibilityHandler();
+	}
+
+	let visibilityHandler: (() => void) | null = null;
+	function installVisibilityHandler() {
+		if (visibilityHandler || typeof document === 'undefined') return;
+		visibilityHandler = () => {
+			if (stopped || document.visibilityState !== 'visible') return;
+			if (!channel || status === 'error' || status === 'reconnecting') {
+				clearReconnect();
+				reconnectAttempt = 0;
+				void rejoin();
+				return;
+			}
+			void channel
+				.track({
+					presence: lastPresence,
+					// eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot ISO timestamp sent over the wire
+					online_at: new Date().toISOString()
+				})
+				.catch((e: unknown) => {
+					lastError = String(e);
+				});
+		};
+		document.addEventListener('visibilitychange', visibilityHandler);
+	}
+	function uninstallVisibilityHandler() {
+		if (visibilityHandler && typeof document !== 'undefined') {
+			document.removeEventListener('visibilitychange', visibilityHandler);
+		}
+		visibilityHandler = null;
 	}
 
 	async function stop() {
 		stopped = true;
+		clearReconnect();
+		if (staleTicker) {
+			clearInterval(staleTicker);
+			staleTicker = null;
+		}
+		uninstallVisibilityHandler();
 		const c = channel;
 		channel = null;
 		if (authSub) {
@@ -239,6 +353,7 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		start,
 		stop,
 		async setPresence(p: Presence) {
+			lastPresence = p;
 			if (!channel) return;
 			try {
 				await channel.track({
