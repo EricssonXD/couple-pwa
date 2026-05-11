@@ -64,9 +64,19 @@ const SHELL_SET = new Set(SHELL_ASSETS);
 // fine returning the unauthenticated SSR variant — which is true here
 // because protected routes redirect at the route handler, not in HTML.
 // `/` is a redirect-only stub; `/welcome` is the cacheable marketing
-// page anonymous users land on. Both are warmed so a cold offline
-// launch resolves locally regardless of auth state.
-const WARM_ROUTES = ['/', '/welcome', '/pulse', '/map', '/moments', '/settings'];
+// page anonymous users land on. `/auth/sign-in` and `/onboarding` are
+// warmed so a logged-out / mid-onboarding user opening the PWA offline
+// still gets a usable page instead of the offline fallback (R3).
+const WARM_ROUTES = [
+	'/',
+	'/welcome',
+	'/auth/sign-in',
+	'/onboarding',
+	'/pulse',
+	'/map',
+	'/moments',
+	'/settings'
+];
 
 const HTML_CACHE_MAX = 24;
 const IMG_CACHE_MAX = 60;
