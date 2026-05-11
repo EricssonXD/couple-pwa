@@ -12,7 +12,8 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { broadcastToCouple } from '$lib/server/realtime';
 import { db } from '$lib/server/db';
-import { geoMoment, geoMomentBody, locationPing } from '$lib/server/db/app.schema';
+import { couple, geoMoment, geoMomentBody, locationPing, profile } from '$lib/server/db/app.schema';
+import { notifyMomentDroppedNearby } from './notifications';
 
 export class MomentError extends Error {
 	constructor(public readonly code: MomentErrorCode) {
@@ -105,7 +106,71 @@ export async function createMoment(
 		}
 	}).catch(() => {});
 
+	// N2: notify partner if they're already within the moment's radius
+	// (no walk-to-unlock needed). Fire-and-forget; failure can't roll
+	// back the create.
+	void enqueueMomentNearbyIfPartnerInside({
+		coupleId,
+		authorId,
+		momentId: created.id,
+		lat,
+		lon,
+		radiusM
+	}).catch(() => {});
+
 	return created.id;
+}
+
+async function enqueueMomentNearbyIfPartnerInside(args: {
+	coupleId: string;
+	authorId: string;
+	momentId: string;
+	lat: number;
+	lon: number;
+	radiusM: number;
+}) {
+	const [c] = await db.select().from(couple).where(eq(couple.id, args.coupleId)).limit(1);
+	if (!c) return;
+	const partnerId = c.partnerA === args.authorId ? c.partnerB : c.partnerA;
+	const [partnerLast] = await db
+		.select({
+			lat: locationPing.lat,
+			lon: locationPing.lon,
+			accuracyM: locationPing.accuracyM,
+			capturedAt: locationPing.capturedAt
+		})
+		.from(locationPing)
+		.where(eq(locationPing.userId, partnerId))
+		.orderBy(desc(locationPing.capturedAt))
+		.limit(1);
+	if (!partnerLast) return;
+	// Refuse stale fixes (>5min) — don't ping when we have no idea where
+	// the partner currently is.
+	if (Date.now() - partnerLast.capturedAt.getTime() > 5 * 60 * 1000) return;
+
+	const [{ d }] = await db.execute<{ d: number }>(
+		sql`SELECT ST_Distance(
+			ST_SetSRID(ST_MakePoint(${args.lon}, ${args.lat}), 4326)::geography,
+			ST_SetSRID(ST_MakePoint(${partnerLast.lon}, ${partnerLast.lat}), 4326)::geography
+		) AS d`
+	);
+	const distance = Number(d);
+	const acc = Math.min(Math.max(0, partnerLast.accuracyM ?? 0), 200);
+	if (distance > args.radiusM + acc) return;
+
+	const [authorProfile] = await db
+		.select({ displayName: profile.displayName })
+		.from(profile)
+		.where(eq(profile.userId, args.authorId))
+		.limit(1);
+
+	await notifyMomentDroppedNearby({
+		coupleId: args.coupleId,
+		recipientId: partnerId,
+		momentId: args.momentId,
+		authorDisplayName: authorProfile?.displayName ?? null,
+		distanceM: distance
+	});
 }
 
 export interface MomentForViewer {

@@ -285,3 +285,42 @@ export const pushSubscription = pgTable(
 		index('push_subscription_user_idx').on(t.userId)
 	]
 );
+
+// ─── Push outbox (N2 → N3) ──────────────────────────────────────────────
+// Trigger code (location ping, moment drop, …) inserts a row here; the
+// N3 delivery worker is the sole consumer. We model it as a queue rather
+// than calling web-push synchronously so the SvelteKit Worker stays cold-
+// start friendly and so retries / dedupe can be moved into a dedicated
+// worker without a public-API change.
+//
+// `kind` mirrors the trigger taxonomy in docs/next-phases.md (N2):
+//   - 'partner_arrived' — partner entered a saved place radius
+//   - 'partner_dropped_moment' — partner authored a moment near you
+//   - 'partner_low_battery' — partner crossed 15% on this ping
+// `dedupe_key` lets us skip re-enqueueing the same logical event
+// (e.g. consecutive low-battery pings) within a window.
+export const pushOutbox = pgTable(
+	'push_outbox',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		recipientId: uuid('recipient_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		kind: text('kind').notNull(),
+		title: text('title').notNull(),
+		body: text('body').notNull(),
+		dataJson: text('data_json'),
+		dedupeKey: text('dedupe_key'),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+		deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+		attempts: integer('attempts').notNull().default(0),
+		lastError: text('last_error')
+	},
+	(t) => [
+		index('push_outbox_pending_idx').on(t.createdAt),
+		uniqueIndex('push_outbox_dedupe_idx').on(t.recipientId, t.dedupeKey)
+	]
+);

@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { couple, locationPing, locationDailySummary, profile } from '$lib/server/db/schema';
 import { broadcastToCouple } from '$lib/server/realtime';
 import { unlockMomentsForPing } from './moments';
+import { notifyLowBattery } from './notifications';
 
 // Server-side guard rails. Client throttles too, but never trust it.
 export const MIN_PING_INTERVAL_MS = 60 * 1000; // 60s
@@ -111,7 +112,39 @@ export async function recordPing(userId: string, coupleId: string, input: PingIn
 	// ghosted (we don't want to leak presence sideways via moment unlocks).
 	void runMomentUnlock(userId, coupleId, input).catch(() => {});
 
+	// N2: low-battery trigger for the partner. Edge-triggered using the
+	// previous ping's battery so we only enqueue on the crossing.
+	if (typeof input.batteryPct === 'number') {
+		void enqueueLowBatteryIfCrossed(userId, coupleId, input).catch(() => {});
+	}
+
 	return row;
+}
+
+async function enqueueLowBatteryIfCrossed(userId: string, coupleId: string, input: PingInput) {
+	const [c] = await db.select().from(couple).where(eq(couple.id, coupleId)).limit(1);
+	if (!c) return;
+	const partnerId = c.partnerA === userId ? c.partnerB : c.partnerA;
+	const [authorProfile] = await db
+		.select({ displayName: profile.displayName })
+		.from(profile)
+		.where(eq(profile.userId, userId))
+		.limit(1);
+	const [prev] = await db
+		.select({ batteryPct: locationPing.batteryPct })
+		.from(locationPing)
+		.where(eq(locationPing.userId, userId))
+		.orderBy(desc(locationPing.capturedAt))
+		.offset(1)
+		.limit(1);
+	await notifyLowBattery({
+		coupleId,
+		recipientId: partnerId,
+		authorDisplayName: authorProfile?.displayName ?? null,
+		batteryPct: input.batteryPct as number,
+		charging: input.charging ?? false,
+		priorBatteryPct: prev?.batteryPct ?? null
+	});
 }
 
 async function runMomentUnlock(userId: string, coupleId: string, p: PingInput) {
