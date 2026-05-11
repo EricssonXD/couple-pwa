@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createMoment, listMomentsForViewer, MomentError } from '$lib/server/services/moments';
 import { lookupIdempotent, readIdempotencyKey, storeIdempotent } from '$lib/server/idempotency';
+import { consume } from '$lib/server/rate-limit';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	if (!locals.user) error(401, 'unauthorized');
@@ -13,6 +14,17 @@ export const GET: RequestHandler = async ({ locals }) => {
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'unauthorized');
 	if (!locals.couple) error(409, 'not_paired');
+
+	const limit = consume('moments-write', locals.user.id);
+	if (!limit.allowed) {
+		return new Response(JSON.stringify({ error: 'rate_limited' }), {
+			status: 429,
+			headers: {
+				'content-type': 'application/json',
+				'retry-after': String(Math.ceil(limit.retryAfterMs / 1000))
+			}
+		});
+	}
 
 	const idemKey = readIdempotencyKey(request.headers);
 	if (idemKey) {
