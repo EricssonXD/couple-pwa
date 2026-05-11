@@ -317,7 +317,86 @@ sw.addEventListener('fetch', (event) => {
 	);
 });
 
-// Web Push handler — Phase 6 will fill in payload contracts.
+// R1: Background Sync — drain the offline write queue when the OS
+// reports connectivity restored, even if the tab is closed. Mirrors
+// the runtime contract in src/lib/client/offline-queue.ts: same DB
+// name, same store name, same flush logic. iOS Safari + Firefox don't
+// fire `sync` events; their drains happen from the foreground via
+// installQueueRunner().
+const QUEUE_DB = 'duosync-queue';
+const QUEUE_STORE = 'pending';
+const QUEUE_TAG = 'duosync-queue-flush';
+
+interface QueuedReq {
+	id?: number;
+	endpoint: string;
+	method: string;
+	body: unknown;
+	idempotencyKey: string;
+	createdAt: number;
+	attempts: number;
+	nextAttemptAt: number;
+	dead?: boolean;
+}
+
+function openQueue(): Promise<IDBDatabase> {
+	return new Promise((resolve, reject) => {
+		const req = indexedDB.open(QUEUE_DB, 1);
+		req.onsuccess = () => resolve(req.result);
+		req.onerror = () => reject(req.error);
+		// No onupgradeneeded — the page already created the schema.
+	});
+}
+
+async function drainQueueFromSw(): Promise<void> {
+	let db: IDBDatabase;
+	try {
+		db = await openQueue();
+	} catch {
+		return; // queue never opened by the page yet — nothing to drain
+	}
+	const txRead = db.transaction(QUEUE_STORE, 'readonly');
+	const all: QueuedReq[] = await new Promise((resolve, reject) => {
+		const req = txRead.objectStore(QUEUE_STORE).getAll();
+		req.onsuccess = () => resolve((req.result as QueuedReq[]).filter((e) => !e.dead));
+		req.onerror = () => reject(req.error);
+	});
+	const now = Date.now();
+	const due = all.filter((e) => e.nextAttemptAt <= now).sort((a, b) => a.createdAt - b.createdAt);
+	for (const entry of due) {
+		try {
+			const res = await fetch(entry.endpoint, {
+				method: entry.method,
+				headers: {
+					'content-type': 'application/json',
+					'x-idempotency-key': entry.idempotencyKey
+				},
+				body: entry.body == null ? undefined : JSON.stringify(entry.body)
+			});
+			if (res.ok || (res.status >= 400 && res.status < 500)) {
+				await new Promise<void>((resolve) => {
+					const t = db.transaction(QUEUE_STORE, 'readwrite');
+					t.objectStore(QUEUE_STORE).delete(entry.id!);
+					t.oncomplete = () => resolve();
+					t.onerror = () => resolve();
+				});
+			} else {
+				// 5xx: leave it for the next sync (the foreground retry loop
+				// owns backoff scheduling — we just delivered what was due).
+			}
+		} catch {
+			// Network failed mid-drain — abort; OS will redeliver `sync`.
+			return;
+		}
+	}
+}
+
+sw.addEventListener('sync', (event) => {
+	const e = event as ExtendableEvent & { tag?: string };
+	if (e.tag !== QUEUE_TAG) return;
+	e.waitUntil(drainQueueFromSw());
+});
+
 sw.addEventListener('push', (event) => {
 	if (!event.data) return;
 	const data = (() => {

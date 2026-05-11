@@ -91,12 +91,32 @@ export function createGeolocationTracker() {
 		}
 
 		try {
-			const res = await fetch('/api/location/ping', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(body)
-			});
-			if (!res.ok) throw new Error(`ping ${res.status}`);
+			let queued = false;
+			if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+				// Offline: skip the network attempt outright and persist to the
+				// IndexedDB queue. The runner installed by +layout.svelte will
+				// drain when connectivity returns.
+				const { enqueue } = await import('./offline-queue');
+				await enqueue('/api/location/ping', body);
+				queued = true;
+			} else {
+				const res = await fetch('/api/location/ping', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify(body)
+				});
+				if (!res.ok) {
+					// 5xx + network failures get queued for retry; 4xx are
+					// contract errors and should NOT be queued.
+					if (res.status >= 500) {
+						const { enqueue } = await import('./offline-queue');
+						await enqueue('/api/location/ping', body);
+						queued = true;
+					} else {
+						throw new Error(`ping ${res.status}`);
+					}
+				}
+			}
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity -- bookkeeping timestamp, only compared via getTime()
 			lastSentAt = new Date();
 			lastSentCoord = {
@@ -105,9 +125,23 @@ export function createGeolocationTracker() {
 				t: pos.timestamp
 			};
 			consecutiveErrors = 0;
-			lastError = null;
+			lastError = queued ? 'queued (offline)' : null;
 			if (status === 'error') status = 'tracking';
 		} catch (e) {
+			// Network failed AND queueing failed (or contract error). Treat
+			// as transient: bump the error counter for backoff retry from the
+			// next position fix.
+			try {
+				const { enqueue } = await import('./offline-queue');
+				await enqueue('/api/location/ping', body);
+				lastSentAt = new Date(); // eslint-disable-line svelte/prefer-svelte-reactivity
+				lastError = 'queued (offline)';
+				consecutiveErrors = 0;
+				if (status === 'error') status = 'tracking';
+				return;
+			} catch {
+				/* IDB unavailable too — fall through to backoff. */
+			}
 			consecutiveErrors++;
 			lastError = e instanceof Error ? e.message : String(e);
 			status = 'error';

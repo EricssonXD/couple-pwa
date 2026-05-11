@@ -10,6 +10,7 @@
 	import { BottomNav } from '$lib/components/duosync';
 	import { setRouteTheme, initTheme, type DuoSyncTheme } from '$lib/theme/index.svelte';
 	import { hasAuthHint } from '$lib/client/auth-hint';
+	import { installQueueRunner } from '$lib/client/offline-queue';
 	import './layout.css';
 	import '$lib/motion/animations.css';
 
@@ -54,6 +55,7 @@
 	onMount(() => {
 		initInstallPrompt();
 		registerServiceWorker();
+		installQueueRunner();
 		return initTheme();
 	});
 </script>

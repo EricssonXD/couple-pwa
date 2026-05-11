@@ -142,18 +142,35 @@
 		}
 		busy = true;
 		try {
+			const payload = {
+				lat,
+				lon,
+				radiusM,
+				body: text,
+				expiresAt: expiryToIso()
+			};
+			if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+				// Offline — persist for retry. We can't surface the server-
+				// generated id yet, but the navigation back to /moments is
+				// fine because the SW serves the cached list and the new
+				// item will appear once the queue drains.
+				const { enqueue } = await import('$lib/client/offline-queue');
+				await enqueue('/api/moments', payload);
+				await goto(resolve('/moments'));
+				return;
+			}
 			const r = await fetch('/api/moments', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					lat,
-					lon,
-					radiusM,
-					body: text,
-					expiresAt: expiryToIso()
-				})
+				body: JSON.stringify(payload)
 			});
 			if (!r.ok) {
+				if (r.status >= 500) {
+					const { enqueue } = await import('$lib/client/offline-queue');
+					await enqueue('/api/moments', payload);
+					await goto(resolve('/moments'));
+					return;
+				}
 				const t = await r.text().catch(() => '');
 				saveErr = m.moments_new_err_save({ status: r.status, detail: t });
 				return;
