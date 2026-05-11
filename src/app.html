@@ -4,27 +4,12 @@
 	<head>
 		<meta charset="utf-8" />
 		<!--
-		  Pre-paint redirect for `/`. Runs synchronously before the body
-		  parses so even when the SW serves the cached `/` HTML offline
-		  the user never sees a flash of the wrong screen.
-		    cookie missing  → /welcome  (cached marketing page)
-		    cookie=onboarding → /onboarding
-		    cookie=pulse / legacy "1" → /pulse
-		  The cookie is set + cleared by hooks.server.ts; it's
-		  client-readable but holds NO secrets — purely a routing flag.
-		  Keep this script tiny + dependency-free — it must parse instantly.
+		  Pre-paint redirect for `/`. The script is external (and cached
+		  by the SW under SHELL_CACHE) so we can keep CSP strict without
+		  juggling per-request nonces — and so the page template stays
+		  prerender-friendly.
 		-->
-		<script>
-			(function () {
-				if (location.pathname !== '/') return;
-				var m = document.cookie.match(/(?:^|;\s*)ds_auth=([^;]+)/);
-				var dest;
-				if (!m) dest = '/welcome';
-				else if (m[1] === 'onboarding') dest = '/onboarding';
-				else dest = '/pulse';
-				location.replace(dest);
-			})();
-		</script>
+		<script src="%sveltekit.assets%/route-stub.js"></script>
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="application-name" content="DuoSync" />
 		<meta name="apple-mobile-web-app-title" content="DuoSync" />

@@ -8,6 +8,44 @@ import { readDeletionState } from '$lib/server/services/deletion';
 import { withDb } from '$lib/server/db';
 import { report } from '$lib/error-reporter';
 
+// H2: security headers. CSP is configured in svelte.config.js (kit.csp).
+// Everything else lands here so we can set it once for every response,
+// including static assets routed through the Worker.
+const handleSecurityHeaders: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+	const h = response.headers;
+	// Only meaningful over HTTPS — Cloudflare terminates TLS at the edge,
+	// so the response will always be served over https in production. We
+	// still set it unconditionally because browsers ignore HSTS over
+	// plain http.
+	if (!h.has('strict-transport-security')) {
+		h.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
+	}
+	if (!h.has('referrer-policy')) {
+		h.set('referrer-policy', 'strict-origin-when-cross-origin');
+	}
+	if (!h.has('x-content-type-options')) {
+		h.set('x-content-type-options', 'nosniff');
+	}
+	if (!h.has('x-frame-options')) {
+		h.set('x-frame-options', 'DENY');
+	}
+	if (!h.has('permissions-policy')) {
+		// Allow geolocation + notifications for the app itself, deny the
+		// camera/mic/etc. Browsers fall back to safe defaults if a
+		// directive is unrecognised, so listing the deny-list explicitly
+		// is fine.
+		h.set(
+			'permissions-policy',
+			'geolocation=(self), notifications=(self), camera=(), microphone=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
+		);
+	}
+	if (!h.has('cross-origin-opener-policy')) {
+		h.set('cross-origin-opener-policy', 'same-origin');
+	}
+	return response;
+};
+
 // Wrap every request in a fresh Postgres client (see src/lib/server/db
 // for the rationale — Cloudflare Workers TCP sockets can't survive past
 // the request that opened them).
@@ -108,12 +146,24 @@ const handleSupabase: Handle = async ({ event, resolve }) => {
 	});
 };
 
-export const handle: Handle = sequence(handleDb, handleParaglide, handleSupabase);
+export const handle: Handle = sequence(
+	handleSecurityHeaders,
+	handleDb,
+	handleParaglide,
+	handleSupabase
+);
 
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
+	// During prerender, accessing event.url.search throws — guard it.
+	let url: string;
+	try {
+		url = event.url.pathname + event.url.search;
+	} catch {
+		url = event.url.pathname;
+	}
 	const { id, message: safe } = report(error, {
 		side: 'server',
-		url: event.url.pathname + event.url.search,
+		url,
 		route: event.route?.id ?? null,
 		status,
 		message

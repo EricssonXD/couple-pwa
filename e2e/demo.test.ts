@@ -52,21 +52,19 @@ test('offline page renders standalone', async ({ page }) => {
 // (We can't reach a real authed /pulse without a live Supabase session,
 // so the assertion is "URL no longer points at /" — proving the script
 // fired and routed to the right destination.)
-// The inline pre-paint script in app.html is the offline guarantee: when
-// the SW serves the cached `/` HTML and the device has a `ds_auth` hint
-// cookie, the script must `location.replace()` to the right destination
-// before the body paints. The live preview server doesn't reach that
-// code path online (its server load 303s anonymous traffic to /welcome),
-// so we simulate the cached scenario by route-intercepting `/` with a
-// minimal HTML body that embeds the same redirect script. This way the
-// test actually exercises the script we ship instead of duplicating it.
+// The pre-paint redirect script is shipped as a static file (so the
+// page template can be safely prerendered with strict CSP). When the SW
+// serves the cached `/` HTML and the device has a `ds_auth` hint cookie,
+// the script must `location.replace()` to the right destination before
+// the body paints. The live preview server doesn't reach that code path
+// online (its server load 303s anonymous traffic to /welcome), so we
+// simulate the cached scenario by route-intercepting `/` with a minimal
+// HTML body that embeds the same redirect script. This way the test
+// actually exercises the script we ship instead of duplicating it.
 async function readInlineRedirectScript(): Promise<string> {
 	const fs = await import('node:fs/promises');
 	const path = await import('node:path');
-	const html = await fs.readFile(path.resolve('src/app.html'), 'utf8');
-	const m = html.match(/<script>([\s\S]*?)<\/script>/);
-	if (!m) throw new Error('inline redirect script not found in app.html');
-	return m[1];
+	return fs.readFile(path.resolve('static/route-stub.js'), 'utf8');
 }
 
 for (const [cookieValue, expectedPath, label] of [
