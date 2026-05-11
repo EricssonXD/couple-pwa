@@ -7,7 +7,7 @@
 	import { initInstallPrompt } from '$lib/pwa/install';
 	import { registerServiceWorker } from '$lib/pwa/register';
 	import UpdateBanner from '$lib/pwa/UpdateBanner.svelte';
-	import { BottomNav } from '$lib/components/duosync';
+	import { BottomNav, QueueBadge } from '$lib/components/duosync';
 	import { setRouteTheme, initTheme, type DuoSyncTheme } from '$lib/theme/index.svelte';
 	import { hasAuthHint } from '$lib/client/auth-hint';
 	import { installQueueRunner } from '$lib/client/offline-queue';
@@ -66,6 +66,7 @@
 {#if showNav}
 	<BottomNav />
 {/if}
+<QueueBadge />
 <UpdateBanner />
 
 <div style="display:none">
