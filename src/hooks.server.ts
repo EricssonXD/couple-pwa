@@ -35,7 +35,9 @@ const handleParaglide: Handle = ({ event, resolve }) =>
 // flag the client/SW-cached pages can read to know "this device has a
 // signed-in session" without reaching the server. Used for two things:
 //   1. Skipping the welcome flash on `/` when offline (cached HTML may
-//      still be the unauth welcome variant).
+//      still be the unauth welcome variant). The value also encodes
+//      whether to land on /pulse or /onboarding so a not-yet-linked
+//      user doesn't get bounced into a dead /pulse cache.
 //   2. Suppressing client navigations to `/auth/*` when offline — those
 //      routes are intentionally not cached by the SW (private), so a
 //      stranded user with a valid session would otherwise hit a dead end.
@@ -62,8 +64,12 @@ const handleSupabase: Handle = async ({ event, resolve }) => {
 		const c = await getActiveCouple(user.id);
 		if (c) event.locals.couple = c;
 
-		if (event.cookies.get(AUTH_HINT_COOKIE) !== '1') {
-			event.cookies.set(AUTH_HINT_COOKIE, '1', {
+		// Encode the destination the server would have redirected to, so
+		// the offline client at `/` can route to the right cached page
+		// (was previously a flat '1' meaning only "any session").
+		const desired = c ? 'pulse' : 'onboarding';
+		if (event.cookies.get(AUTH_HINT_COOKIE) !== desired) {
+			event.cookies.set(AUTH_HINT_COOKIE, desired, {
 				path: '/',
 				httpOnly: false,
 				sameSite: 'lax',

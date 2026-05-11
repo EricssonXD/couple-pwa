@@ -9,15 +9,18 @@
 		  cached anonymous welcome HTML (offline / cold home-screen launch)
 		  this aborts the navigation before first paint and re-routes to the
 		  cached app shell. Online: the server already 303s these users so
-		  this is a no-op. Cookie is the same `ds_auth` hint set by
-		  hooks.server.ts; cleared on sign-out.
+		  this is a no-op. Cookie value is `pulse | onboarding` (or legacy
+		  `1` from older clients, treated as pulse) — set by hooks.server.ts
+		  and cleared on sign-out.
 		  Keep this script tiny + dependency-free — it must parse instantly.
 		-->
 		<script>
 			(function () {
 				if (location.pathname !== '/') return;
-				if (!/(?:^|;\s*)ds_auth=1(?:;|$)/.test(document.cookie)) return;
-				location.replace('/pulse');
+				var m = document.cookie.match(/(?:^|;\s*)ds_auth=([^;]+)/);
+				if (!m) return;
+				var dest = m[1] === 'onboarding' ? '/onboarding' : '/pulse';
+				location.replace(dest);
 			})();
 		</script>
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />

@@ -5,7 +5,7 @@
 	import { canInstall, promptInstall, isStandalone } from '$lib/pwa/install';
 	import { iosInstallMode, type IosInstallMode } from '$lib/pwa/ios-install';
 	import { IosInstallSheet } from '$lib/components/duosync';
-	import { hasAuthHint } from '$lib/client/auth-hint';
+	import { hasAuthHint, readAuthHint } from '$lib/client/auth-hint';
 	import * as m from '$lib/paraglide/messages.js';
 
 	let installable = $state(false);
@@ -17,14 +17,16 @@
 
 	onMount(() => {
 		// If the auth-hint cookie is present, this device has a signed-in
-		// session — skip the welcome flash and head straight to /pulse.
-		// Online: the server already redirected us via +page.server.ts and
-		// we wouldn't be here. This branch covers the offline / SW-cached
-		// landing where the server load did not run and we got served the
-		// stale anonymous welcome HTML.
+		// session — skip the welcome flash and head straight to the right
+		// destination. Online: the server already redirected us via
+		// +page.server.ts and we wouldn't be here. This branch covers the
+		// offline / SW-cached landing where the server load did not run
+		// and we got served the stale anonymous welcome HTML.
 		if (hasAuthHint()) {
 			redirecting = true;
-			goto(resolve('/pulse'), { replaceState: true });
+			const hint = readAuthHint();
+			const dest = hint === 'onboarding' ? '/onboarding' : '/pulse';
+			goto(resolve(dest), { replaceState: true });
 			return;
 		}
 
