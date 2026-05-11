@@ -21,6 +21,13 @@ export default defineConfig({
 			outdir: './src/lib/paraglide'
 		})
 	],
+	optimizeDeps: {
+		// Pre-bundle deps that storybook-vitest hits on every test file, so the
+		// browser provider doesn't recompile them per worker. Without this, CI
+		// runs see ~3-5s of "discovered new dependencies" reloads on each story
+		// project boot — flaky test timeouts when machines are slow.
+		include: ['axe-core', '@storybook/addon-a11y/preview', 'phosphor-svelte/lib/StarIcon']
+	},
 	test: {
 		expect: {
 			requireAssertions: true
