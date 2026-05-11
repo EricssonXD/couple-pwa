@@ -5,7 +5,7 @@ import { couple, linkCode } from '$lib/server/db/schema';
 // Unambiguous Crockford-ish charset: no 0/O/1/I/L.
 const CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_LEN = 6;
-export const LINK_CODE_TTL_MS = 15 * 60 * 1000;
+export const LINK_CODE_TTL_MS = 30 * 60 * 1000;
 
 export class PairingError extends Error {
 	constructor(

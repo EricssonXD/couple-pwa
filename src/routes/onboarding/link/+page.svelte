@@ -16,6 +16,7 @@
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
 	import ShareNetworkIcon from 'phosphor-svelte/lib/ShareNetworkIcon';
+	import CodeScanner, { isCodeScannerSupported } from '$lib/components/duosync/CodeScanner.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -26,6 +27,7 @@
 	let error = $state<string | null>(null);
 	let copied = $state(false);
 	let celebrating = $state(false);
+	let scannerSupported = $state(false);
 
 	const remaining = $derived.by(() => {
 		const ms = new Date(data.expiresAt).getTime() - Date.now();
@@ -34,7 +36,13 @@
 
 	onMount(async () => {
 		qrDataUrl = await QRCode.toDataURL(data.shareUrl, { width: 240, margin: 1 });
+		scannerSupported = isCodeScannerSupported();
 	});
+
+	async function onScannedCode(code: string) {
+		typedCode = code;
+		await submitRedeem(code);
+	}
 
 	async function copyCode() {
 		await navigator.clipboard.writeText(data.code);
@@ -63,13 +71,17 @@
 
 	async function redeem(e: SubmitEvent) {
 		e.preventDefault();
+		await submitRedeem(typedCode);
+	}
+
+	async function submitRedeem(rawCode: string) {
 		busy = true;
 		error = null;
 		try {
 			const res = await fetch('/api/couple/redeem', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code: typedCode.trim().toUpperCase() })
+				body: JSON.stringify({ code: rawCode.trim().toUpperCase() })
 			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));
@@ -171,6 +183,12 @@
 				</div>
 			{/if}
 		</form>
+
+		{#if scannerSupported}
+			<div class="mt-4">
+				<CodeScanner oncode={onScannedCode} />
+			</div>
+		{/if}
 	</div>
 
 	{#if celebrating}
