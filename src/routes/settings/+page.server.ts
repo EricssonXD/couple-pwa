@@ -28,7 +28,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			email: locals.user.email ?? null,
 			displayName: me.displayName,
 			avatarEmoji: me.avatarEmoji,
-			ghostMode: isGhostActive(me.ghostMode, me.ghostUntil)
+			ghostMode: isGhostActive(me.ghostMode, me.ghostUntil),
+			pendingDeletionAt: locals.pendingDeletionAt ?? null
 		},
 		couple: locals.couple
 			? {

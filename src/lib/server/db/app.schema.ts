@@ -108,6 +108,10 @@ export const profile = pgTable('profile', {
 	avatarUrl: text('avatar_url'),
 	avatarEmoji: text('avatar_emoji'),
 	onboardedAt: timestamp('onboarded_at', { withTimezone: true }),
+	// H4: when set, the account is in a 7-day soft-delete window. Sign-in
+	// during the window cancels the deletion. After expiry the hook signs
+	// the user out + a separate scheduled job hard-deletes the row.
+	pendingDeletionAt: timestamp('pending_deletion_at', { withTimezone: true }),
 	// Ghost mode: when true, partner sees "隱身中" + last-seen instead of distance.
 	ghostMode: boolean('ghost_mode').notNull().default(false),
 	ghostUntil: timestamp('ghost_until', { withTimezone: true })

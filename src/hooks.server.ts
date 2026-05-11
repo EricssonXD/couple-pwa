@@ -4,6 +4,7 @@ import { getTextDirection } from '$lib/paraglide/runtime';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { createSupabaseServerClient } from '$lib/server/supabase';
 import { getActiveCouple } from '$lib/server/services/couple';
+import { readDeletionState } from '$lib/server/services/deletion';
 import { withDb } from '$lib/server/db';
 import { report } from '$lib/error-reporter';
 
@@ -56,7 +57,24 @@ const handleSupabase: Handle = async ({ event, resolve }) => {
 	} = await supabase.auth.getUser();
 
 	if (user) {
+		// H4: gate signed-in requests against the soft-delete window. If the
+		// 7-day deletion timer has elapsed, sign the user out immediately;
+		// otherwise expose the timestamp so the UI can show a warning + the
+		// cancel-deletion control.
+		const deletion = await readDeletionState(user.id);
+		if (deletion?.expired) {
+			await supabase.auth.signOut();
+			if (event.cookies.get(AUTH_HINT_COOKIE)) {
+				event.cookies.delete(AUTH_HINT_COOKIE, { path: '/' });
+			}
+			return resolve(event, {
+				filterSerializedResponseHeaders(name) {
+					return name === 'content-range' || name === 'x-supabase-api-version';
+				}
+			});
+		}
 		event.locals.user = user;
+		event.locals.pendingDeletionAt = deletion?.pendingUntil ?? null;
 		const {
 			data: { session }
 		} = await supabase.auth.getSession();

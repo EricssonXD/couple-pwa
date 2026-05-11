@@ -17,6 +17,7 @@ declare global {
 			user?: User;
 			session?: Session;
 			couple?: Couple;
+			pendingDeletionAt?: Date | null;
 		}
 
 		// interface Error {}

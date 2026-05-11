@@ -52,6 +52,8 @@
 	let busy = $state<string | null>(null);
 	let msg = $state<string | null>(null);
 	let confirmUnpair = $state(false);
+	let confirmDelete = $state(false);
+	let pendingDeletionAt = $state<string | null>(null);
 
 	onMount(() => {
 		displayName = data.me.displayName ?? '';
@@ -65,6 +67,9 @@
 					? new Date(ann as unknown as string).toISOString().slice(0, 10)
 					: '';
 		ghost = data.me.ghostMode;
+		pendingDeletionAt = data.me.pendingDeletionAt
+			? new Date(data.me.pendingDeletionAt as unknown as string).toISOString()
+			: null;
 		// Theme is initialised globally in +layout.svelte via initTheme();
 		// here we just sync the radio-group selection to the persisted choice.
 		themeChoice = getUserChoice();
@@ -119,6 +124,34 @@
 		await fetch('/api/couple', { method: 'DELETE' });
 		busy = null;
 		await goto(resolve('/onboarding/link'));
+	}
+
+	async function requestDelete() {
+		busy = 'delete';
+		msg = null;
+		const r = await fetch('/api/account/deletion', { method: 'POST' });
+		busy = null;
+		if (r.ok) {
+			const body = (await r.json()) as { pendingUntil: string };
+			pendingDeletionAt = body.pendingUntil;
+			confirmDelete = false;
+			await invalidateAll();
+		} else {
+			msg = `Delete failed: ${r.status}`;
+		}
+	}
+
+	async function cancelDelete() {
+		busy = 'delete-cancel';
+		msg = null;
+		const r = await fetch('/api/account/deletion', { method: 'DELETE' });
+		busy = null;
+		if (r.ok) {
+			pendingDeletionAt = null;
+			await invalidateAll();
+		} else {
+			msg = `Cancel failed: ${r.status}`;
+		}
 	}
 </script>
 
@@ -327,6 +360,53 @@
 				{/if}
 			</section>
 		{/if}
+
+		<!-- delete account (H4) -->
+		<section
+			class="mt-4 space-y-3 rounded-[var(--radius-card)] border border-error/30 bg-error/5 p-5"
+		>
+			<h2 class="text-sm font-semibold tracking-wider text-error uppercase">
+				{m.settings_delete_section()}
+			</h2>
+			{#if pendingDeletionAt}
+				<p class="text-xs text-base-content/80">
+					{m.settings_delete_pending({ date: new Date(pendingDeletionAt).toLocaleDateString() })}
+				</p>
+				<button
+					class="w-full rounded-full border border-base-content/20 py-2.5 text-xs font-semibold tracking-wider uppercase hover:bg-base-content/5 disabled:opacity-50"
+					disabled={busy === 'delete-cancel'}
+					onclick={cancelDelete}
+				>
+					{busy === 'delete-cancel' ? m.settings_delete_cancelling() : m.settings_delete_cancel()}
+				</button>
+			{:else}
+				<p class="text-xs text-base-content/70">{m.settings_delete_warning()}</p>
+				{#if !confirmDelete}
+					<button
+						class="w-full rounded-full border border-error/50 py-2.5 text-xs font-semibold tracking-wider text-error uppercase hover:bg-error/10"
+						onclick={() => (confirmDelete = true)}
+					>
+						{m.settings_delete_open()}
+					</button>
+				{:else}
+					<div class="flex gap-2">
+						<button
+							class="flex-1 rounded-full bg-error py-2.5 text-xs font-semibold tracking-wider text-error-content uppercase disabled:opacity-50"
+							disabled={busy === 'delete'}
+							onclick={requestDelete}
+						>
+							{busy === 'delete' ? m.settings_deleting() : m.settings_delete_confirm()}
+						</button>
+						<button
+							class="flex-1 rounded-full py-2.5 text-xs font-semibold tracking-wider text-base-content/60 uppercase"
+							onclick={() => (confirmDelete = false)}
+						>
+							{m.common_cancel()}
+						</button>
+					</div>
+				{/if}
+			{/if}
+		</section>
 
 		<form method="POST" action="/auth/sign-out" class="mt-6">
 			<button
