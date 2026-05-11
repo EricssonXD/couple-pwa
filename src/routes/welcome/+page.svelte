@@ -7,11 +7,18 @@
 	import * as m from '$lib/paraglide/messages.js';
 
 	// `/welcome` is the marketing/install page for anonymous users only.
-	// The `/` router (src/routes/+page.svelte + +page.server.ts) bounces
-	// signed-in devices straight to /pulse|/onboarding before they ever
-	// reach this route, so there is no auth-hint check here. Likewise,
-	// `+page.server.ts` in this directory 303s any request that does
-	// arrive with `locals.user` already populated.
+	// Two layers keep signed-in users off it:
+	//   1. `/welcome/+page.server.ts` 303s any request that arrives with
+	//      `locals.user` populated → no flash on online direct hits.
+	//   2. `static/route-stub.js` (loaded synchronously from app.html
+	//      <head>) runs before the body parses, reads the `ds_auth`
+	//      cookie, and `location.replace()`s authed visitors away from
+	//      both `/` AND `/welcome`. This catches the offline / cached-
+	//      HTML path where the server load can't run, so a returning
+	//      signed-in user opening the PWA offline never sees this page
+	//      paint even for a frame.
+	// As a result there is no auth-hint check inside this script — it
+	// has already been enforced at a layer that runs before hydration.
 	let installable = $state(false);
 	let standalone = $state(false);
 	let iosMode = $state<IosInstallMode>(null);

@@ -81,10 +81,27 @@ const WARM_ROUTES = [
 const HTML_CACHE_MAX = 24;
 const IMG_CACHE_MAX = 60;
 
+// /auth/sign-in is the only /auth/* route that's safe to cache + serve
+// offline: it renders an empty public form (no per-user state, server
+// load 303s away if signed-in). Every other /auth/* surface is a
+// stateful action handler (callback exchanges OAuth codes; sign-out
+// mutates session; check-email reads form data) and MUST hit the
+// network, so we keep them on the private list.
+//
+// Without this carve-out, a signed-in user opening the PWA offline and
+// hitting any client navigation that points at /auth/sign-in would
+// bounce off a "no internet" browser page despite the route being
+// pre-warmed in HTML_CACHE — the SW was returning early without
+// serving the cached copy. The /+layout.svelte beforeNavigate guard
+// handles SPA navigations, but hard navigations (PWA cold launch URLs,
+// server-rendered <a href>) bypass it.
 function isPrivatePath(pathname: string): boolean {
-	return (
-		pathname.startsWith('/api/') || pathname.startsWith('/auth/') || pathname.startsWith('/ws/')
-	);
+	if (pathname.startsWith('/api/')) return true;
+	if (pathname.startsWith('/ws/')) return true;
+	if (pathname.startsWith('/auth/')) {
+		return pathname !== '/auth/sign-in' && pathname !== '/auth/sign-in/';
+	}
+	return false;
 }
 
 // SvelteKit issues data requests at /__data.json or /<route>/__data.json
