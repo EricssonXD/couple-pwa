@@ -1,0 +1,23 @@
+[
+	{
+		"name": "client entry (start + app)",
+		"path": [
+			".svelte-kit/output/client/_app/immutable/entry/start.*.js",
+			".svelte-kit/output/client/_app/immutable/entry/app.*.js"
+		],
+		"limit": "60 KB",
+		"gzip": true
+	},
+	{
+		"name": "root layout node",
+		"path": ".svelte-kit/output/client/_app/immutable/nodes/0.*.js",
+		"limit": "30 KB",
+		"gzip": true
+	},
+	{
+		"name": "client chunks total",
+		"path": ".svelte-kit/output/client/_app/immutable/chunks/*.js",
+		"limit": "220 KB",
+		"gzip": true
+	}
+]
