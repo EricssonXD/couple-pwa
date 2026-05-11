@@ -1,6 +1,7 @@
 import { and, eq, isNotNull, lte, or } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { profile, couple } from '$lib/server/db/schema';
+import { recordAudit } from './audit';
 
 export const DELETION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -47,6 +48,8 @@ export async function requestAccountDeletion(userId: string): Promise<{ pendingU
 			and(eq(couple.status, 'active'), or(eq(couple.partnerA, userId), eq(couple.partnerB, userId)))
 		);
 
+	void recordAudit(userId, 'account.delete.request', { pendingUntil: pendingUntil.toISOString() });
+
 	return { pendingUntil };
 }
 
@@ -60,6 +63,7 @@ export async function cancelAccountDeletion(userId: string): Promise<void> {
 	if (!me.pendingDeletionAt) throw new DeletionError('not_pending');
 
 	await db.update(profile).set({ pendingDeletionAt: null }).where(eq(profile.userId, userId));
+	void recordAudit(userId, 'account.delete.cancel');
 }
 
 /**

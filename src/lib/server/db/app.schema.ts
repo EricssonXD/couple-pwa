@@ -24,6 +24,7 @@ import {
 	integer,
 	boolean,
 	uuid,
+	jsonb,
 	customType
 } from 'drizzle-orm/pg-core';
 
@@ -323,4 +324,25 @@ export const pushOutbox = pgTable(
 		index('push_outbox_pending_idx').on(t.createdAt),
 		uniqueIndex('push_outbox_dedupe_idx').on(t.recipientId, t.dedupeKey)
 	]
+);
+
+// H5 audit log — see 0011_audit_log.sql for RLS rationale. Append-only,
+// readable only by the acting user. `action` follows a dotted taxonomy:
+//   - 'ghost.enable' / 'ghost.disable'
+//   - 'unpair.request'
+//   - 'account.delete.request' / 'account.delete.cancel'
+// `metadata` is freeform JSON for action-specific context (e.g.
+// `{ "untilMs": 1234567890 }` for timed ghost).
+export const auditLog = pgTable(
+	'audit_log',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		action: text('action').notNull(),
+		metadata: jsonb('metadata'),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(t) => [index('audit_log_user_idx').on(t.userId, t.createdAt)]
 );

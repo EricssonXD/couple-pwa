@@ -1,6 +1,7 @@
 import { and, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { couple, linkCode } from '$lib/server/db/schema';
+import { recordAudit } from './audit';
 
 // Unambiguous Crockford-ish charset: no 0/O/1/I/L.
 const CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -209,4 +210,5 @@ export async function unpair(userId: string, coupleId: string) {
 		.where(
 			and(eq(couple.id, coupleId), or(eq(couple.partnerA, userId), eq(couple.partnerB, userId)))
 		);
+	void recordAudit(userId, 'unpair.request', { coupleId });
 }

@@ -4,6 +4,7 @@ import { couple, locationPing, locationDailySummary, profile } from '$lib/server
 import { broadcastToCouple } from '$lib/server/realtime';
 import { unlockMomentsForPing } from './moments';
 import { notifyLowBattery } from './notifications';
+import { recordAudit } from './audit';
 
 // Server-side guard rails. Client throttles too, but never trust it.
 export const MIN_PING_INTERVAL_MS = 60 * 1000; // 60s
@@ -312,6 +313,11 @@ export async function setGhostMode(userId: string, enabled: boolean, untilMs?: n
 			ghostUntil: enabled && untilMs ? new Date(untilMs) : null
 		})
 		.where(eq(profile.userId, userId));
+
+	// H5 — audit trail for anti-coercion. Fire-and-forget; never blocks.
+	void recordAudit(userId, enabled ? 'ghost.enable' : 'ghost.disable', {
+		until: enabled && untilMs ? new Date(untilMs).toISOString() : null
+	});
 
 	// Tell the partner immediately so their card flips without a refresh.
 	const [c] = await db

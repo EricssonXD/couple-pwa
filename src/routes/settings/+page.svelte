@@ -384,6 +384,13 @@
 				<span>{m.settings_diagnostics_offline_queue()}</span>
 				<Icon icon={CaretRightIcon} size={14} weight="bold" class="text-base-content/40" />
 			</a>
+			<a
+				href={resolve('/settings/activity')}
+				class="-mx-2 flex items-center justify-between rounded-[var(--radius-card)] px-2 py-2.5 text-sm hover:bg-base-100"
+			>
+				<span>{m.settings_diagnostics_activity()}</span>
+				<Icon icon={CaretRightIcon} size={14} weight="bold" class="text-base-content/40" />
+			</a>
 		</section>
 
 		<!-- delete account (H4) -->
