@@ -206,6 +206,7 @@ export const geoMoment = pgTable(
 			.generatedAlwaysAs(sql`st_setsrid(st_makepoint(lon, lat), 4326)::geography`),
 		radiusM: integer('radius_m').notNull().default(100),
 		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 		expiresAt: timestamp('expires_at', { withTimezone: true }),
 		deletedAt: timestamp('deleted_at', { withTimezone: true }),
 		unlockedAt: timestamp('unlocked_at', { withTimezone: true }),

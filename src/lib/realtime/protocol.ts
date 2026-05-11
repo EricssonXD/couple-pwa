@@ -63,6 +63,15 @@ export type ServerEvent =
 			t: 'moment_deleted';
 			ts: number;
 			p: { id: string };
+	  }
+	| {
+			// R4: emitted on a successful PATCH so peers can refresh body /
+			// radius / expiresAt without polling. Body is intentionally
+			// omitted — the partner re-fetches via /api/moments to enforce
+			// the unlocked-by gate.
+			t: 'moment_updated';
+			ts: number;
+			p: { id: string; updatedAt: string; updatedBy: string };
 	  };
 
 // ─── Client-originated events ────────────────────────────────────────────

@@ -19,7 +19,19 @@ export class MomentError extends Error {
 		super(code);
 	}
 }
-type MomentErrorCode = 'invalid_input' | 'not_author' | 'not_found' | 'no_couple' | 'body_too_long';
+type MomentErrorCode =
+	| 'invalid_input'
+	| 'not_author'
+	| 'not_found'
+	| 'no_couple'
+	| 'body_too_long'
+	| 'conflict';
+
+export class MomentConflictError extends MomentError {
+	constructor(public readonly current: MomentForViewer) {
+		super('conflict');
+	}
+}
 
 const MIN_RADIUS_M = 50;
 const MAX_RADIUS_M = 1000;
@@ -104,6 +116,7 @@ export interface MomentForViewer {
 	lon: number;
 	radiusM: number;
 	createdAt: string;
+	updatedAt: string;
 	expiresAt: string | null;
 	unlockedAt: string | null;
 	unlockedBy: string | null;
@@ -128,6 +141,7 @@ export async function listMomentsForViewer(
 			lon: geoMoment.lon,
 			radiusM: geoMoment.radiusM,
 			createdAt: geoMoment.createdAt,
+			updatedAt: geoMoment.updatedAt,
 			expiresAt: geoMoment.expiresAt,
 			unlockedAt: geoMoment.unlockedAt,
 			unlockedBy: geoMoment.unlockedBy,
@@ -155,6 +169,7 @@ export async function listMomentsForViewer(
 			lon: r.lon,
 			radiusM: r.radiusM,
 			createdAt: r.createdAt.toISOString(),
+			updatedAt: r.updatedAt.toISOString(),
 			expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
 			unlockedAt: r.unlockedAt ? r.unlockedAt.toISOString() : null,
 			unlockedBy: r.unlockedBy,
@@ -260,6 +275,189 @@ export async function deleteMoment(
 /** Used by the seed/reset script. Helper, not part of the trust boundary. */
 export async function _internalResetMomentsForCouple(coupleId: string) {
 	await db.delete(geoMoment).where(eq(geoMoment.coupleId, coupleId));
+}
+
+export interface UpdateMomentInput {
+	body?: string;
+	radiusM?: number;
+	expiresAt?: Date | string | null;
+	/** Last-write-wins guard. ISO string of the updatedAt the client last
+	 * observed. If the row has moved on, we throw `MomentConflictError`
+	 * with the freshest server view. */
+	ifMatchUpdatedAt: string;
+}
+
+/**
+ * Get a single moment for a viewer. Returns null when the row is missing,
+ * soft-deleted, expired, or belongs to a different couple. Body is redacted
+ * for non-author / non-unlocker viewers (matches `listMomentsForViewer`).
+ */
+export async function getMomentForViewer(
+	viewerId: string,
+	coupleId: string,
+	momentId: string
+): Promise<MomentForViewer | null> {
+	const [r] = await db
+		.select({
+			id: geoMoment.id,
+			authorId: geoMoment.authorId,
+			lat: geoMoment.lat,
+			lon: geoMoment.lon,
+			radiusM: geoMoment.radiusM,
+			createdAt: geoMoment.createdAt,
+			updatedAt: geoMoment.updatedAt,
+			expiresAt: geoMoment.expiresAt,
+			unlockedAt: geoMoment.unlockedAt,
+			unlockedBy: geoMoment.unlockedBy,
+			body: geoMomentBody.body
+		})
+		.from(geoMoment)
+		.leftJoin(geoMomentBody, eq(geoMomentBody.momentId, geoMoment.id))
+		.where(
+			and(
+				eq(geoMoment.id, momentId),
+				eq(geoMoment.coupleId, coupleId),
+				isNull(geoMoment.deletedAt),
+				sql`(${geoMoment.expiresAt} is null or ${geoMoment.expiresAt} > now())`
+			)
+		)
+		.limit(1);
+	if (!r) return null;
+	const isMine = r.authorId === viewerId;
+	const visible = isMine || r.unlockedBy === viewerId;
+	return {
+		id: r.id,
+		authorId: r.authorId,
+		isMine,
+		lat: r.lat,
+		lon: r.lon,
+		radiusM: r.radiusM,
+		createdAt: r.createdAt.toISOString(),
+		updatedAt: r.updatedAt.toISOString(),
+		expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
+		unlockedAt: r.unlockedAt ? r.unlockedAt.toISOString() : null,
+		unlockedBy: r.unlockedBy,
+		body: visible ? r.body : null
+	};
+}
+
+/**
+ * Author-only edit with optimistic concurrency. Two devices editing the
+ * same moment race here — the loser's `ifMatchUpdatedAt` no longer
+ * matches the row's `updated_at` and we throw `MomentConflictError` with
+ * the current server view so the client can show the loser-toast. The
+ * actual UPDATE is gated by a WHERE on `updated_at` to make this
+ * atomic; we then re-read inside the same transaction.
+ */
+export async function updateMoment(
+	authorId: string,
+	coupleId: string,
+	momentId: string,
+	patch: UpdateMomentInput
+): Promise<MomentForViewer> {
+	const ifMatch = new Date(patch.ifMatchUpdatedAt);
+	if (Number.isNaN(ifMatch.getTime())) throw new MomentError('invalid_input');
+
+	let nextRadius: number | undefined;
+	if (patch.radiusM !== undefined) {
+		const r = Math.round(Number(patch.radiusM));
+		if (!Number.isFinite(r) || r < MIN_RADIUS_M || r > MAX_RADIUS_M)
+			throw new MomentError('invalid_input');
+		nextRadius = r;
+	}
+
+	let nextExpiresAt: Date | null | undefined;
+	if (patch.expiresAt !== undefined) {
+		if (patch.expiresAt === null) {
+			nextExpiresAt = null;
+		} else {
+			const t = patch.expiresAt instanceof Date ? patch.expiresAt : new Date(patch.expiresAt);
+			const ms = t.getTime();
+			if (!Number.isFinite(ms) || ms <= Date.now()) throw new MomentError('invalid_input');
+			nextExpiresAt = new Date(Math.min(ms, Date.now() + MAX_EXPIRY_MS));
+		}
+	}
+
+	let nextBody: string | undefined;
+	if (patch.body !== undefined) {
+		const b = String(patch.body).trim();
+		if (b.length === 0) throw new MomentError('invalid_input');
+		if (b.length > MAX_BODY_CHARS) throw new MomentError('body_too_long');
+		nextBody = b;
+	}
+
+	const updated = await db.transaction(async (tx) => {
+		const [existing] = await tx
+			.select({
+				authorId: geoMoment.authorId,
+				coupleId: geoMoment.coupleId,
+				deletedAt: geoMoment.deletedAt,
+				updatedAt: geoMoment.updatedAt
+			})
+			.from(geoMoment)
+			.where(eq(geoMoment.id, momentId))
+			.limit(1);
+		if (!existing || existing.coupleId !== coupleId || existing.deletedAt) {
+			throw new MomentError('not_found');
+		}
+		if (existing.authorId !== authorId) throw new MomentError('not_author');
+		if (existing.updatedAt.getTime() !== ifMatch.getTime()) {
+			return { conflict: true as const };
+		}
+
+		const metaPatch: Record<string, unknown> = {};
+		if (nextRadius !== undefined) metaPatch.radiusM = nextRadius;
+		if (nextExpiresAt !== undefined) metaPatch.expiresAt = nextExpiresAt;
+
+		// Conditional UPDATE: requires updated_at to still match. The
+		// trigger bumps updated_at to now() as part of the same
+		// statement so concurrent writers cannot both succeed.
+		if (Object.keys(metaPatch).length > 0) {
+			const meta = await tx
+				.update(geoMoment)
+				.set(metaPatch)
+				.where(and(eq(geoMoment.id, momentId), eq(geoMoment.updatedAt, existing.updatedAt)))
+				.returning({ id: geoMoment.id });
+			if (meta.length === 0) return { conflict: true as const };
+		}
+
+		if (nextBody !== undefined) {
+			// upsert: a moment may have been authored before geo_moment_body
+			// existed (defensive — shouldn't happen in normal flow).
+			await tx
+				.insert(geoMomentBody)
+				.values({ momentId, body: nextBody })
+				.onConflictDoUpdate({ target: geoMomentBody.momentId, set: { body: nextBody } });
+		}
+
+		// If neither metadata nor body was patched, still touch updated_at
+		// so the round-trip returns a fresh value (treats no-op as a tick).
+		if (Object.keys(metaPatch).length === 0 && nextBody === undefined) {
+			await tx
+				.update(geoMoment)
+				.set({ updatedAt: new Date() })
+				.where(and(eq(geoMoment.id, momentId), eq(geoMoment.updatedAt, existing.updatedAt)));
+		}
+
+		return { conflict: false as const };
+	});
+
+	if (updated.conflict) {
+		const current = await getMomentForViewer(authorId, coupleId, momentId);
+		if (!current) throw new MomentError('not_found');
+		throw new MomentConflictError(current);
+	}
+
+	const fresh = await getMomentForViewer(authorId, coupleId, momentId);
+	if (!fresh) throw new MomentError('not_found');
+
+	void broadcastToCouple(coupleId, {
+		t: 'moment_updated',
+		ts: Date.now(),
+		p: { id: momentId, updatedAt: fresh.updatedAt, updatedBy: authorId }
+	}).catch(() => {});
+
+	return fresh;
 }
 
 /** Re-export the latest accepted ping for a user — used to feed the unlock

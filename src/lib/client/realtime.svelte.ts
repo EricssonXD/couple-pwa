@@ -72,7 +72,7 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 	let lastGhost = $state<GhostChange | null>(null);
 	let lastTap = $state<number | null>(null);
 	let lastMomentEvent = $state<{
-		t: 'dropped' | 'unlocked' | 'deleted';
+		t: 'dropped' | 'unlocked' | 'deleted' | 'updated';
 		id: string;
 		ts: number;
 	} | null>(null);
@@ -148,6 +148,9 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				return;
 			case 'moment_deleted':
 				lastMomentEvent = { t: 'deleted', id: ev.p.id, ts: ev.ts };
+				return;
+			case 'moment_updated':
+				lastMomentEvent = { t: 'updated', id: ev.p.id, ts: ev.ts };
 				return;
 		}
 	}
