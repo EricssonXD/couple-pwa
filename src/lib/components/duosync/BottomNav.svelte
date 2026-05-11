@@ -7,8 +7,8 @@
   - Active indicator is a 'breathing path' — a soft rose pill behind
     the icon column that scales/opacity-cycles, instead of just a
     color change. Reduced-motion users still get the color-only signal.
-  - 4 tabs (Pulse, Map, Moments, Settings). 'Daily' is intentionally
-    deferred per plan.md §11.11; can be added once /daily lands.
+  - 5 tabs (Pulse, Map, Daily, Moments, Settings). 'Daily' surfaces
+    the once-per-day couple prompt at /daily.
   - Adds aria-current to the active <a>.
 
   Visibility: the parent +layout.svelte still owns when to render
@@ -20,12 +20,18 @@
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { PulseIcon, MapPinIcon, BookOpenIcon, GearIcon } from '$lib/components/ui/icons';
+	import {
+		PulseIcon,
+		MapPinIcon,
+		ChatCircleIcon,
+		BookOpenIcon,
+		GearIcon
+	} from '$lib/components/ui/icons';
 	import type { IconComponentProps } from 'phosphor-svelte';
 	import type { Component } from 'svelte';
 
 	type Tab = {
-		href: '/pulse' | '/map' | '/moments' | '/settings';
+		href: '/pulse' | '/map' | '/daily' | '/moments' | '/settings';
 		label: () => string;
 		icon: Component<IconComponentProps>;
 	};
@@ -33,6 +39,7 @@
 	const tabs: Tab[] = [
 		{ href: '/pulse', label: m.nav_pulse, icon: PulseIcon },
 		{ href: '/map', label: m.nav_map, icon: MapPinIcon },
+		{ href: '/daily', label: m.nav_daily, icon: ChatCircleIcon },
 		{ href: '/moments', label: m.nav_moments, icon: BookOpenIcon },
 		{ href: '/settings', label: m.nav_settings, icon: GearIcon }
 	];

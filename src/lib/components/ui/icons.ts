@@ -25,6 +25,7 @@ export { default as CloudRainIcon } from 'phosphor-svelte/lib/CloudRainIcon';
 export { default as MoonIcon } from 'phosphor-svelte/lib/MoonIcon';
 export { default as WaveformIcon } from 'phosphor-svelte/lib/WaveformIcon';
 export { default as PulseIcon } from 'phosphor-svelte/lib/PulseIcon';
+export { default as ChatCircleIcon } from 'phosphor-svelte/lib/ChatCircleIcon';
 export { default as BatteryMediumIcon } from 'phosphor-svelte/lib/BatteryMediumIcon';
 export { default as ImageSquareIcon } from 'phosphor-svelte/lib/ImageSquareIcon';
 export { default as TimerIcon } from 'phosphor-svelte/lib/TimerIcon';

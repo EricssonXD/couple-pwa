@@ -28,7 +28,7 @@ export class DailyError extends Error {
 
 const MAX_BODY = 1000;
 
-function todayKey(now: Date = new Date()): string {
+export function todayKey(now: Date = new Date()): string {
 	// UTC date key. Same prompt across timezones for a couple — simpler &
 	// avoids "we got a different question" complaints when partners are in
 	// different zones.
@@ -36,7 +36,7 @@ function todayKey(now: Date = new Date()): string {
 }
 
 // FNV-1a 32-bit hash → stable, no deps.
-function hash32(s: string): number {
+export function hash32(s: string): number {
 	let h = 0x811c9dc5;
 	for (let i = 0; i < s.length; i++) {
 		h ^= s.charCodeAt(i);
@@ -153,5 +153,3 @@ export async function submitDailyAnswer(
 
 	return loadDaily(viewerId, couple, dateKey);
 }
-
-export { todayKey };
