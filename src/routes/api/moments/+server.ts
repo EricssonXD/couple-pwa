@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createMoment, listMomentsForViewer, MomentError } from '$lib/server/services/moments';
+import { lookupIdempotent, readIdempotencyKey, storeIdempotent } from '$lib/server/idempotency';
 
 export const GET: RequestHandler = async ({ locals }) => {
 	if (!locals.user) error(401, 'unauthorized');
@@ -12,6 +13,17 @@ export const GET: RequestHandler = async ({ locals }) => {
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) error(401, 'unauthorized');
 	if (!locals.couple) error(409, 'not_paired');
+
+	const idemKey = readIdempotencyKey(request.headers);
+	if (idemKey) {
+		const cached = lookupIdempotent(locals.user.id, idemKey);
+		if (cached) {
+			return new Response(cached.body, {
+				status: cached.status,
+				headers: { 'content-type': 'application/json', 'x-idempotent-replay': '1' }
+			});
+		}
+	}
 
 	let body: unknown;
 	try {
@@ -30,7 +42,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			body: String(b.body ?? ''),
 			expiresAt: b.expiresAt ? new Date(String(b.expiresAt)) : null
 		});
-		return json({ ok: true, id });
+		const payload = { ok: true as const, id };
+		if (idemKey) storeIdempotent(locals.user.id, idemKey, 200, payload);
+		return json(payload);
 	} catch (e) {
 		if (e instanceof MomentError) error(400, e.code);
 		throw e;
