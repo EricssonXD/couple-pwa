@@ -1,10 +1,11 @@
 import { sequence } from '@sveltejs/kit/hooks';
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { getTextDirection } from '$lib/paraglide/runtime';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { createSupabaseServerClient } from '$lib/server/supabase';
 import { getActiveCouple } from '$lib/server/services/couple';
 import { withDb } from '$lib/server/db';
+import { report } from '$lib/error-reporter';
 
 // Wrap every request in a fresh Postgres client (see src/lib/server/db
 // for the rationale — Cloudflare Workers TCP sockets can't survive past
@@ -90,3 +91,14 @@ const handleSupabase: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = sequence(handleDb, handleParaglide, handleSupabase);
+
+export const handleError: HandleServerError = ({ error, event, status, message }) => {
+	const { id, message: safe } = report(error, {
+		side: 'server',
+		url: event.url.pathname + event.url.search,
+		route: event.route?.id ?? null,
+		status,
+		message
+	});
+	return { message: safe, errorId: id };
+};
