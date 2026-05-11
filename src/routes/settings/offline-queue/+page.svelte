@@ -18,6 +18,7 @@
 	import CloudArrowUpIcon from 'phosphor-svelte/lib/CloudArrowUpIcon';
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import ArrowClockwiseIcon from 'phosphor-svelte/lib/ArrowClockwiseIcon';
+	import * as m from '$lib/paraglide/messages.js';
 
 	let size = $state(0);
 	let dead = $state<QueuedRequest[]>([]);
@@ -51,45 +52,43 @@
 
 <div class="page">
 	<header>
-		<h1>Offline queue</h1>
-		<p class="lead">
-			Writes saved while offline (location pings, new moments). Drained automatically when the
-			connection comes back.
-		</p>
+		<h1>{m.offline_queue_title()}</h1>
+		<p class="lead">{m.offline_queue_lead()}</p>
 	</header>
 
 	<section class="status">
 		<CloudArrowUpIcon size={20} weight="duotone" />
 		<div>
 			<div class="big">{size}</div>
-			<div class="muted">pending</div>
+			<div class="muted">{m.offline_queue_pending()}</div>
 		</div>
 		<button type="button" onclick={retry} disabled={flushing || size === 0}>
 			<ArrowClockwiseIcon size={14} weight="bold" />
-			{flushing ? 'Retrying…' : 'Retry now'}
+			{flushing ? m.offline_queue_retrying() : m.offline_queue_retry_now()}
 		</button>
 	</section>
 
 	<section>
-		<h2>Dead-letter ({dead.length})</h2>
+		<h2>{m.offline_queue_dead_letter_count({ count: dead.length })}</h2>
 		{#if dead.length === 0}
-			<p class="muted">Nothing here — all writes have either succeeded or are still retrying.</p>
+			<p class="muted">{m.offline_queue_dead_empty()}</p>
 		{:else}
 			<ul class="dead">
 				{#each dead as entry (entry.id)}
 					<li>
 						<div class="endpoint">{entry.endpoint}</div>
 						<div class="meta muted">
-							{entry.method} • {entry.attempts} attempt{entry.attempts === 1 ? '' : 's'} • created {new Date(
-								entry.createdAt
-							).toLocaleString()}
+							{entry.method} • {entry.attempts}
+							{entry.attempts === 1 ? m.offline_queue_attempt() : m.offline_queue_attempts()} •
+							{m.offline_queue_created()}
+							{new Date(entry.createdAt).toLocaleString()}
 						</div>
 					</li>
 				{/each}
 			</ul>
 			<button type="button" class="danger" onclick={purge}>
 				<TrashIcon size={14} weight="bold" />
-				Discard all
+				{m.offline_queue_discard_all()}
 			</button>
 		{/if}
 	</section>
