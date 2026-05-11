@@ -9,9 +9,21 @@
 		"gzip": true
 	},
 	{
-		"name": "root layout node",
+		"name": "root layout node (node 0)",
 		"path": ".svelte-kit/output/client/_app/immutable/nodes/0.*.js",
 		"limit": "30 KB",
+		"gzip": true
+	},
+	{
+		"name": "welcome route node (node 18)",
+		"path": ".svelte-kit/output/client/_app/immutable/nodes/18.*.js",
+		"limit": "8 KB",
+		"gzip": true
+	},
+	{
+		"name": "auth/sign-in route node (node 4)",
+		"path": ".svelte-kit/output/client/_app/immutable/nodes/4.*.js",
+		"limit": "8 KB",
 		"gzip": true
 	},
 	{
