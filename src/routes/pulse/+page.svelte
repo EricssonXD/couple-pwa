@@ -22,6 +22,7 @@
 -->
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { createGeolocationTracker } from '$lib/client/geolocation.svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { createOnlineStatus } from '$lib/client/online.svelte';
@@ -33,7 +34,8 @@
 		PartnerAvatar,
 		AnniversaryRibbon,
 		MemoryResurface,
-		HeartbeatZone
+		HeartbeatZone,
+		StreakBadge
 	} from '$lib/components/duosync';
 	import type { DistanceBucket } from '$lib/server/services/location';
 	import type { PageData } from './$types';
@@ -205,13 +207,24 @@
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 pt-6 pb-32">
-	<!-- 1. Top chrome: ribbon (sign-out + ghost toggle live in /settings) -->
+	<!-- 1. Top chrome: ribbon (taps through to /timeline) + streak badge -->
 	<header>
-		<AnniversaryRibbon
-			coupleSince={data.coupleSince}
-			anniversary={data.anniversary}
-			nickname={data.coupleNickname}
-		/>
+		<a
+			href={resolve('/timeline')}
+			class="block rounded-full transition hover:opacity-90"
+			aria-label={m.pulse_open_timeline()}
+		>
+			<AnniversaryRibbon
+				coupleSince={data.coupleSince}
+				anniversary={data.anniversary}
+				nickname={data.coupleNickname}
+			/>
+		</a>
+		{#if data.streak && data.streak.current > 0}
+			<div class="mt-2 flex justify-center">
+				<StreakBadge streak={data.streak.current} />
+			</div>
+		{/if}
 	</header>
 
 	<!-- 3. 離線提示 -->

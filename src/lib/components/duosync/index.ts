@@ -21,3 +21,4 @@ export { default as BottomNav } from './BottomNav.svelte';
 export { default as MemoryResurface } from './MemoryResurface.svelte';
 export { default as IosInstallSheet } from './IosInstallSheet.svelte';
 export { default as QueueBadge } from './QueueBadge.svelte';
+export { default as StreakBadge } from './StreakBadge.svelte';

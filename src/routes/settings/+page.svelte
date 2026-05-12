@@ -300,6 +300,17 @@
 						name: data.partner?.displayName ?? m.pulse_partner_fallback()
 					})}
 				</p>
+				{#if data.streak && data.streak.current > 0}
+					<p class="text-xs text-base-content/70">
+						🔥 {m.streak_label({ n: data.streak.current })}
+					</p>
+				{/if}
+				<a
+					href={resolve('/timeline')}
+					class="block rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 text-sm hover:border-primary"
+				>
+					{m.settings_view_timeline()} →
+				</a>
 				<label class="block">
 					<span class="mb-1.5 block text-xs text-base-content/60"
 						>{m.settings_couple_nickname()}</span

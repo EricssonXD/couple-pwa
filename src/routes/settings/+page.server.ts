@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { profile } from '$lib/server/db/schema';
 import { isGhostActive } from '$lib/server/services/location';
+import { getStreak } from '$lib/server/services/connection';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -22,6 +23,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		partner = p ? { id: partnerId, ...p } : null;
 	}
 
+	const streak = locals.couple ? await getStreak(locals.couple.id) : null;
+
 	return {
 		me: {
 			id: locals.user.id,
@@ -39,6 +42,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 					createdAt: locals.couple.createdAt
 				}
 			: null,
-		partner
+		partner,
+		streak
 	};
 };

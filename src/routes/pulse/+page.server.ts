@@ -5,6 +5,7 @@ import { db } from '$lib/server/db';
 import { profile } from '$lib/server/db/schema';
 import { bucketFor, getPulseState, isGhostActive } from '$lib/server/services/location';
 import { resurfaceMemory } from '$lib/server/services/memory';
+import { getStreak } from '$lib/server/services/connection';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/auth/sign-in');
@@ -25,6 +26,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	const state = await getPulseState(locals.user.id, locals.couple.id);
 	const memory = await resurfaceMemory(locals.couple.id);
+	const streak = await getStreak(locals.couple.id);
 
 	return {
 		me: {
@@ -49,6 +51,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			distanceM: state.distanceM,
 			bucket: bucketFor(state.distanceM)
 		},
-		memory
+		memory,
+		streak
 	};
 };
