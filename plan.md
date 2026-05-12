@@ -18,7 +18,7 @@ offline" classes of bugs are guarded by three layers — see README
                ┌────────────┴────────────┐
         (online: SSR)              (offline: SW serves cached / )
                │                              │
-   hooks.server.ts populates              static/route-stub.js
+   hooks.server.ts populates              inline <script> in app.html
    locals.user / locals.couple            reads ds_auth cookie:
                │                          - 'pulse'      → /pulse
    /+page.server.ts:                      - 'onboarding' → /onboarding
@@ -68,7 +68,7 @@ update banner.
 - **Phase 2 features**: F1 anniversary timeline, F2 daily prompts,
   F3 time-capsule (cron + UI), F4 connection streak, F5 mood pulse,
   F5b mood-trend strip, F6 shared bucket list, F8 shared calendar
-  v1 (CRUD), F10 throwbacks.
+  v1 (CRUD), F9 quiz packs (catalog + runner + reveal), F10 throwbacks.
 - **CI/DX**: size-limit perf budget, RLS contract tests, a11y fixes,
   bundle-audit lazy splits.
 
@@ -80,8 +80,6 @@ update banner.
 
 - **F7 couple-only chat** — text + voice notes via existing Supabase
   channel. Voice notes blocked on G3 (Storage bucket).
-- **F9 quiz packs** — "How well do you know me?" — static JSON in
-  `/static/quizzes/*`, `quiz_runs` table, side-by-side reveal.
 - **F18 premium gating** — Stripe + entitlement check in
   `hooks.server.ts`. Most competitors charge $5–10/mo. Free = MVP +
   Tier 1; premium = chat history >30d, time capsules >X, photo

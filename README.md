@@ -10,7 +10,7 @@ Live: <https://cozy.ericssoncodes.com>
 
 | Surface            | What the user sees                                                                                                                                               |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/welcome`         | Marketing hero + install CTA. Anonymous-only — signed-in users redirect pre-paint via `static/route-stub.js`.                                                    |
+| `/welcome`         | Marketing hero + install CTA. Anonymous-only — signed-in users redirect pre-paint via the inline `<script>` in `src/app.html`.                                   |
 | `/auth/sign-in`    | Email + password (Google OAuth deferred). Cached offline so a captive-portal cold-launch still gets a useful screen.                                             |
 | `/onboarding/link` | First-run flow + 6-char couple-link code.                                                                                                                        |
 | `/pulse`           | Anniversary ribbon (taps through to /timeline) → connection streak → live distance bubble → partner avatar (presence + battery) → mood weather → heartbeat zone. |
@@ -22,6 +22,7 @@ Live: <https://cozy.ericssoncodes.com>
 | `/bucket`          | Shared bucket list — couple-collaborative wishes with checkbox-toggle done state (F6).                                                                           |
 | `/calendar`        | Shared calendar v1 — couple-collaborative single-occurrence events grouped by date (F8). Recurrence + reminder cron deferred to v2.                              |
 | `/timeline`        | Full milestone history (100d, 1y, 2y…) + countdowns to upcoming ones.                                                                                            |
+| `/quiz`            | "How well do you know me?" quiz packs — both partners answer about each other, scores reveal once both finalize (F9).                                            |
 | `/settings`        | Profile, ghost-mode + duration, notifications, language (en / zh-Hant), theme, couple nickname + anniversary, partner-view audit log, account deletion.          |
 
 ## Stack
@@ -43,7 +44,7 @@ These are the non-negotiables. Most have unit tests guarding them.
 1. **No secret in the client bundle.** Sensitive reads use `supabase-js` with the anon key + an RLS-scoped JWT, never the service role.
 2. **Drizzle is server-only** (`src/lib/server/**`). Mutations validate `locals.user` + `locals.couple` before any DB write.
 3. **Realtime is private + server-authoritative.** Server REST broadcasts `location_update` / `ghost_change` on the couple topic; clients can subscribe + presence-track but cannot INSERT broadcast. `heartbeat_tap` goes through `POST /api/realtime/tap`. RLS on `realtime.messages` blocks outsiders at the WS edge.
-4. **Pre-paint routing.** `static/route-stub.js` runs synchronously in `<head>` and `location.replace()`s signed-in users away from `/` and `/welcome` based on a client-readable `ds_auth` cookie (no secrets) — eliminates the welcome-flash regardless of cache state.
+4. **Pre-paint routing.** An inline `<script>` in `src/app.html` (CSP-hashed automatically by SvelteKit's `mode: 'hash'` CSP) runs synchronously in `<head>` and `location.replace()`s signed-in users away from `/` and `/welcome` based on a client-readable `ds_auth` cookie (no secrets) — eliminates the welcome-flash with zero fetch overhead, regardless of cache state.
 5. **Service worker never auto-reloads.** `skipWaiting()` + `clients.claim()` only fire on a user-gesture `SKIP_WAITING` message; banner reload is gated on `controllerchange` to survive iOS/Android home-screen installs.
 6. **/auth/sign-in is offline-cached**, every other `/auth/*` route is private + never cached.
 
@@ -93,8 +94,9 @@ src/
     paraglide/            # GENERATED — never hand-edit; run `bun run check` to regen
     pwa/                  # SW registration + update banner client glue
   service-worker.ts       # hand-written SW (do NOT replace with workbox)
+  app.html                # contains inline pre-paint redirect script (CSP-hashed)
 static/
-  route-stub.js           # pre-paint redirect for / and /welcome
+  quizzes/                # F9 quiz packs (static JSON content)
 docs/                     # architecture + design notes
 drizzle/                  # generated migrations + manual RLS SQL
 e2e/                      # Playwright specs
@@ -109,14 +111,16 @@ when the device is offline and the SW is serving cached HTML:
 1. **Server load (online path)** — every protected route's `+page.server.ts`
    `redirect(303, …)`s based on `locals.user` / `locals.couple`. `/` is a
    redirect-only stub and never renders a body.
-2. **Pre-paint script (`static/route-stub.js`)** — runs synchronously in
-   `<head>` before the body parses. Reads the client-readable `ds_auth`
-   cookie (set by `hooks.server.ts`, holds NO secret — values: `pulse`,
-   `onboarding`, or absent) and `location.replace()`s away from `/` and
-   `/welcome` for signed-in users. Deliberately scoped to those two
-   routes: extending it to `/auth/sign-in` would race the SSR's stale-
-   cookie clear (303 from `/pulse` to `/auth/sign-in` then immediate
-   pre-paint back to `/pulse` = infinite loop).
+2. **Pre-paint inline `<script>` (`src/app.html`)** — runs synchronously in
+   `<head>` before the body parses, with **zero fetch** (no external file,
+   no SW cache hit). Reads the client-readable `ds_auth` cookie (set by
+   `hooks.server.ts`, holds NO secret — values: `pulse`, `onboarding`,
+   or absent) and `location.replace()`s away from `/` and `/welcome` for
+   signed-in users. CSP `mode: 'hash'` in `svelte.config.js` auto-hashes
+   the script tag so it stays compatible with strict CSP. Deliberately
+   scoped to those two routes: extending it to `/auth/sign-in` would
+   race the SSR's stale-cookie clear (303 from `/pulse` to `/auth/sign-in`
+   then immediate pre-paint back to `/pulse` = infinite loop).
 3. **Layout `beforeNavigate` (`src/routes/+layout.svelte`)** — when
    offline + signed-in, cancels SPA navigations targeting `/auth/*` and
    reroutes to `/pulse`. Every other `/auth/*` route is intentionally
@@ -136,7 +140,7 @@ visitor without needing a fourth `onMount` guard on the page itself.
 - **P-series**: PWA shell hardening — done.
 - **U-series**: design-system rebuild + 8 routes — done.
 - **A / H / N / R / G series** (post-MVP hardening, push, growth, reliability): all but `G3 photo-moments` (blocked on Storage bucket) shipped. Per-feature trail in `git log`; high-level rationale in `docs/history.md` (frozen pivot-era plan, not a live chronicle).
-- **Phase 2 (F-series)**: F1 anniversary timeline, F2 daily prompts, F3 love-note time capsule (cron + UI), F4 connection streak, F5 mood pulse, F5b mood-trend strip, F6 shared bucket list, F8 shared calendar v1, F10 throwbacks — shipped. Remaining tier-1+2 items tracked in `plan.md`.
+- **Phase 2 (F-series)**: F1 anniversary timeline, F2 daily prompts, F3 love-note time capsule (cron + UI), F4 connection streak, F5 mood pulse, F5b mood-trend strip, F6 shared bucket list, F8 shared calendar v1, F9 quiz packs, F10 throwbacks — shipped. Remaining tier-1+2 items tracked in `plan.md`.
 
 ## License
 
