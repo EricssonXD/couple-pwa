@@ -1,0 +1,52 @@
+{
+	"id": "childhood_v1",
+	"title": "Childhood",
+	"description": "Where did they grow up, and what made them them?",
+	"questions": [
+		{
+			"id": "q1",
+			"prompt": "How many siblings?",
+			"choices": ["None — only child", "One", "Two", "Three or more"]
+		},
+		{
+			"id": "q2",
+			"prompt": "Where they grew up?",
+			"choices": ["Big city", "Small town", "Suburbs", "Countryside / rural"]
+		},
+		{
+			"id": "q3",
+			"prompt": "Childhood pet?",
+			"choices": ["Dog", "Cat", "Something else", "None"]
+		},
+		{
+			"id": "q4",
+			"prompt": "Favorite childhood subject?",
+			"choices": ["Math / science", "Reading / writing", "Art / music", "PE / recess"]
+		},
+		{
+			"id": "q5",
+			"prompt": "First instrument played (even briefly)?",
+			"choices": ["Piano", "Guitar", "Wind / brass", "None"]
+		},
+		{
+			"id": "q6",
+			"prompt": "Childhood hero?",
+			"choices": [
+				"A parent / family member",
+				"A teacher / coach",
+				"An athlete or musician",
+				"A fictional character"
+			]
+		},
+		{
+			"id": "q7",
+			"prompt": "Most-eaten childhood meal?",
+			"choices": ["Rice-based", "Noodle-based", "Bread / sandwiches", "Something specific to my family"]
+		},
+		{
+			"id": "q8",
+			"prompt": "Bedtime as a kid?",
+			"choices": ["Before 9pm", "9–10pm", "10–11pm", "Whenever I felt like"]
+		}
+	]
+}

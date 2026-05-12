@@ -1,0 +1,20 @@
+[
+	{
+		"id": "favorites_v1",
+		"title": "Favorites",
+		"description": "Coffee or tea? Beach or mountains? The small daily preferences that add up.",
+		"questionCount": 8
+	},
+	{
+		"id": "childhood_v1",
+		"title": "Childhood",
+		"description": "Where did they grow up, and what made them them?",
+		"questionCount": 8
+	},
+	{
+		"id": "future_v1",
+		"title": "Future",
+		"description": "Where they want to live, what they want to build, and when.",
+		"questionCount": 8
+	}
+]

@@ -1,0 +1,47 @@
+{
+	"id": "favorites_v1",
+	"title": "Favorites",
+	"description": "Coffee or tea? Beach or mountains? The small daily preferences that add up.",
+	"questions": [
+		{
+			"id": "q1",
+			"prompt": "Morning drink of choice?",
+			"choices": ["Coffee", "Tea", "Water / juice", "I skip mornings"]
+		},
+		{
+			"id": "q2",
+			"prompt": "Ideal weekend?",
+			"choices": ["Sleep in & cosy", "Out & exploring", "See friends", "Get something done"]
+		},
+		{
+			"id": "q3",
+			"prompt": "Comfort meal?",
+			"choices": ["Noodles / ramen", "Rice & a stew", "Pizza or burger", "Something my parent made"]
+		},
+		{
+			"id": "q4",
+			"prompt": "Vacation vibe?",
+			"choices": ["Beach", "Mountains / nature", "City & food", "Stay home, recharge"]
+		},
+		{
+			"id": "q5",
+			"prompt": "Music when stressed?",
+			"choices": ["Loud & fast", "Soft & slow", "Lyrics-free", "Silence"]
+		},
+		{
+			"id": "q6",
+			"prompt": "Movie night pick?",
+			"choices": ["Comedy", "Romance", "Action / sci-fi", "Documentary"]
+		},
+		{
+			"id": "q7",
+			"prompt": "Late-night snack?",
+			"choices": ["Sweet", "Salty", "Spicy", "I don't snack late"]
+		},
+		{
+			"id": "q8",
+			"prompt": "Pet preference?",
+			"choices": ["Dog", "Cat", "Both", "Neither / something smaller"]
+		}
+	]
+}

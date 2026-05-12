@@ -1,0 +1,57 @@
+{
+	"id": "future_v1",
+	"title": "Future",
+	"description": "Where they want to live, what they want to build, and when.",
+	"questions": [
+		{
+			"id": "q1",
+			"prompt": "Ideal place to settle?",
+			"choices": ["Where we are now", "Big city", "Small town / quiet", "Somewhere abroad"]
+		},
+		{
+			"id": "q2",
+			"prompt": "Kids?",
+			"choices": ["Yes — and soon", "Yes — eventually", "Maybe / undecided", "No"]
+		},
+		{
+			"id": "q3",
+			"prompt": "Career in 5 years?",
+			"choices": [
+				"Same field, more senior",
+				"Pivot into something new",
+				"Run my own thing",
+				"Step back / less work"
+			]
+		},
+		{
+			"id": "q4",
+			"prompt": "Dream travel?",
+			"choices": ["Japan", "Europe", "Somewhere off-grid", "South America / Africa"]
+		},
+		{
+			"id": "q5",
+			"prompt": "Home of choice?",
+			"choices": ["Apartment in town", "House with a yard", "Tiny / minimalist", "Somewhere remote"]
+		},
+		{
+			"id": "q6",
+			"prompt": "Money priority?",
+			"choices": [
+				"Save aggressively",
+				"Invest for growth",
+				"Spend on experiences",
+				"Spend on home / things"
+			]
+		},
+		{
+			"id": "q7",
+			"prompt": "Retirement vision?",
+			"choices": ["Travel forever", "Quiet hobbies", "Keep working in some form", "Be near grandkids"]
+		},
+		{
+			"id": "q8",
+			"prompt": "If we won the lottery first move?",
+			"choices": ["Pay off debts", "Buy a home", "Quit jobs & travel", "Give some away"]
+		}
+	]
+}
