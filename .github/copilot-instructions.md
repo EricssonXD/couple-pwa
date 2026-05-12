@@ -26,16 +26,19 @@ To ensure all agents behave consistently and reliably, follow these rules at all
 - Storybook: `bun run storybook`
 - Build Storybook: `bun run build-storybook`
 - Drizzle workflows: `bun run db:generate`, `bun run db:push`, `bun run db:migrate`, `bun run db:studio`
-- Better Auth schema generation: `bun run auth:schema`
+- (Generated) Supabase Auth schema mirror: regenerated via `bun run auth:schema` (committed as `src/lib/server/db/auth.schema.ts` for Drizzle FK typing only)
 
 ## High-level architecture
 
-- `README.md` describes the intended product as **DuoSync**, but the checked-in app is still mostly a SvelteKit starter plus integration demos. The current live surfaces are the default `/` page, `/demo/better-auth`, and `/demo/paraglide`.
-- The app is a SvelteKit + Svelte 5 + TypeScript project deployed with `@sveltejs/adapter-cloudflare`. `svelte.config.js` enables `mdsvex`, and `wrangler.jsonc` plus the `preview` script are wired to run the built Cloudflare worker from `.svelte-kit/cloudflare/_worker.js`.
-- Request handling is centralized in `src/hooks.server.ts`: Paraglide locale middleware runs first, then Better Auth resolves the session. Auth state is exposed through `event.locals.user` and `event.locals.session`, with the types declared in `src/app.d.ts`.
-- Internationalization uses inlang/Paraglide. Source locale files live in `messages/*.json` and configuration lives in `project.inlang/settings.json`; generated runtime, server helpers, and message exports are emitted to `src/lib/paraglide` and imported by hooks and routes.
-- Server-side auth and data access live under `src/lib/server`. `src/lib/server/auth.ts` configures Better Auth with the Drizzle adapter, and `src/lib/server/db/index.ts` creates a libSQL-backed Drizzle client. `src/lib/server/db/schema.ts` is the single schema entry point and re-exports the generated auth schema together with app tables.
-- Tests are intentionally split across multiple surfaces. `vite.config.ts` defines separate Vitest projects for browser/component tests, server tests, and Storybook story tests; Playwright runs independently from `e2e/` and starts its own built preview server through `playwright.config.ts`.
+- DuoSync is the live product at <https://cozy.ericssoncodes.com>: a private couples PWA built on SvelteKit 5 + Svelte 5 runes, deployed to Cloudflare Workers via `@sveltejs/adapter-cloudflare`. User-facing routes are `/welcome`, `/auth/sign-in`, `/onboarding/link`, `/pulse`, `/map`, `/moments`, `/moments/new`, `/daily`, `/timeline`, `/settings`. There are no `/demo/*` routes; the project-init demos were deleted in M-series.
+- `wrangler.jsonc` enables `nodejs_compat` + `nodejs_als`; the `preview` script runs the built worker from `.svelte-kit/cloudflare/_worker.js`.
+- Request handling in `src/hooks.server.ts`: Paraglide locale middleware → `handleSupabase` (creates per-request `@supabase/ssr` client, hydrates `event.locals.user` + `event.locals.couple`, writes the routing-hint cookie `ds_auth`). Auth is **Supabase Auth**, not Better-Auth.
+- Pre-paint redirect: `static/route-stub.js` runs synchronously in `<head>` and `location.replace()`s signed-in users away from `/` and `/welcome` based on the `ds_auth` cookie. This eliminates the welcome-flash regardless of cache state.
+- Database access: `src/lib/server/db/index.ts` builds a per-request **postgres-js** Drizzle client via `AsyncLocalStorage` (Cloudflare TCP sockets cannot survive across requests). Schema entry point is `src/lib/server/db/schema.ts`, which re-exports `auth.schema.ts` (generated mirror of `auth.users` for FK typing) plus `app.schema.ts`. Drizzle bypasses RLS as the privileged backend; mutations validate `locals.user` + `locals.couple` first.
+- Realtime: Supabase Realtime over private channels per couple. Server REST broadcasts `location_update` / `ghost_change`; clients subscribe + presence-track but cannot INSERT broadcast. `heartbeat_tap` goes through `POST /api/realtime/tap`.
+- Service worker (`src/service-worker.ts`): hand-written, **do not replace with workbox**. Stale-while-revalidate HTML, shell + image LRU caches, offline fallback, `WARM_ROUTES` precache (`/`, `/welcome`, `/auth/sign-in`). `isPrivatePath()` blocks `/auth/*` from cache **except** `/auth/sign-in`. `skipWaiting` + `clients.claim` only fire on a user-gesture `SKIP_WAITING` message.
+- Internationalization: inlang/Paraglide. Source locales in `messages/{en,zh-hant}.json`; generated runtime in `src/lib/paraglide/**` (treat as generated).
+- Tests are split across multiple Vitest projects (`vite.config.ts`): `client` (browser/component), `server`, `storybook`. Playwright runs independently from `e2e/` against the built preview worker; `playwright.config.ts` excludes `prod-smoke.test.ts` (which is reserved for `playwright.prod.config.ts`).
 
 ## Key conventions
 
@@ -45,3 +48,5 @@ To ensure all agents behave consistently and reliably, follow these rules at all
 - For unit tests, prefer `bun run test:unit -- --run ...` over bare `bun run test:unit`; the bare script starts Vitest in watch mode.
 - When running a single Vitest test, include `--project client`, `--project server`, or `--project storybook` so the right environment is selected.
 - Playwright e2e depends on the production build path, not the dev server. If an e2e spec fails before the browser opens, inspect `bun run build` and the Cloudflare `preview` path first.
+- Every `href="/foo"` in a `.svelte` file must use `resolve('/foo')` from `$app/paths` — eslint-plugin-svelte's `no-navigation-without-resolve` will fail lint otherwise.
+- See `plan.md` for the canonical routing/offline contract diagram and the active Phase-2 backlog. Historical phase chronicle (M/P/U/A/H/N/R/G series) lives in `docs/history.md`.
