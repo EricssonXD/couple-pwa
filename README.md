@@ -18,6 +18,9 @@ Live: <https://cozy.ericssoncodes.com>
 | `/moments`         | Vertical timeline of geo-moments. Cards stay locked + blurred until the partner is within radius.                                                                |
 | `/moments/new`     | Composer with mini-map + draggable pin + radius slider + optional photo + expiry.                                                                                |
 | `/daily`           | Daily question prompt — both partners answer privately, both reveal once both submit.                                                                            |
+| `/notes`           | Schedule a private love-note to surface on a future date (F3 time capsule). Background pg_cron drains due notes into the push outbox.                            |
+| `/bucket`          | Shared bucket list — couple-collaborative wishes with checkbox-toggle done state (F6).                                                                           |
+| `/calendar`        | Shared calendar v1 — couple-collaborative single-occurrence events grouped by date (F8). Recurrence + reminder cron deferred to v2.                              |
 | `/timeline`        | Full milestone history (100d, 1y, 2y…) + countdowns to upcoming ones.                                                                                            |
 | `/settings`        | Profile, ghost-mode + duration, notifications, language (en / zh-Hant), theme, couple nickname + anniversary, partner-view audit log, account deletion.          |
 
@@ -133,7 +136,7 @@ visitor without needing a fourth `onMount` guard on the page itself.
 - **P-series**: PWA shell hardening — done.
 - **U-series**: design-system rebuild + 8 routes — done.
 - **A / H / N / R / G series** (post-MVP hardening, push, growth, reliability): all but `G3 photo-moments` (blocked on Storage bucket) shipped — see `docs/history.md` for the full chronicle.
-- **Phase 2 (F-series)**: F1 anniversary timeline, F2 daily prompts, F4 connection streak, F5 mood pulse, F5b mood-trend strip, F10 throwbacks — shipped. Remaining tier-1+2 items tracked in `plan.md`.
+- **Phase 2 (F-series)**: F1 anniversary timeline, F2 daily prompts, F3 love-note time capsule (cron + UI), F4 connection streak, F5 mood pulse, F5b mood-trend strip, F6 shared bucket list, F8 shared calendar v1, F10 throwbacks — shipped. Remaining tier-1+2 items tracked in `plan.md`.
 
 ## License
 
