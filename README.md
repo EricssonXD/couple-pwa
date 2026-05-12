@@ -98,13 +98,42 @@ e2e/                      # Playwright specs
 messages/                 # Paraglide source locales
 ```
 
+## Routing & offline flow
+
+Three layered guards keep the right page in front of the right user, even
+when the device is offline and the SW is serving cached HTML:
+
+1. **Server load (online path)** — every protected route's `+page.server.ts`
+   `redirect(303, …)`s based on `locals.user` / `locals.couple`. `/` is a
+   redirect-only stub and never renders a body.
+2. **Pre-paint script (`static/route-stub.js`)** — runs synchronously in
+   `<head>` before the body parses. Reads the client-readable `ds_auth`
+   cookie (set by `hooks.server.ts`, holds NO secret — values: `pulse`,
+   `onboarding`, or absent) and `location.replace()`s away from `/` and
+   `/welcome` for signed-in users. Deliberately scoped to those two
+   routes: extending it to `/auth/sign-in` would race the SSR's stale-
+   cookie clear (303 from `/pulse` to `/auth/sign-in` then immediate
+   pre-paint back to `/pulse` = infinite loop).
+3. **Layout `beforeNavigate` (`src/routes/+layout.svelte`)** — when
+   offline + signed-in, cancels SPA navigations targeting `/auth/*` and
+   reroutes to `/pulse`. Every other `/auth/*` route is intentionally
+   not pre-cached (private surface), so this prevents the user from
+   stranding themselves on a network-error page.
+
+`/auth/sign-in` is the one `/auth/*` route the SW pre-caches (anonymous,
+state-free form) so a captive-portal cold launch still gets a usable
+screen. The combination of (a) the offline `beforeNavigate` SPA reroute,
+(b) the SSR redirect on hard navigation when online, and (c) the SSR
+clearing the stale `ds_auth` cookie covers every reachable signed-in
+visitor without needing a fourth `onMount` guard on the page itself.
+
 ## Status
 
 - **M0–M6**: backend + RLS + private realtime — done.
 - **P-series**: PWA shell hardening — done.
 - **U-series**: design-system rebuild + 8 routes — done.
-- **A / H / N / R / G series** (post-MVP hardening, push, growth, reliability): all but `G3 photo-moments` (blocked on Storage bucket) shipped — see `plan.md` for the chronicle and `docs/next-phases.md` for the original spec.
-- **Phase 2 (F-series)** features: F1 anniversary timeline, F2 daily prompts, F4 connection streak — shipped. Remaining tier-1+2 items tracked in `plan.md`.
+- **A / H / N / R / G series** (post-MVP hardening, push, growth, reliability): all but `G3 photo-moments` (blocked on Storage bucket) shipped — see `docs/history.md` for the full chronicle.
+- **Phase 2 (F-series)**: F1 anniversary timeline, F2 daily prompts, F4 connection streak, F5 mood pulse, F5b mood-trend strip, F10 throwbacks — shipped. Remaining tier-1+2 items tracked in `plan.md`.
 
 ## License
 
