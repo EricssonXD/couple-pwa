@@ -21,6 +21,7 @@
 	import Toggle from '$lib/components/ui/Toggle.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PushSubscribeCard from '$lib/components/duosync/PushSubscribeCard.svelte';
+	import { MoodTrendStrip } from '$lib/components/duosync';
 	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import UserIcon from 'phosphor-svelte/lib/UserIcon';
@@ -209,6 +210,7 @@
 			>
 				{busy === 'profile' ? m.settings_saving() : m.settings_save()}
 			</button>
+			<MoodTrendStrip buckets={data.moodTrend} />
 		</section>
 
 		<!-- privacy / ghost -->

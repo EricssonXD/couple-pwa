@@ -23,3 +23,4 @@ export { default as IosInstallSheet } from './IosInstallSheet.svelte';
 export { default as QueueBadge } from './QueueBadge.svelte';
 export { default as StreakBadge } from './StreakBadge.svelte';
 export { default as MoodPicker } from './MoodPicker.svelte';
+export { default as MoodTrendStrip } from './MoodTrendStrip.svelte';

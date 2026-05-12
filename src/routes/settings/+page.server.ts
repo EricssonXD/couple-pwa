@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { profile } from '$lib/server/db/schema';
 import { isGhostActive } from '$lib/server/services/location';
 import { getStreak } from '$lib/server/services/connection';
+import { getMoodTrend } from '$lib/server/services/mood';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -24,6 +25,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	const streak = locals.couple ? await getStreak(locals.couple.id) : null;
+	const moodTrend = await getMoodTrend(locals.user.id, 14);
 
 	return {
 		me: {
@@ -43,6 +45,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 				}
 			: null,
 		partner,
-		streak
+		streak,
+		moodTrend
 	};
 };
