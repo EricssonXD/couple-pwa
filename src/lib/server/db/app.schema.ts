@@ -472,3 +472,62 @@ export const calendarEvents = pgTable(
 		index('calendar_events_couple_starts_idx').on(t.coupleId, t.startsAt)
 	]
 );
+
+// F9 — "How well do you know me?" quiz runs. See drizzle/manual/0017
+// for the full RLS / semantics rationale. Newlywed-Game shape: each
+// partner records both a self_answer (truth) and a guess_answer
+// (about the other) per question. Drafts persist; reveal triggers
+// only when both a_completed_at and b_completed_at are set.
+export const quizRuns = pgTable(
+	'quiz_runs',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		quizId: text('quiz_id').notNull(),
+		startedBy: uuid('started_by')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		aUserId: uuid('a_user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		bUserId: uuid('b_user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		aSelfAnswers: jsonb('a_self_answers').$type<Record<string, number>>(),
+		aGuessAnswers: jsonb('a_guess_answers').$type<Record<string, number>>(),
+		bSelfAnswers: jsonb('b_self_answers').$type<Record<string, number>>(),
+		bGuessAnswers: jsonb('b_guess_answers').$type<Record<string, number>>(),
+		aCompletedAt: timestamp('a_completed_at', { withTimezone: true }),
+		bCompletedAt: timestamp('b_completed_at', { withTimezone: true }),
+		completedAt: timestamp('completed_at', { withTimezone: true }),
+		abandonedAt: timestamp('abandoned_at', { withTimezone: true }),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true })
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date())
+	},
+	(t) => [
+		check('quiz_runs_quiz_id_shape', sql`${t.quizId} ~ '^[a-z0-9][a-z0-9_-]{0,63}$'`),
+		check('quiz_runs_partners_distinct', sql`${t.aUserId} <> ${t.bUserId}`),
+		check(
+			'quiz_runs_started_by_member',
+			sql`${t.startedBy} in (${t.aUserId}, ${t.bUserId})`
+		),
+		check(
+			'quiz_runs_completion_consistent',
+			sql`${t.completedAt} is null or (${t.aCompletedAt} is not null and ${t.bCompletedAt} is not null)`
+		),
+		check(
+			'quiz_runs_terminal_state',
+			sql`${t.completedAt} is null or ${t.abandonedAt} is null`
+		),
+		index('quiz_runs_couple_idx').on(
+			t.coupleId,
+			sql`${t.completedAt} desc nulls first`,
+			sql`${t.createdAt} desc`
+		)
+	]
+);
