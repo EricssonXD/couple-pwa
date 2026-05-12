@@ -140,6 +140,10 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				lastGhost = ev.p;
 				return;
 			case 'heartbeat_tap':
+				// Server re-broadcasts taps to BOTH partners. Ignore our own
+				// echo so the "partner tapped you" UI only fires for the
+				// other side's taps.
+				if (ev.p.userId === userId) return;
 				lastTap = ev.ts;
 				return;
 			case 'moment_dropped':
