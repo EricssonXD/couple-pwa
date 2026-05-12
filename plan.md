@@ -95,7 +95,14 @@ update banner.
   iOS PWA widgets remain a future native-extension lift.
 - F14 cycle sharing (sensitive — needs explicit opt-in toggle +
   audit log entry + clear delete path)
-- F16 conflict-resolution / repair toolkit (therapeutic copy)
+- F16 ✅ shipped — repair toolkit. New `repair_sessions` table + RLS
+  + partial unique index (one active session per couple). Service
+  in `src/lib/server/services/repair.ts` (start / join / complete /
+  cancel + audit-log integration + push enqueue to partner). API
+  under `/api/repair[/...]`; UI at `/repair` with cooldown countdown
+  → reflection notes → joint commitment-note. Notes capped at
+  1000 chars; cooldown 5 min – 24 h (default 20 min). Optional
+  `ephemeral` flag flagged on the row for a future cleanup pass.
 
 ### Parked
 

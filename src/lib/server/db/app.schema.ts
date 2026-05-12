@@ -550,3 +550,51 @@ export const quizRuns = pgTable(
 		)
 	]
 );
+
+// F16 — Repair sessions (post-conflict cooldown + reflection). See
+// drizzle/manual/0019_repair_sessions.sql for the lifecycle and RLS
+// rationale. One active session per couple at a time (partial unique
+// index in the migration).
+export const repairSessions = pgTable(
+	'repair_sessions',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		initiatorId: uuid('initiator_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		// 'cooldown' | 'reflecting' | 'completed' | 'cancelled'
+		status: text('status').notNull().default('cooldown'),
+		coolOffUntil: timestamp('cool_off_until', { withTimezone: true }).notNull(),
+		initiatorNote: text('initiator_note'),
+		partnerId: uuid('partner_id').references(() => authUsers.id, { onDelete: 'set null' }),
+		partnerJoinedAt: timestamp('partner_joined_at', { withTimezone: true }),
+		partnerNote: text('partner_note'),
+		commitmentNote: text('commitment_note'),
+		ephemeral: boolean('ephemeral').notNull().default(false),
+		startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+		completedAt: timestamp('completed_at', { withTimezone: true }),
+		cancelledAt: timestamp('cancelled_at', { withTimezone: true })
+	},
+	(t) => [
+		check(
+			'repair_sessions_status_chk',
+			sql`${t.status} in ('cooldown', 'reflecting', 'completed', 'cancelled')`
+		),
+		check(
+			'repair_sessions_initiator_note_len',
+			sql`${t.initiatorNote} is null or char_length(${t.initiatorNote}) <= 1000`
+		),
+		check(
+			'repair_sessions_partner_note_len',
+			sql`${t.partnerNote} is null or char_length(${t.partnerNote}) <= 1000`
+		),
+		check(
+			'repair_sessions_commitment_note_len',
+			sql`${t.commitmentNote} is null or char_length(${t.commitmentNote}) <= 1000`
+		),
+		index('repair_sessions_couple_started_idx').on(t.coupleId, t.startedAt.desc())
+	]
+);

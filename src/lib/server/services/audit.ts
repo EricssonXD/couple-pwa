@@ -12,7 +12,11 @@ export type AuditAction =
 	| 'ghost.disable'
 	| 'unpair.request'
 	| 'account.delete.request'
-	| 'account.delete.cancel';
+	| 'account.delete.cancel'
+	| 'repair.start'
+	| 'repair.join'
+	| 'repair.complete'
+	| 'repair.cancel';
 
 export async function recordAudit(
 	userId: string,
