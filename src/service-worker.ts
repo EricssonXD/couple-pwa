@@ -98,6 +98,11 @@ const IMG_CACHE_MAX = 60;
 function isPrivatePath(pathname: string): boolean {
 	if (pathname.startsWith('/api/')) return true;
 	if (pathname.startsWith('/ws/')) return true;
+	// F7 — chat is ephemeral (7d TTL). Never cache the page or its
+	// __data.json so historical bodies can't survive past retention.
+	// (Defence-in-depth: the +page.server.ts also avoids loading
+	// messages, so __data.json contains no bodies even on first hit.)
+	if (pathname === '/chat' || pathname.startsWith('/chat/')) return true;
 	if (pathname.startsWith('/auth/')) {
 		return pathname !== '/auth/sign-in' && pathname !== '/auth/sign-in/';
 	}

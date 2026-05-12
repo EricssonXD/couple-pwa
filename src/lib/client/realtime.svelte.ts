@@ -78,6 +78,13 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		id: string;
 		ts: number;
 	} | null>(null);
+	let lastChatMessage = $state<{
+		id: string;
+		senderId: string;
+		body: string;
+		createdAt: string;
+		ts: number;
+	} | null>(null);
 	let presence = $state<Record<string, Presence>>({});
 
 	let channel: RealtimeChannel | null = null;
@@ -160,6 +167,9 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				return;
 			case 'mood_change':
 				lastMood = ev.p;
+				return;
+			case 'chat_message':
+				lastChatMessage = { ...ev.p, ts: ev.ts };
 				return;
 		}
 	}
@@ -361,6 +371,9 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		},
 		get lastMomentEvent() {
 			return lastMomentEvent;
+		},
+		get lastChatMessage() {
+			return lastChatMessage;
 		},
 		get presence() {
 			return presence;

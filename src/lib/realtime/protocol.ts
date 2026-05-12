@@ -83,6 +83,20 @@ export type ServerEvent =
 				mood: 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset';
 				setAt: string;
 			};
+	  }
+	| {
+			// F7: chat message just sent by `senderId`. Body is included
+			// here because the channel is private + RLS-scoped to couple
+			// members; lockscreen push payloads do NOT carry the body
+			// (mirrors F16 lockscreen-privacy stance).
+			t: 'chat_message';
+			ts: number;
+			p: {
+				id: string;
+				senderId: string;
+				body: string;
+				createdAt: string;
+			};
 	  };
 
 // ─── Client-originated events ────────────────────────────────────────────

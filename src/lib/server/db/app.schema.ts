@@ -598,3 +598,25 @@ export const repairSessions = pgTable(
 		index('repair_sessions_couple_started_idx').on(t.coupleId, t.startedAt.desc())
 	]
 );
+
+// F7 — couple-only chat messages (text, 7-day TTL). See
+// drizzle/manual/0020_chat_messages.sql for RLS + retention policy and
+// 0021_chat_messages_purge_cron.sql for the hourly cron purge.
+export const chatMessages = pgTable(
+	'chat_messages',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		senderId: uuid('sender_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		body: text('body').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(t) => [
+		check('chat_messages_body_len', sql`char_length(${t.body}) between 1 and 2000`),
+		index('chat_messages_couple_created_idx').on(t.coupleId, t.createdAt.desc(), t.id.desc())
+	]
+);

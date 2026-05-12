@@ -10,3 +10,4 @@ bun.lockb
 /drizzle/
 /supabase/functions/
 /supabase/.temp/
+/.agent/
