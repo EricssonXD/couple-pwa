@@ -403,3 +403,35 @@ export const scheduledNotes = pgTable(
 		index('scheduled_notes_due_idx').on(t.deliverAt)
 	]
 );
+
+// F6 — Shared bucket list. Couple-collaborative wishlist; either
+// partner may CRUD any item in their couple. done_at + done_by record
+// the celebrating user (CHECK enforces both-or-neither).
+export const bucketItems = pgTable(
+	'bucket_items',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		createdBy: uuid('created_by')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		title: text('title').notNull(),
+		notes: text('notes'),
+		targetDate: date('target_date'),
+		doneAt: timestamp('done_at', { withTimezone: true }),
+		doneBy: uuid('done_by').references(() => authUsers.id, { onDelete: 'set null' }),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true })
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date())
+	},
+	(t) => [
+		check('bucket_items_title_len', sql`char_length(${t.title}) between 1 and 200`),
+		check('bucket_items_notes_len', sql`${t.notes} is null or char_length(${t.notes}) <= 2000`),
+		check('bucket_items_done_pair', sql`(${t.doneAt} is null) = (${t.doneBy} is null)`),
+		index('bucket_items_couple_idx').on(t.coupleId, t.doneAt, t.createdAt)
+	]
+);

@@ -398,6 +398,13 @@
 				<Icon icon={CaretRightIcon} size={14} weight="bold" class="text-base-content/40" />
 			</a>
 			<a
+				href={resolve('/bucket')}
+				class="-mx-2 flex items-center justify-between rounded-[var(--radius-card)] px-2 py-2.5 text-sm hover:bg-base-100"
+			>
+				<span>{m.bucket_settings_link()}</span>
+				<Icon icon={CaretRightIcon} size={14} weight="bold" class="text-base-content/40" />
+			</a>
+			<a
 				href={resolve('/notes')}
 				class="-mx-2 flex items-center justify-between rounded-[var(--radius-card)] px-2 py-2.5 text-sm hover:bg-base-100"
 			>
