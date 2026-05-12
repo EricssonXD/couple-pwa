@@ -79,6 +79,13 @@ update banner.
   audit-log entries on every transition).
 - **CI/DX**: size-limit perf budget, RLS contract tests, a11y fixes,
   bundle-audit lazy splits.
+- **F7 couple-only chat** — text-only with hard 7-day TTL (RLS SELECT
+  predicate + hourly pg_cron purge + read-time service filter). Body
+  in private realtime channel; NEVER in push payload (lockscreen
+  privacy mirrors F16). History fetched client-side after hydration
+  so SW + HTML cache cannot leak past retention. Voice notes deferred
+  to F7 v2 once G3 (Storage bucket) exists. Migrations 0020 + 0021
+  must be applied via `bun run db:push` or the Supabase SQL editor.
 
 ---
 
@@ -86,8 +93,6 @@ update banner.
 
 ### Phase 2 — Tier 1 / 2 remaining
 
-- **F7 couple-only chat** — text + voice notes via existing Supabase
-  channel. Voice notes blocked on G3 (Storage bucket).
 - **F18 premium gating** — Stripe + entitlement check in
   `hooks.server.ts`. Most competitors charge $5–10/mo. Free = MVP +
   Tier 1; premium = chat history >30d, time capsules >X, photo
@@ -126,8 +131,8 @@ update banner.
 
 ## Notes
 
-- DEFER F7 voice notes + G3 photo-moments until Storage bucket
-  exists (outside our control to provision).
+- DEFER G3 photo-moments until Storage bucket exists (outside our
+  control to provision). F7 v2 voice notes also blocked on G3.
 - N1–N3 ship code; real VAPID keys + Stripe (F18) + Storage (G3)
   all need ops setup before they actually do anything in prod.
 - Update this plan only at major milestones. Per-task tracking
