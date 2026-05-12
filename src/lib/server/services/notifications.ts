@@ -249,6 +249,33 @@ export async function notifyHeartbeatTap(t: HeartbeatTapTrigger): Promise<void> 
 	});
 }
 
+export interface QuizCompletedTrigger {
+	coupleId: string;
+	recipientId: string;
+	runId: string;
+	quizTitle: string;
+	finisherDisplayName: string | null;
+}
+
+/**
+ * Both partners just finished a "How well do you know me?" run. Sent
+ * only to the partner who was waiting (the second submitter is already
+ * in-app and will see the reveal immediately). Dedupe key includes
+ * runId + recipientId so a redundant call cannot fan out.
+ */
+export async function notifyQuizCompleted(t: QuizCompletedTrigger): Promise<void> {
+	const name = t.finisherDisplayName ?? 'Your partner';
+	await enqueue({
+		coupleId: t.coupleId,
+		recipientId: t.recipientId,
+		kind: 'quiz_complete',
+		title: `${name} finished your quiz`,
+		body: `See how well you scored on ${t.quizTitle}.`,
+		data: { kind: 'quiz_complete', runId: t.runId },
+		dedupeKey: `quiz_complete:${t.runId}:${t.recipientId}`
+	});
+}
+
 /** Test helper. */
 export async function _internalDrainOutbox() {
 	await db.execute(sql`DELETE FROM push_outbox`);
