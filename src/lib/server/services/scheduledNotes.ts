@@ -12,11 +12,14 @@
 import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { scheduledNotes } from '$lib/server/db/app.schema';
+import {
+	MIN_LEAD_TIME_MS,
+	MAX_LEAD_TIME_MS,
+	MAX_BODY_LEN,
+	MAX_PENDING_PER_AUTHOR
+} from '$lib/scheduledNotes.constants';
 
-export const MIN_LEAD_TIME_MS = 5 * 60_000; // 5 minutes
-export const MAX_LEAD_TIME_MS = 10 * 365 * 86_400_000; // 10 years
-export const MAX_BODY_LEN = 2000;
-export const MAX_PENDING_PER_AUTHOR = 100; // anti-abuse cap (rubber-duck #8)
+export { MIN_LEAD_TIME_MS, MAX_LEAD_TIME_MS, MAX_BODY_LEN, MAX_PENDING_PER_AUTHOR };
 
 export type PendingNote = {
 	id: string;
