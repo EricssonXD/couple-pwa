@@ -51,9 +51,12 @@ interface EnqueueArgs {
 async function enqueue(args: EnqueueArgs): Promise<void> {
 	if (await recipientGhosted(args.recipientId)) return;
 	const dataJson = args.data ? JSON.stringify(args.data) : null;
-	// onConflictDoNothing on the partial dedupe index means a duplicate
-	// dedupe_key in the window silently no-ops. We rely on the N3 worker
-	// to GC delivered rows so the index doesn't grow unbounded.
+	// Partial unique index on (recipient_id, dedupe_key) WHERE
+	// dedupe_key IS NOT NULL. Postgres requires the same predicate on
+	// the ON CONFLICT to use a partial index — the `where` clause below
+	// matches drizzle/manual/0010_push_outbox.sql:31. Without it the
+	// planner errors with 42P10 "no unique or exclusion constraint
+	// matching the ON CONFLICT specification".
 	await db
 		.insert(pushOutbox)
 		.values({
@@ -65,7 +68,10 @@ async function enqueue(args: EnqueueArgs): Promise<void> {
 			dataJson,
 			dedupeKey: args.dedupeKey ?? null
 		})
-		.onConflictDoNothing({ target: [pushOutbox.recipientId, pushOutbox.dedupeKey] });
+		.onConflictDoNothing({
+			target: [pushOutbox.recipientId, pushOutbox.dedupeKey],
+			where: sql`${pushOutbox.dedupeKey} IS NOT NULL`
+		});
 }
 
 export interface MomentNearbyTrigger {
