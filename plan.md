@@ -52,7 +52,7 @@ This is the **canonical flow** — protect it. Tests in `e2e/sw-offline.test.ts`
 | N1–N4               | VAPID plumbing, trigger surface, delivery worker, iOS standalone UX                                              | shipped (real VAPID keys = ops setup) |
 | R1–R4               | Offline write queue + idempotency, presence resilience, shell precache, moment conflict resolution               | shipped                               |
 | G1, G2, G4          | Couple-link UX, onboarding walkthrough, settings parity                                                          | shipped                               |
-| F1, F2, F4, F5, F5b | Anniversary timeline (`/timeline`), daily prompts (`/daily`), connection streak, mood pulse + 14-day trend strip | shipped                               |
+| F1, F2, F4, F5, F5b, F10 | Anniversary timeline (`/timeline`), daily prompts (`/daily`), connection streak, mood pulse + 14-day trend strip, on-this-day memory resurface | shipped                               |
 
 **Blocked**: `G3 photo support in moments` — needs Supabase Storage bucket creation + CORS config (ops, not code).
 
@@ -75,7 +75,7 @@ Researched against Couple/Between, Paired, Lasting, Love Nudge, Honi. DuoSync's 
 - ⏸ **F7 Couple chat** (text + voice) — depends on F8 calendar maturity + Storage bucket (G3).
 - ⏳ **F8 Shared calendar** — RRULE recurring events, date nights, anniversaries, period tracker, travel; 24h + 1h push reminders.
 - ⏳ **F9 Quiz packs** — "How well do you know me?"; static quizzes in `/static/quizzes/*`; `quiz_runs` table for results.
-- ⏳ **F10 Memory throwbacks** — once-daily "On this day, N years ago" surface on `/pulse`. Pure query, no writes.
+- ✅ **F10 Memory throwbacks** — `resurfaceMemory(coupleId)` finds a moment from the same MM-DD in any prior year (≥30 days ago, ±2-day window), with first-ping fallback. `MemoryResurface` card renders on `/pulse` via SSR.
 
 ### Tier 3 — Bigger lifts, parked
 
@@ -89,8 +89,7 @@ F11 widgets, F12 therapy modules, F13 shared playlists, F14 cycle sharing, F15 v
 
 ## Suggested sequencing (next up)
 
-1. **F10 throwbacks** — pure read on `geo_moment`; ride on existing query infrastructure.
-2. **F3 time capsule** — first **Cloudflare Workers Cron** worker; sets up the cron pattern reused by F8 reminders.
+1. **F3 time capsule** — first **Cloudflare Workers Cron** worker; sets up the cron pattern reused by F8 reminders.
 3. **F6 bucket list** — first new full-CRUD route post-MVP; battle-test the pattern.
 4. **F8 calendar** — biggest UI surface; do after CRUD primitives are proven.
 5. **F9 quiz packs** — content-driven, low risk; ship in parallel with F8.
