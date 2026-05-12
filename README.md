@@ -8,22 +8,22 @@ Live: <https://cozy.ericssoncodes.com>
 
 ## What it does today
 
-| Surface            | What the user sees                                                                                                                                               |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/welcome`         | Marketing hero + install CTA. Anonymous-only — signed-in users redirect pre-paint via the inline `<script>` in `src/app.html`.                                   |
-| `/auth/sign-in`    | Email + password (Google OAuth deferred). Cached offline so a captive-portal cold-launch still gets a useful screen.                                             |
-| `/onboarding/link` | First-run flow + 6-char couple-link code.                                                                                                                        |
-| `/pulse`           | Anniversary ribbon (taps through to /timeline) → connection streak → live distance bubble → partner avatar (presence + battery) → mood weather → heartbeat zone. |
-| `/map`             | Shared Leaflet map with two pulsing pins + distance curve + Home/Work pins. Per-route dark theme.                                                                |
-| `/moments`         | Vertical timeline of geo-moments. Cards stay locked + blurred until the partner is within radius.                                                                |
-| `/moments/new`     | Composer with mini-map + draggable pin + radius slider + optional photo + expiry.                                                                                |
-| `/daily`           | Daily question prompt — both partners answer privately, both reveal once both submit.                                                                            |
-| `/notes`           | Schedule a private love-note to surface on a future date (F3 time capsule). Background pg_cron drains due notes into the push outbox.                            |
-| `/bucket`          | Shared bucket list — couple-collaborative wishes with checkbox-toggle done state (F6).                                                                           |
-| `/calendar`        | Shared calendar v1 — couple-collaborative single-occurrence events grouped by date (F8). Recurrence + reminder cron deferred to v2.                              |
-| `/timeline`        | Full milestone history (100d, 1y, 2y…) + countdowns to upcoming ones.                                                                                            |
-| `/quiz`            | "How well do you know me?" quiz packs — both partners answer about each other, scores reveal once both finalize (F9).                                            |
-| `/settings`        | Profile, ghost-mode + duration, notifications, language (en / zh-Hant), theme, couple nickname + anniversary, partner-view audit log, account deletion.          |
+| Surface            | What the user sees                                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/welcome`         | Marketing hero + install CTA. Anonymous-only — signed-in users redirect pre-paint via the inline `<script>` in `src/app.html`.                                           |
+| `/auth/sign-in`    | Email + password (Google OAuth deferred). Cached offline so a captive-portal cold-launch still gets a useful screen.                                                     |
+| `/onboarding/link` | First-run flow + 6-char couple-link code.                                                                                                                                |
+| `/pulse`           | Anniversary ribbon (taps through to /timeline) → connection streak → live distance bubble → partner avatar (presence + battery) → mood weather → heartbeat zone.         |
+| `/map`             | Shared Leaflet map with two pulsing pins + distance curve + Home/Work pins. Per-route dark theme.                                                                        |
+| `/moments`         | Vertical timeline of geo-moments. Cards stay locked + blurred until the partner is within radius.                                                                        |
+| `/moments/new`     | Composer with mini-map + draggable pin + radius slider + optional photo + expiry.                                                                                        |
+| `/daily`           | Daily question prompt — both partners answer privately, both reveal once both submit.                                                                                    |
+| `/notes`           | Schedule a private love-note to surface on a future date (F3 time capsule). Background pg_cron drains due notes into the push outbox.                                    |
+| `/bucket`          | Shared bucket list — couple-collaborative wishes with checkbox-toggle done state (F6).                                                                                   |
+| `/calendar`        | Shared calendar (F8). v1 single-occurrence + v2 RFC-5545 RRULE recurring events grouped by date, with a None/Daily/Weekly/Monthly/Yearly picker. Reminder cron deferred. |
+| `/timeline`        | Full milestone history (100d, 1y, 2y…) + countdowns to upcoming ones.                                                                                                    |
+| `/quiz`            | "How well do you know me?" quiz packs — both partners answer about each other, scores reveal once both finalize (F9).                                                    |
+| `/settings`        | Profile, ghost-mode + duration, notifications, language (en / zh-Hant), theme, couple nickname + anniversary, partner-view audit log, account deletion.                  |
 
 ## Stack
 

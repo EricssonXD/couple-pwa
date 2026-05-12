@@ -68,7 +68,8 @@ update banner.
 - **Phase 2 features**: F1 anniversary timeline, F2 daily prompts,
   F3 time-capsule (cron + UI), F4 connection streak, F5 mood pulse,
   F5b mood-trend strip, F6 shared bucket list, F8 shared calendar
-  v1 (CRUD), F9 quiz packs (catalog + runner + reveal), F10 throwbacks.
+  (v1 CRUD + v2 RRULE recurrence), F9 quiz packs (catalog + runner +
+  reveal), F10 throwbacks.
 - **CI/DX**: size-limit perf budget, RLS contract tests, a11y fixes,
   bundle-audit lazy splits.
 
@@ -103,9 +104,13 @@ update banner.
 
 ### v2 of shipped features
 
-- **F8 calendar v2**: rrule expansion (`rrule.js`), reminder cron
-  (24h + 1h push). The `rrule TEXT NULLABLE` column is already in
-  the schema — no migration needed.
+- **F8 calendar v2 — reminder cron** (recurrence + UI already shipped).
+  Add `calendar_reminders(event_id, occurrence_at, kind)` table +
+  `app.deliver_due_calendar_reminders()` SECURITY DEFINER pg_cron
+  function (mirror of `app.deliver_due_scheduled_notes` in
+  `0014_scheduled_notes_cron.sql`). Wire population into create/
+  update/delete; horizon = 30 days. Push 24h + 1h before each
+  occurrence via the existing `push_outbox` pipeline.
 
 ---
 
