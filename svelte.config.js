@@ -14,7 +14,13 @@ const config = {
 				'script-src': ['self'],
 				'style-src': ['self', 'https://fonts.googleapis.com', 'unsafe-inline'],
 				'font-src': ['self', 'https://fonts.gstatic.com', 'data:'],
-				'img-src': ['self', 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
+				'img-src': [
+					'self',
+					'data:',
+					'blob:',
+					'https://*.tile.openstreetmap.org',
+					'https://*.basemaps.cartocdn.com'
+				],
 				// Supabase Realtime uses wss:; HTTPS for REST/auth/storage.
 				// We don't pin a single host — the URL comes from env at
 				// runtime (PUBLIC_SUPABASE_URL) and could be a custom
