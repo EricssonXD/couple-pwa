@@ -128,67 +128,67 @@
 	<section
 		class="space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
 	>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.calendar_title_label()}</span>
-					<span class="label-text-alt text-base-content/60">{title.length}/{MAX_TITLE_LEN}</span>
-				</div>
-				<input
-					bind:value={title}
-					maxlength={MAX_TITLE_LEN}
-					placeholder={m.calendar_title_placeholder()}
-					class="input-bordered input"
-				/>
-			</label>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.calendar_notes_label()}</span>
-					<span class="label-text-alt text-base-content/60">{notes.length}/{MAX_NOTES_LEN}</span>
-				</div>
-				<textarea
-					bind:value={notes}
-					maxlength={MAX_NOTES_LEN}
-					rows={2}
-					placeholder={m.calendar_notes_placeholder()}
-					class="textarea-bordered textarea"
-				></textarea>
-			</label>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.calendar_starts_at_label()}</span>
-				</div>
-				<input type="datetime-local" bind:value={startsAt} class="input-bordered input" />
-			</label>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.calendar_ends_at_label()}</span>
-				</div>
-				<input type="datetime-local" bind:value={endsAt} class="input-bordered input" />
-			</label>
-			<label class="label cursor-pointer justify-start gap-3">
-				<input type="checkbox" bind:checked={allDay} class="checkbox checkbox-sm" />
-				<span class="label-text">{m.calendar_all_day_label()}</span>
-			</label>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.calendar_repeat_label()}</span>
-				</div>
-				<select bind:value={repeat} class="select-bordered select">
-					<option value="NONE">{m.calendar_repeat_none()}</option>
-					<option value="DAILY">{m.calendar_repeat_daily()}</option>
-					<option value="WEEKLY">{m.calendar_repeat_weekly()}</option>
-					<option value="MONTHLY">{m.calendar_repeat_monthly()}</option>
-					<option value="YEARLY">{m.calendar_repeat_yearly()}</option>
-				</select>
-			</label>
-			{#if err}<p class="text-sm text-error">{err}</p>{/if}
-			<button
-				class="btn btn-block btn-primary"
-				disabled={submitting || !title.trim() || !startsAt}
-				onclick={add}
-			>
-				{m.calendar_add()}
-			</button>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.calendar_title_label()}</span>
+				<span class="label-text-alt text-base-content/60">{title.length}/{MAX_TITLE_LEN}</span>
+			</div>
+			<input
+				bind:value={title}
+				maxlength={MAX_TITLE_LEN}
+				placeholder={m.calendar_title_placeholder()}
+				class="input-bordered input"
+			/>
+		</label>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.calendar_notes_label()}</span>
+				<span class="label-text-alt text-base-content/60">{notes.length}/{MAX_NOTES_LEN}</span>
+			</div>
+			<textarea
+				bind:value={notes}
+				maxlength={MAX_NOTES_LEN}
+				rows={2}
+				placeholder={m.calendar_notes_placeholder()}
+				class="textarea-bordered textarea"
+			></textarea>
+		</label>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.calendar_starts_at_label()}</span>
+			</div>
+			<input type="datetime-local" bind:value={startsAt} class="input-bordered input" />
+		</label>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.calendar_ends_at_label()}</span>
+			</div>
+			<input type="datetime-local" bind:value={endsAt} class="input-bordered input" />
+		</label>
+		<label class="label cursor-pointer justify-start gap-3">
+			<input type="checkbox" bind:checked={allDay} class="checkbox checkbox-sm" />
+			<span class="label-text">{m.calendar_all_day_label()}</span>
+		</label>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.calendar_repeat_label()}</span>
+			</div>
+			<select bind:value={repeat} class="select-bordered select">
+				<option value="NONE">{m.calendar_repeat_none()}</option>
+				<option value="DAILY">{m.calendar_repeat_daily()}</option>
+				<option value="WEEKLY">{m.calendar_repeat_weekly()}</option>
+				<option value="MONTHLY">{m.calendar_repeat_monthly()}</option>
+				<option value="YEARLY">{m.calendar_repeat_yearly()}</option>
+			</select>
+		</label>
+		{#if err}<p class="text-sm text-error">{err}</p>{/if}
+		<button
+			class="btn btn-block btn-primary"
+			disabled={submitting || !title.trim() || !startsAt}
+			onclick={add}
+		>
+			{m.calendar_add()}
+		</button>
 	</section>
 
 	<section class="mt-8">

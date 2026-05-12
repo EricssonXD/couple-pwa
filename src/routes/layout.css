@@ -149,7 +149,17 @@ body {
  * the paper palette instead of fighting it. 3px ring + 2px offset
  * meets WCAG 2.4.7 / 2.4.13 visible focus requirements.
  */
-:where(button, a, input, textarea, select, summary, [role='button'], [role='tab'], [tabindex]):focus-visible {
+:where(
+	button,
+	a,
+	input,
+	textarea,
+	select,
+	summary,
+	[role='button'],
+	[role='tab'],
+	[tabindex]
+):focus-visible {
 	outline: 2px solid var(--color-primary);
 	outline-offset: 2px;
 	border-radius: var(--radius-field, 0.5rem);

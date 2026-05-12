@@ -81,45 +81,41 @@
 	<section
 		class="space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
 	>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.bucket_title_label()}</span>
-					<span class="label-text-alt text-base-content/60">{title.length}/{MAX_TITLE_LEN}</span>
-				</div>
-				<input
-					bind:value={title}
-					maxlength={MAX_TITLE_LEN}
-					placeholder={m.bucket_title_placeholder()}
-					class="input-bordered input"
-				/>
-			</label>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.bucket_notes_label()}</span>
-					<span class="label-text-alt text-base-content/60">{notes.length}/{MAX_NOTES_LEN}</span>
-				</div>
-				<textarea
-					bind:value={notes}
-					maxlength={MAX_NOTES_LEN}
-					rows={3}
-					placeholder={m.bucket_notes_placeholder()}
-					class="textarea-bordered textarea"
-				></textarea>
-			</label>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.bucket_target_date_label()}</span>
-				</div>
-				<input type="date" bind:value={targetDate} class="input-bordered input" />
-			</label>
-			{#if err}<p class="text-sm text-error">{err}</p>{/if}
-			<button
-				class="btn btn-block btn-primary"
-				disabled={submitting || !title.trim()}
-				onclick={add}
-			>
-				{m.bucket_add()}
-			</button>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.bucket_title_label()}</span>
+				<span class="label-text-alt text-base-content/60">{title.length}/{MAX_TITLE_LEN}</span>
+			</div>
+			<input
+				bind:value={title}
+				maxlength={MAX_TITLE_LEN}
+				placeholder={m.bucket_title_placeholder()}
+				class="input-bordered input"
+			/>
+		</label>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.bucket_notes_label()}</span>
+				<span class="label-text-alt text-base-content/60">{notes.length}/{MAX_NOTES_LEN}</span>
+			</div>
+			<textarea
+				bind:value={notes}
+				maxlength={MAX_NOTES_LEN}
+				rows={3}
+				placeholder={m.bucket_notes_placeholder()}
+				class="textarea-bordered textarea"
+			></textarea>
+		</label>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.bucket_target_date_label()}</span>
+			</div>
+			<input type="date" bind:value={targetDate} class="input-bordered input" />
+		</label>
+		{#if err}<p class="text-sm text-error">{err}</p>{/if}
+		<button class="btn btn-block btn-primary" disabled={submitting || !title.trim()} onclick={add}>
+			{m.bucket_add()}
+		</button>
 	</section>
 
 	<section class="mt-8">

@@ -1,5 +1,5 @@
 <script lang="ts">
-	// F16 — Repair flow page.
+	// Repair flow page.
 	// Three states drive the UI:
 	//   1. No active session  → "Start a repair" form.
 	//   2. status='cooldown'   → countdown + breathing prompt.
@@ -14,6 +14,12 @@
 		REPAIR_COOLDOWN_MAX_MS,
 		REPAIR_COOLDOWN_DEFAULT_MS
 	} from '$lib/repair.constants';
+	import * as m from '$lib/paraglide/messages.js';
+	import HandshakeIcon from 'phosphor-svelte/lib/HandshakeIcon';
+	import HourglassIcon from 'phosphor-svelte/lib/HourglassIcon';
+	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
+	import ClockCounterClockwiseIcon from 'phosphor-svelte/lib/ClockCounterClockwiseIcon';
+	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -47,9 +53,37 @@
 
 	function fmtCountdown(ms: number): string {
 		const total = Math.ceil(ms / 1000);
-		const m = Math.floor(total / 60);
-		const s = total % 60;
-		return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+		const min = Math.floor(total / 60);
+		const sec = total % 60;
+		return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+	}
+
+	function statusLabel(status: string): string {
+		switch (status) {
+			case 'cooldown':
+				return m.repair_status_cooldown();
+			case 'reflecting':
+				return m.repair_status_reflecting();
+			case 'completed':
+				return m.repair_status_completed();
+			case 'cancelled':
+				return m.repair_status_cancelled();
+			default:
+				return status;
+		}
+	}
+
+	function statusToneClass(status: string): string {
+		switch (status) {
+			case 'completed':
+				return 'bg-success/15 text-success';
+			case 'cancelled':
+				return 'bg-error/15 text-error';
+			case 'reflecting':
+				return 'bg-secondary/15 text-secondary';
+			default:
+				return 'bg-primary/12 text-primary';
+		}
 	}
 
 	const minMin = Math.ceil(REPAIR_COOLDOWN_MIN_MS / 60_000);
@@ -57,21 +91,24 @@
 
 	async function start(e: Event) {
 		e.preventDefault();
-		const m = Math.max(minMin, Math.min(maxMin, cooldownMinutes));
+		const mins = Math.max(minMin, Math.min(maxMin, cooldownMinutes));
 		submitting = true;
 		err = null;
 		const r = await fetch('/api/repair', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({
-				cooldownMs: m * 60_000,
+				cooldownMs: mins * 60_000,
 				initiatorNote: initiatorNote.trim() || undefined,
 				ephemeral
 			})
 		});
 		submitting = false;
 		if (!r.ok) {
-			err = r.status === 409 ? 'A session is already active.' : `Failed (${r.status}).`;
+			err =
+				r.status === 409
+					? m.repair_err_active()
+					: m.repair_err_generic({ status: String(r.status) });
 			return;
 		}
 		initiatorNote = '';
@@ -92,7 +129,7 @@
 		});
 		submitting = false;
 		if (!r.ok) {
-			err = `Failed to save note (${r.status}).`;
+			err = m.repair_err_save({ status: String(r.status) });
 			return;
 		}
 		partnerNote = '';
@@ -113,7 +150,10 @@
 		});
 		submitting = false;
 		if (!r.ok) {
-			err = r.status === 409 ? 'Cooldown not elapsed yet.' : `Failed (${r.status}).`;
+			err =
+				r.status === 409
+					? m.repair_err_cooldown()
+					: m.repair_err_generic({ status: String(r.status) });
 			return;
 		}
 		commitmentNote = '';
@@ -122,13 +162,13 @@
 
 	async function cancel() {
 		if (!active) return;
-		if (!confirm('Cancel this repair session?')) return;
+		if (!confirm(m.repair_cancel_confirm())) return;
 		submitting = true;
 		err = null;
 		const r = await fetch(`/api/repair/${active.id}/cancel`, { method: 'POST' });
 		submitting = false;
 		if (!r.ok) {
-			err = `Failed to cancel (${r.status}).`;
+			err = m.repair_err_cancel({ status: String(r.status) });
 			return;
 		}
 		await invalidateAll();
@@ -136,122 +176,193 @@
 </script>
 
 <svelte:head>
-	<title>Repair · DuoSync</title>
+	<title>{m.repair_title_tag()}</title>
 </svelte:head>
 
-<main class="repair">
-	<header>
-		<h1>Repair</h1>
-		<p class="lead">A small ritual for after a fight. Take a breath, then come back together.</p>
+<main class="mx-auto min-h-screen max-w-md space-y-5 px-4 py-8 pb-24">
+	<header class="space-y-1">
+		<p class="text-xs tracking-wider text-base-content/60 uppercase">{m.repair_section_label()}</p>
+		<h1 class="text-display text-3xl font-semibold tracking-wide">{m.repair_title()}</h1>
+		<p class="text-sm leading-relaxed text-base-content/70">{m.repair_subtitle()}</p>
 	</header>
 
 	{#if err}
-		<div class="alert" role="alert">{err}</div>
+		<div
+			class="rounded-[var(--radius-field)] border border-error/30 bg-error/10 px-3 py-2.5 text-sm text-error"
+			role="alert"
+		>
+			{err}
+		</div>
 	{/if}
 
 	{#if !active}
-		<section class="card">
-			<h2>Start a repair</h2>
-			<form onsubmit={start}>
-				<label>
-					Cool-off length
+		<section
+			class="space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
+		>
+			<SectionHeader icon={HandshakeIcon} title={m.repair_start_heading()} />
+			<form onsubmit={start} class="space-y-4">
+				<label class="block space-y-1.5">
+					<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase">
+						{m.repair_cooldown_label()}
+					</span>
 					<input
 						type="number"
 						min={minMin}
 						max={maxMin}
 						bind:value={cooldownMinutes}
 						aria-describedby="cooldown-hint"
+						class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
 					/>
-					<span id="cooldown-hint" class="hint">minutes (between {minMin} and {maxMin})</span>
+					<span id="cooldown-hint" class="block text-xs text-base-content/55">
+						{m.repair_cooldown_hint({ min: String(minMin), max: String(maxMin) })}
+					</span>
 				</label>
 
-				<label>
-					Note to your partner (optional, private until they open the page)
+				<label class="block space-y-1.5">
+					<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase">
+						{m.repair_initiator_note_label()}
+					</span>
 					<textarea
 						bind:value={initiatorNote}
 						maxlength={REPAIR_NOTE_MAX_LEN}
-						rows="3"
-						placeholder="What's on your mind?"
+						rows={3}
+						placeholder={m.repair_initiator_note_placeholder()}
+						class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
 					></textarea>
 				</label>
 
-				<label class="row">
-					<input type="checkbox" bind:checked={ephemeral} />
-					Forget this session after we close it
+				<label class="flex items-center gap-2 text-sm">
+					<input type="checkbox" bind:checked={ephemeral} class="checkbox checkbox-sm" />
+					<span>{m.repair_ephemeral_label()}</span>
 				</label>
 
-				<button type="submit" disabled={submitting}>
-					{submitting ? 'Starting…' : 'Start repair'}
+				<button
+					type="submit"
+					disabled={submitting}
+					class="w-full rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase transition-opacity disabled:opacity-50"
+				>
+					{submitting ? m.repair_starting() : m.repair_start_btn()}
 				</button>
 			</form>
 		</section>
 	{:else}
-		<section class="session card">
-			<header class="session-head">
-				<span class="status status-{active.status}">{active.status}</span>
-				<small>started {new Date(active.startedAt).toLocaleString()}</small>
+		<section
+			class="space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
+		>
+			<header class="flex items-center justify-between gap-3">
+				<span
+					class="rounded-full px-2.5 py-1 text-[0.65rem] font-semibold tracking-wider uppercase {statusToneClass(
+						active.status
+					)}"
+				>
+					{statusLabel(active.status)}
+				</span>
+				<small class="text-xs text-base-content/55">
+					{m.repair_started_at({ time: new Date(active.startedAt).toLocaleString() })}
+				</small>
 			</header>
 
 			{#if cooldownActive}
-				<div class="cooldown" aria-live="polite">
-					<div class="countdown">{fmtCountdown(cooldownRemainingMs)}</div>
-					<p>Breathe slowly. The reflection prompts unlock when the timer ends.</p>
+				<div
+					class="space-y-2 rounded-[var(--radius-field)] bg-base-100/70 py-6 text-center"
+					aria-live="polite"
+				>
+					<HourglassIcon size={28} weight="duotone" class="mx-auto text-primary" />
+					<div
+						class="font-display text-5xl font-bold tracking-wider text-primary"
+						style="font-variant-numeric: tabular-nums;"
+					>
+						{fmtCountdown(cooldownRemainingMs)}
+					</div>
+					<p class="px-4 text-sm text-base-content/70">{m.repair_cooldown_message()}</p>
 				</div>
 			{:else}
-				<p class="ready">Cool-off complete. Take a moment together.</p>
+				<p class="flex items-center gap-2 text-sm font-medium text-primary">
+					<HeartIcon size={16} weight="duotone" />
+					{m.repair_cooldown_complete()}
+				</p>
 			{/if}
 
 			{#if active.initiatorNote}
-				<div class="note-box">
-					<h3>{isInitiator ? 'Your opening note' : 'Their opening note'}</h3>
-					<p>{active.initiatorNote}</p>
+				<div class="space-y-1.5 rounded-[var(--radius-field)] bg-base-100/70 p-4">
+					<p class="text-xs font-semibold tracking-wider text-base-content/60 uppercase">
+						{isInitiator ? m.repair_initiator_note_yours() : m.repair_initiator_note_theirs()}
+					</p>
+					<p class="text-sm whitespace-pre-wrap">{active.initiatorNote}</p>
 				</div>
 			{/if}
 
 			{#if !isInitiator}
-				<form onsubmit={join}>
-					<label>
-						Your reflection
+				<form onsubmit={join} class="space-y-3">
+					<label class="block space-y-1.5">
+						<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase">
+							{m.repair_partner_reflection_label()}
+						</span>
 						<textarea
 							bind:value={partnerNote}
 							maxlength={REPAIR_NOTE_MAX_LEN}
-							rows="3"
-							placeholder={active.partnerNote ?? 'What did you hear? What do you need?'}
+							rows={3}
+							placeholder={active.partnerNote ?? m.repair_partner_reflection_placeholder()}
+							class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
 						></textarea>
 					</label>
-					<button type="submit" disabled={submitting}>
-						{active.partnerNote ? 'Update reflection' : 'Save reflection'}
+					<button
+						type="submit"
+						disabled={submitting}
+						class="w-full rounded-full border border-primary/40 bg-base-100 py-2.5 text-xs font-semibold tracking-wider text-primary uppercase transition-opacity disabled:opacity-50"
+					>
+						{active.partnerNote
+							? m.repair_partner_reflection_update()
+							: m.repair_partner_reflection_save()}
 					</button>
 				</form>
 				{#if active.partnerNote}
-					<div class="note-box">
-						<h3>Your saved reflection</h3>
-						<p>{active.partnerNote}</p>
+					<div class="space-y-1.5 rounded-[var(--radius-field)] bg-base-100/70 p-4">
+						<p class="text-xs font-semibold tracking-wider text-base-content/60 uppercase">
+							{m.repair_partner_reflection_yours()}
+						</p>
+						<p class="text-sm whitespace-pre-wrap">{active.partnerNote}</p>
 					</div>
 				{/if}
 			{:else if active.partnerNote}
-				<div class="note-box">
-					<h3>Their reflection</h3>
-					<p>{active.partnerNote}</p>
+				<div class="space-y-1.5 rounded-[var(--radius-field)] bg-base-100/70 p-4">
+					<p class="text-xs font-semibold tracking-wider text-base-content/60 uppercase">
+						{m.repair_partner_reflection_theirs()}
+					</p>
+					<p class="text-sm whitespace-pre-wrap">{active.partnerNote}</p>
 				</div>
 			{/if}
 
-			<form onsubmit={complete}>
-				<label>
-					Joint commitment (optional)
+			<form onsubmit={complete} class="space-y-3 border-t border-base-content/5 pt-4">
+				<label class="block space-y-1.5">
+					<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase">
+						{m.repair_commitment_label()}
+					</span>
 					<textarea
 						bind:value={commitmentNote}
 						maxlength={REPAIR_NOTE_MAX_LEN}
-						rows="2"
-						placeholder="One thing we agreed on…"
+						rows={2}
+						placeholder={m.repair_commitment_placeholder()}
+						class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
 					></textarea>
 				</label>
-				<div class="actions">
-					<button type="submit" disabled={submitting || !canComplete}>
-						{canComplete ? 'Mark complete' : `Available in ${fmtCountdown(cooldownRemainingMs)}`}
+				<div class="flex flex-col gap-2 sm:flex-row">
+					<button
+						type="submit"
+						disabled={submitting || !canComplete}
+						class="flex-1 rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase transition-opacity disabled:opacity-50"
+					>
+						{canComplete
+							? m.repair_complete_btn()
+							: m.repair_complete_locked({ countdown: fmtCountdown(cooldownRemainingMs) })}
 					</button>
-					<button type="button" class="ghost" onclick={cancel} disabled={submitting}>
-						Cancel session
+					<button
+						type="button"
+						onclick={cancel}
+						disabled={submitting}
+						class="rounded-full border border-base-content/15 bg-base-100 px-5 py-2.5 text-xs font-semibold tracking-wider text-base-content/70 uppercase transition-opacity disabled:opacity-50"
+					>
+						{m.repair_cancel_btn()}
 					</button>
 				</div>
 			</form>
@@ -259,15 +370,31 @@
 	{/if}
 
 	{#if data.history.length > 0}
-		<section class="card">
-			<h2>Past sessions</h2>
-			<ul class="history">
+		<section
+			class="space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
+		>
+			<SectionHeader
+				icon={ClockCounterClockwiseIcon}
+				title={m.repair_history_heading()}
+				tone="muted"
+			/>
+			<ul class="space-y-3">
 				{#each data.history as h (h.id)}
-					<li>
-						<span class="status status-{h.status}">{h.status}</span>
-						<time>{new Date(h.startedAt).toLocaleDateString()}</time>
+					<li class="space-y-1.5 rounded-[var(--radius-field)] bg-base-100/70 p-3">
+						<div class="flex items-center justify-between gap-2">
+							<span
+								class="rounded-full px-2 py-0.5 text-[0.65rem] font-semibold tracking-wider uppercase {statusToneClass(
+									h.status
+								)}"
+							>
+								{statusLabel(h.status)}
+							</span>
+							<time class="text-xs text-base-content/55">
+								{new Date(h.startedAt).toLocaleDateString()}
+							</time>
+						</div>
 						{#if h.commitmentNote}
-							<p class="commitment">“{h.commitmentNote}”</p>
+							<p class="text-sm text-base-content/70 italic">“{h.commitmentNote}”</p>
 						{/if}
 					</li>
 				{/each}
@@ -275,166 +402,3 @@
 		</section>
 	{/if}
 </main>
-
-<style>
-	.repair {
-		max-width: 640px;
-		margin: 0 auto;
-		padding: 1rem;
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-	.lead {
-		color: var(--muted, #6b7280);
-		margin: 0.25rem 0 0;
-	}
-	.card {
-		background: var(--surface, #fff);
-		border: 1px solid var(--border, #e5e7eb);
-		border-radius: 0.75rem;
-		padding: 1rem 1.25rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-	.card h2 {
-		margin: 0;
-		font-size: 1.1rem;
-	}
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		font-size: 0.9rem;
-	}
-	label.row {
-		flex-direction: row;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	input[type='number'],
-	textarea {
-		font: inherit;
-		padding: 0.5rem;
-		border: 1px solid var(--border, #d1d5db);
-		border-radius: 0.5rem;
-		background: var(--input-bg, #fff);
-		color: inherit;
-	}
-	.hint {
-		font-size: 0.8rem;
-		color: var(--muted, #6b7280);
-	}
-	button {
-		padding: 0.65rem 1rem;
-		font: inherit;
-		font-weight: 600;
-		border: none;
-		border-radius: 0.5rem;
-		background: var(--accent, #4f46e5);
-		color: #fff;
-		cursor: pointer;
-	}
-	button:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-	button.ghost {
-		background: transparent;
-		color: var(--accent, #4f46e5);
-		border: 1px solid currentColor;
-	}
-	.actions {
-		display: flex;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-	}
-	.session-head {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-	.status {
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		font-weight: 600;
-		padding: 0.15rem 0.5rem;
-		border-radius: 999px;
-		background: var(--chip-bg, #eef2ff);
-		color: var(--chip-fg, #4338ca);
-	}
-	.status-completed {
-		background: #d1fae5;
-		color: #065f46;
-	}
-	.status-cancelled {
-		background: #fee2e2;
-		color: #991b1b;
-	}
-	.cooldown {
-		text-align: center;
-		padding: 1rem 0;
-	}
-	.countdown {
-		font-size: 3rem;
-		font-variant-numeric: tabular-nums;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-	}
-	.ready {
-		font-weight: 600;
-		color: var(--accent, #4f46e5);
-	}
-	.note-box {
-		background: var(--note-bg, #f9fafb);
-		border-radius: 0.5rem;
-		padding: 0.75rem;
-	}
-	.note-box h3 {
-		margin: 0 0 0.25rem;
-		font-size: 0.85rem;
-		text-transform: uppercase;
-		color: var(--muted, #6b7280);
-	}
-	.note-box p {
-		margin: 0;
-		white-space: pre-wrap;
-	}
-	.history {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-	.history li {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		grid-template-rows: auto auto;
-		gap: 0.25rem 0.5rem;
-		align-items: center;
-	}
-	.history time {
-		font-size: 0.85rem;
-		color: var(--muted, #6b7280);
-	}
-	.commitment {
-		grid-column: 1 / -1;
-		margin: 0;
-		font-style: italic;
-		color: var(--muted, #4b5563);
-	}
-	.alert {
-		padding: 0.75rem;
-		background: #fee2e2;
-		color: #991b1b;
-		border-radius: 0.5rem;
-	}
-</style>

@@ -32,7 +32,7 @@
 
 <header class="flex items-center gap-2 {className}">
 	{#if icon}
-		<Icon icon={icon} size={18} weight="duotone" class={iconColor} />
+		<Icon {icon} size={18} weight="duotone" class={iconColor} />
 	{/if}
 	<h2 class="text-sm font-semibold tracking-wider uppercase">{title}</h2>
 </header>

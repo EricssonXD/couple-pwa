@@ -43,8 +43,6 @@
 	);
 </script>
 
-<section
-	class="rounded-[var(--radius-card)] border {toneClass} {padClass} {className}"
->
+<section class="rounded-[var(--radius-card)] border {toneClass} {padClass} {className}">
 	{@render children()}
 </section>

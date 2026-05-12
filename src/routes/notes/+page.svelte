@@ -87,33 +87,33 @@
 	<section
 		class="space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
 	>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.notes_body_label()}</span>
-					<span class="label-text-alt text-base-content/60">{body.length}/{MAX_BODY_LEN}</span>
-				</div>
-				<textarea
-					bind:value={body}
-					maxlength={MAX_BODY_LEN}
-					rows={5}
-					placeholder={m.notes_body_placeholder()}
-					class="textarea-bordered textarea"
-				></textarea>
-			</label>
-			<label class="form-control">
-				<div class="label">
-					<span class="label-text">{m.notes_deliver_at_label()}</span>
-				</div>
-				<input type="datetime-local" bind:value={deliverAtLocal} class="input-bordered input" />
-			</label>
-			{#if err}<p class="text-sm text-error">{err}</p>{/if}
-			<button
-				class="btn btn-block btn-primary"
-				disabled={submitting || !body.trim()}
-				onclick={submit}
-			>
-				{submitting ? m.notes_saving() : m.notes_save()}
-			</button>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.notes_body_label()}</span>
+				<span class="label-text-alt text-base-content/60">{body.length}/{MAX_BODY_LEN}</span>
+			</div>
+			<textarea
+				bind:value={body}
+				maxlength={MAX_BODY_LEN}
+				rows={5}
+				placeholder={m.notes_body_placeholder()}
+				class="textarea-bordered textarea"
+			></textarea>
+		</label>
+		<label class="form-control">
+			<div class="label">
+				<span class="label-text">{m.notes_deliver_at_label()}</span>
+			</div>
+			<input type="datetime-local" bind:value={deliverAtLocal} class="input-bordered input" />
+		</label>
+		{#if err}<p class="text-sm text-error">{err}</p>{/if}
+		<button
+			class="btn btn-block btn-primary"
+			disabled={submitting || !body.trim()}
+			onclick={submit}
+		>
+			{submitting ? m.notes_saving() : m.notes_save()}
+		</button>
 	</section>
 
 	<section class="mt-8">
