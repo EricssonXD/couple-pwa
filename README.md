@@ -1,74 +1,111 @@
-## 1. App Overview: "DuoSync"
+# DuoSync — 雙心同步
 
-**DuoSync** is a private, real-time digital sanctuary for two. It prioritizes "passive presence"—knowing where your partner is and how they are doing without needing to send a "Where are you?" text.
+> A private PWA for two. **Passive presence**, not "where are you?". Live distance, mood, geo-moments, and milestones — all encrypted at the database, scoped per couple by Postgres Row-Level Security, and delivered to a home-screen-installed PWA on iOS and Android.
 
-### Core Features
-
-- **The Shared Pulse:** A main dashboard showing the partner's live distance, battery level, and current "mood" emoji.
-- **Whisper Chat:** A real-time, lightweight messaging system with "read" receipts and typing indicators.
-- **Geo-Moments:** Leave digital notes at specific coordinates (using PostGIS) that only unlock when the partner is within a certain radius.
-- **Proximity Alerts:** Automatic push notifications when a partner arrives at "Home" or "Work."
-
-### Technical Strategy
-
-- **Framework:** SvelteKit (SSG/SSR hybrid) deployed on **Cloudflare Pages**.
-- **Database:** **Supabase** with **PostGIS** enabled for spherical geography calculations.
-- **Real-time:** Supabase Realtime (WebSockets) for chat and location pings.
-- **Notifications:** Firebase Cloud Messaging (FCM) for the Web Push protocol.
-- **Reactivity:** Svelte 5 Runes for ultra-efficient state updates.
+Live: <https://cozy.ericssoncodes.com>
 
 ---
 
-## 2. Structural Plan for the AI Agent
+## What it does today
 
-### Phase 1: The Foundation & Auth
+| Surface            | What the user sees                                                                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/welcome`         | Marketing hero + install CTA. Anonymous-only — signed-in users redirect pre-paint via `static/route-stub.js`.                                                    |
+| `/auth/sign-in`    | Email + password (Google OAuth deferred). Cached offline so a captive-portal cold-launch still gets a useful screen.                                             |
+| `/onboarding/link` | First-run flow + 6-char couple-link code.                                                                                                                        |
+| `/pulse`           | Anniversary ribbon (taps through to /timeline) → connection streak → live distance bubble → partner avatar (presence + battery) → mood weather → heartbeat zone. |
+| `/map`             | Shared Leaflet map with two pulsing pins + distance curve + Home/Work pins. Per-route dark theme.                                                                |
+| `/moments`         | Vertical timeline of geo-moments. Cards stay locked + blurred until the partner is within radius.                                                                |
+| `/moments/new`     | Composer with mini-map + draggable pin + radius slider + optional photo + expiry.                                                                                |
+| `/daily`           | Daily question prompt — both partners answer privately, both reveal once both submit.                                                                            |
+| `/timeline`        | Full milestone history (100d, 1y, 2y…) + countdowns to upcoming ones.                                                                                            |
+| `/settings`        | Profile, ghost-mode + duration, notifications, language (en / zh-Hant), theme, couple nickname + anniversary, partner-view audit log, account deletion.          |
 
-- Set up Supabase Auth.
-- Implement the "Partner Link" logic (User A generates a unique code; User B joins).
-- Create the `profiles` and `couples` database schema.
+## Stack
 
-### Phase 2: The Location Engine
+- **SvelteKit 5** (runes) + **TypeScript** + **mdsvex**.
+- **adapter-cloudflare** → Cloudflare Workers SSR with `nodejs_compat` + `nodejs_als` flags.
+- **Supabase**: Auth (`@supabase/ssr`), Postgres + PostGIS, Realtime (broadcast + presence + private channels), Storage (planned).
+- **Drizzle ORM** via `postgres-js` over Supavisor pooler. Drizzle bypasses RLS as the privileged backend; client-side `supabase-js` rides RLS for any direct reads.
+- **Tailwind v4** + **DaisyUI** themes (`duosync-light`, `duosync-dark`) + **bits-ui** primitives + **phosphor-svelte** icons. Inter + Fraunces type ramp.
+- **Paraglide** for i18n (`messages/en.json`, `messages/zh-hant.json`).
+- **Web Push (VAPID)** for notifications (iOS 16.4+ standalone PWA only).
+- **PWA shell**: hand-written service worker with stale-while-revalidate HTML, shell + image LRU caches, offline fallback, user-gated update flow (no surprise reloads).
+- **IndexedDB-backed offline write queue** (`src/lib/client/offline-queue.svelte.ts`) for location pings + moments — survives subway/airport gaps with idempotency keys + dead-letter UI.
 
-- Implement the Web Geolocation API service.
-- Set up a Supabase RPC function to calculate the distance between two `geography(point)` coordinates.
-- Create a reactive "Distance Bubble" that updates as coordinates change.
+## Architecture invariants
 
-### Phase 3: Messaging & Notifications
+These are the non-negotiables. Most have unit tests guarding them.
 
-- Build the chat UI with optimistic updates.
-- Integrate the Service Worker for Web Push.
-- Set up a Supabase Edge Function to trigger an FCM notification when a new message row is inserted.
+1. **No secret in the client bundle.** Sensitive reads use `supabase-js` with the anon key + an RLS-scoped JWT, never the service role.
+2. **Drizzle is server-only** (`src/lib/server/**`). Mutations validate `locals.user` + `locals.couple` before any DB write.
+3. **Realtime is private + server-authoritative.** Server REST broadcasts `location_update` / `ghost_change` on the couple topic; clients can subscribe + presence-track but cannot INSERT broadcast. `heartbeat_tap` goes through `POST /api/realtime/tap`. RLS on `realtime.messages` blocks outsiders at the WS edge.
+4. **Pre-paint routing.** `static/route-stub.js` runs synchronously in `<head>` and `location.replace()`s signed-in users away from `/` and `/welcome` based on a client-readable `ds_auth` cookie (no secrets) — eliminates the welcome-flash regardless of cache state.
+5. **Service worker never auto-reloads.** `skipWaiting()` + `clients.claim()` only fire on a user-gesture `SKIP_WAITING` message; banner reload is gated on `controllerchange` to survive iOS/Android home-screen installs.
+6. **/auth/sign-in is offline-cached**, every other `/auth/*` route is private + never cached.
 
----
+See `docs/rls-model.md` for the full trust-boundary diagram.
 
-## 3. The "Master Prompt" for your AI Agent
+## Local development
 
-Copy and paste this into your AI agent (Cursor, Windsurf, or GPT-4o) to start the detailed planning phase.
-
-```markdown
-# Role: Senior Full-Stack Engineer & Svelte Expert
-
-# Project: DuoSync - A Private Couple's Web App (PWA)
-
-## Context
-
-I am a Flutter developer moving to SvelteKit for this project. We are building a high-performance, mobile-first PWA for couples. The app uses SvelteKit 5, TailwindCSS, and Supabase. We must stay within the Free Tiers of Cloudflare, Supabase, and Firebase.
-
-## Architectural Requirements
-
-1. Use Svelte 5 Runes ($state, $derived, $effect) for all state management.
-2. Use the Adapter Pattern for services (e.g., GeolocationService, NotificationService) to keep the UI logic decoupled from specific web APIs.
-3. Database: Supabase PostgreSQL with PostGIS extension. Locations should be stored as 'geography(point, 4326)'.
-4. Messaging: Real-time subscriptions via Supabase Realtime.
-5. Deployment: Optimized for Cloudflare Pages (adapter-auto or adapter-cloudflare).
-
-## Task: Detailed Planning & Setup
-
-Please provide a detailed technical specification and a step-by-step implementation roadmap for the following:
-
-1. **Database Schema:** Define the SQL for 'profiles' (linked to auth.users), 'couples' (linking two profiles), and 'locations' (storing history and current coordinates).
-2. **State Management:** Design a global `$state` object for the 'Couple Session' that tracks the current user, the partner, and their real-time connection status.
-3. **PWA Strategy:** Outline the Service Worker configuration for background push notifications and asset caching.
-4. **Location Logic:** Draft a Supabase RPC function `get_partner_distance(user_id)` that returns the distance in meters using PostGIS.
-5. **Initial File Structure:** Propose a SvelteKit directory structure that separates 'Lib/Services' from 'Routes'.
+```bash
+bun install
+cp .env.example .env   # fill in PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, etc.
+bun run db:push        # push Drizzle schema to local/dev Supabase
+bun run dev            # http://localhost:5173
 ```
+
+### Validation gates
+
+```bash
+bun run check                                                  # svelte-check + paraglide sync
+bun run lint                                                   # prettier + eslint
+bun run test:unit -- --run --project client --project server   # 80+ tests, ~70s
+bun run test:e2e                                               # playwright (excludes prod-smoke)
+bun run build                                                  # cloudflare worker bundle
+bun run size                                                   # per-route + total bundle budgets
+```
+
+### Deploy
+
+```bash
+bash scripts/deploy.sh           # runs gates then wrangler deploy
+bash scripts/deploy.sh --skip-checks   # fast path when gates already green
+```
+
+## Project layout
+
+```
+src/
+  routes/                 # SvelteKit routes (one folder per page)
+  lib/
+    components/
+      ui/                 # bits-ui primitive wrappers
+      duosync/            # domain components (DistanceBubble, AnniversaryRibbon, …)
+    client/               # browser-only utilities (geolocation, realtime, offline queue, …)
+    server/
+      auth.ts             # Supabase server client factory
+      db/                 # Drizzle client + schema
+      services/           # business logic (location, daily, connection, audit, …)
+    paraglide/            # GENERATED — never hand-edit; run `bun run check` to regen
+    pwa/                  # SW registration + update banner client glue
+  service-worker.ts       # hand-written SW (do NOT replace with workbox)
+static/
+  route-stub.js           # pre-paint redirect for / and /welcome
+docs/                     # architecture + design notes
+drizzle/                  # generated migrations + manual RLS SQL
+e2e/                      # Playwright specs
+messages/                 # Paraglide source locales
+```
+
+## Status
+
+- **M0–M6**: backend + RLS + private realtime — done.
+- **P-series**: PWA shell hardening — done.
+- **U-series**: design-system rebuild + 8 routes — done.
+- **A / H / N / R / G series** (post-MVP hardening, push, growth, reliability): all but `G3 photo-moments` (blocked on Storage bucket) shipped — see `plan.md` for the chronicle and `docs/next-phases.md` for the original spec.
+- **Phase 2 (F-series)** features: F1 anniversary timeline, F2 daily prompts, F4 connection streak — shipped. Remaining tier-1+2 items tracked in `plan.md`.
+
+## License
+
+Private. © EricssonXD.
