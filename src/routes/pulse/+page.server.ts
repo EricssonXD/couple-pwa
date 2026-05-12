@@ -6,6 +6,7 @@ import { profile } from '$lib/server/db/schema';
 import { bucketFor, getPulseState, isGhostActive } from '$lib/server/services/location';
 import { resurfaceMemory } from '$lib/server/services/memory';
 import { getStreak } from '$lib/server/services/connection';
+import { getLatestMoodForCouple } from '$lib/server/services/mood';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/auth/sign-in');
@@ -27,6 +28,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const state = await getPulseState(locals.user.id, locals.couple.id);
 	const memory = await resurfaceMemory(locals.couple.id);
 	const streak = await getStreak(locals.couple.id);
+	const moods = await getLatestMoodForCouple(locals.couple.id);
 
 	return {
 		me: {
@@ -52,6 +54,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			bucket: bucketFor(state.distanceM)
 		},
 		memory,
-		streak
+		streak,
+		myMood: moods[locals.user.id] ?? null,
+		partnerMood: moods[partnerId] ?? null
 	};
 };

@@ -42,17 +42,17 @@ This is the **canonical flow** — protect it. Tests in `e2e/sw-offline.test.ts`
 
 ## Done (phase summary)
 
-| Phase      | Scope                                                                                                | Notes                                 |
-| ---------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| M0–M6      | Backend rewrite to Supabase + RLS + private Realtime                                                 | docs/history.md §0–10                 |
-| P1–P9      | PWA shell hardening (SW, manifest, install, offline, update flow)                                    | docs/history.md §0–10                 |
-| U1–U9      | Design-system rebuild (DaisyUI two-theme, motion, eight rebuilt routes, i18n parity)                 | docs/history.md §11                   |
-| A1–A4      | i18n / a11y / test-flake / `ds_auth` cookie audits                                                   | shipped                               |
-| H1–H5      | Sentry stub, security headers, rate limiting, account deletion, anti-coercion safeguards + audit log | shipped                               |
-| N1–N4      | VAPID plumbing, trigger surface, delivery worker, iOS standalone UX                                  | shipped (real VAPID keys = ops setup) |
-| R1–R4      | Offline write queue + idempotency, presence resilience, shell precache, moment conflict resolution   | shipped                               |
-| G1, G2, G4 | Couple-link UX, onboarding walkthrough, settings parity                                              | shipped                               |
-| F1, F2, F4 | Anniversary timeline (`/timeline`), daily prompts (`/daily`), connection streak                      | shipped                               |
+| Phase          | Scope                                                                                                | Notes                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| M0–M6          | Backend rewrite to Supabase + RLS + private Realtime                                                 | docs/history.md §0–10                 |
+| P1–P9          | PWA shell hardening (SW, manifest, install, offline, update flow)                                    | docs/history.md §0–10                 |
+| U1–U9          | Design-system rebuild (DaisyUI two-theme, motion, eight rebuilt routes, i18n parity)                 | docs/history.md §11                   |
+| A1–A4          | i18n / a11y / test-flake / `ds_auth` cookie audits                                                   | shipped                               |
+| H1–H5          | Sentry stub, security headers, rate limiting, account deletion, anti-coercion safeguards + audit log | shipped                               |
+| N1–N4          | VAPID plumbing, trigger surface, delivery worker, iOS standalone UX                                  | shipped (real VAPID keys = ops setup) |
+| R1–R4          | Offline write queue + idempotency, presence resilience, shell precache, moment conflict resolution   | shipped                               |
+| G1, G2, G4     | Couple-link UX, onboarding walkthrough, settings parity                                              | shipped                               |
+| F1, F2, F4, F5 | Anniversary timeline (`/timeline`), daily prompts (`/daily`), connection streak, mood pulse          | shipped                               |
 
 **Blocked**: `G3 photo support in moments` — needs Supabase Storage bucket creation + CORS config (ops, not code).
 
@@ -66,7 +66,8 @@ Researched against Couple/Between, Paired, Lasting, Love Nudge, Honi. DuoSync's 
 - ✅ **F2 Daily prompts** — JSON-bundled question pack, both partners answer, both reveal once both submit. Push reminder pending real VAPID config.
 - ⏳ **F3 Love-note time capsule** — `scheduled_notes(id, couple_id, author, body, deliver_at, delivered_at)`; Cloudflare Workers Cron Trigger every 15 min. _First cron-worker pattern._
 - ✅ **F4 Streaks + badges** — derived "connection streak" from any heartbeat OR moment OR prompt-answer per day; 1-day grace; shown on `/pulse` + `/settings`.
-- ⏳ **F5 Mood pulse** — extend HeartbeatZone with 5-emoji mood picker; latest mood under partner dot on `/pulse`; trend chart on `/settings/profile`.
+- ✅ **F5 Mood pulse** — 5-emoji picker on `/pulse` (`MoodPicker`); partner's latest mood renders as a badge under their avatar; live updates via realtime `mood_change` event. RLS keeps mood history private to the owner — only the latest per partner is fetched server-side for display. Picker disables when offline.
+- ⏳ **F5b Mood trend on /settings** — last-14-days emoji strip on `/settings/profile`. Service surface (`getMoodTrend`) and i18n keys already shipped in F5; just needs the UI hook.
 
 ### Tier 2 — Mid-effort, distinctive
 
@@ -88,8 +89,8 @@ F11 widgets, F12 therapy modules, F13 shared playlists, F14 cycle sharing, F15 v
 
 ## Suggested sequencing (next up)
 
-1. **F5 mood pulse** — extends the heartbeat primitive users already touch; one new column, one picker, one trend chart.
-2. **F10 throwbacks** — pure read on `geo_moment`; ride on existing query infrastructure.
+1. **F10 throwbacks** — pure read on `geo_moment`; ride on existing query infrastructure.
+2. **F5b mood trend** — wire the existing `getMoodTrend` service into a 14-day strip on `/settings/profile`. Tiny surface, finishes the F5 brief.
 3. **F3 time capsule** — first **Cloudflare Workers Cron** worker; sets up the cron pattern reused by F8 reminders.
 4. **F6 bucket list** — first new full-CRUD route post-MVP; battle-test the pattern.
 5. **F8 calendar** — biggest UI surface; do after CRUD primitives are proven.

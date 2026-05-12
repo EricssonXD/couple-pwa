@@ -10,7 +10,7 @@
 // True DDoS protection lives at the Cloudflare WAF layer (configured in
 // the dashboard, not in code). Document that in commits/runbooks.
 
-export type RateLimitBucket = 'moments-write' | 'profile-write';
+export type RateLimitBucket = 'moments-write' | 'profile-write' | 'mood-write';
 
 export interface RateLimitConfig {
 	/** Max tokens in the bucket (== max burst). */
@@ -21,7 +21,8 @@ export interface RateLimitConfig {
 
 const CONFIGS: Record<RateLimitBucket, RateLimitConfig> = {
 	'moments-write': { capacity: 30, refillPerSec: 30 / 60 }, // 30/min sustained, burst 30
-	'profile-write': { capacity: 20, refillPerSec: 20 / 60 } // 20/min sustained, burst 20
+	'profile-write': { capacity: 20, refillPerSec: 20 / 60 }, // 20/min sustained, burst 20
+	'mood-write': { capacity: 10, refillPerSec: 10 / 60 } // 10/min sustained, burst 10
 };
 
 interface BucketState {

@@ -50,6 +50,7 @@ export type RealtimeStatus = 'idle' | 'connecting' | 'open' | 'reconnecting' | '
 
 export type LocationUpdate = Extract<ServerEvent, { t: 'location_update' }>['p'];
 export type GhostChange = Extract<ServerEvent, { t: 'ghost_change' }>['p'];
+export type MoodChange = Extract<ServerEvent, { t: 'mood_change' }>['p'];
 
 export interface RealtimeClientArgs {
 	coupleId: string;
@@ -71,6 +72,7 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 	let lastLocation = $state<LocationUpdate | null>(null);
 	let lastGhost = $state<GhostChange | null>(null);
 	let lastTap = $state<number | null>(null);
+	let lastMood = $state<MoodChange | null>(null);
 	let lastMomentEvent = $state<{
 		t: 'dropped' | 'unlocked' | 'deleted' | 'updated';
 		id: string;
@@ -151,6 +153,9 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				return;
 			case 'moment_updated':
 				lastMomentEvent = { t: 'updated', id: ev.p.id, ts: ev.ts };
+				return;
+			case 'mood_change':
+				lastMood = ev.p;
 				return;
 		}
 	}
@@ -346,6 +351,9 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		},
 		get lastTap() {
 			return lastTap;
+		},
+		get lastMood() {
+			return lastMood;
 		},
 		get lastMomentEvent() {
 			return lastMomentEvent;

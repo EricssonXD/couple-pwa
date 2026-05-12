@@ -72,6 +72,17 @@ export type ServerEvent =
 			t: 'moment_updated';
 			ts: number;
 			p: { id: string; updatedAt: string; updatedBy: string };
+	  }
+	| {
+			// F5: partner-mood badge live update. `setAt` is server-truth
+			// for ordering / "stale mood" detection on the receiver.
+			t: 'mood_change';
+			ts: number;
+			p: {
+				userId: string;
+				mood: 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset';
+				setAt: string;
+			};
 	  };
 
 // ─── Client-originated events ────────────────────────────────────────────

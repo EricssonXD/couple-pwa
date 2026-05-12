@@ -346,3 +346,30 @@ export const auditLog = pgTable(
 	},
 	(t) => [index('audit_log_user_idx').on(t.userId, t.createdAt)]
 );
+
+// F5 mood pulse — append-only mood log. See 0012_mood_pulse.sql for the
+// RLS rationale: the partner cannot read the other partner's mood history
+// via supabase-js (anti-coercion). Latest-per-couple is delivered to the
+// client through SSR page data, which uses Drizzle (RLS-bypassing).
+//
+// `mood` enum: 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset'.
+// The 5 buckets map 1:1 to emoji 😄😊😐😔😢 in the UI.
+export const moodPulse = pgTable(
+	'mood_pulse',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		mood: text('mood').notNull(),
+		setAt: timestamp('set_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(t) => [
+		check('mood_pulse_mood_chk', sql`${t.mood} in ('joyful','happy','neutral','sad','upset')`),
+		index('mood_pulse_couple_user_idx').on(t.coupleId, t.userId, t.setAt),
+		index('mood_pulse_user_idx').on(t.userId, t.setAt)
+	]
+);

@@ -35,10 +35,27 @@
 		AnniversaryRibbon,
 		MemoryResurface,
 		HeartbeatZone,
-		StreakBadge
+		StreakBadge,
+		MoodPicker
 	} from '$lib/components/duosync';
 	import type { DistanceBucket } from '$lib/server/services/location';
+	import type { Mood, MoodSnapshot } from '$lib/server/services/mood';
 	import type { PageData } from './$types';
+
+	const MOOD_EMOJI: Record<Mood, string> = {
+		joyful: '😄',
+		happy: '😊',
+		neutral: '😐',
+		sad: '😔',
+		upset: '😢'
+	};
+	const MOOD_LABEL_KEY: Record<Mood, () => string> = {
+		joyful: m.mood_pick_joyful,
+		happy: m.mood_pick_happy,
+		neutral: m.mood_pick_neutral,
+		sad: m.mood_pick_sad,
+		upset: m.mood_pick_upset
+	};
 
 	let { data }: { data: PageData } = $props();
 
@@ -74,6 +91,8 @@
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let tickTimer: ReturnType<typeof setInterval> | null = null;
 	let tapPulse = $state(0);
+	let myMood = $state<MoodSnapshot | null>(untrack(() => data.myMood));
+	let partnerMood = $state<MoodSnapshot | null>(untrack(() => data.partnerMood));
 	// hydrated 為旗: 必先讀 IDB 再寫入, 否則第一輪 effect 會以 SSR 舊狀覆蓋緩存.
 	let hydrated = $state(false);
 
@@ -131,6 +150,13 @@
 		} catch {
 			/* unsupported */
 		}
+	});
+
+	// realtime: partner mood update
+	$effect(() => {
+		const mood = rt.lastMood;
+		if (!mood || mood.userId !== partnerId) return;
+		partnerMood = { mood: mood.mood, setAt: mood.setAt };
 	});
 
 	// 持續寫入 IDB, 供下次冷啟動秒顯
@@ -264,7 +290,7 @@
 			<p class="text-[11px] text-base-content/50">{myLastSeen || m.pulse_no_fix()}</p>
 		</article>
 		<article class="rounded-[var(--radius-card)] bg-base-200 p-4 text-center shadow-paper">
-			<div class="flex justify-center">
+			<div class="relative flex justify-center">
 				<PartnerAvatar
 					displayName={partnerName}
 					avatarEmoji={data.partner?.avatarEmoji ?? '🌱'}
@@ -273,12 +299,38 @@
 					charging={partnerCharging}
 					size={64}
 				/>
+				{#if partnerMood}
+					<span
+						class="absolute -right-1 bottom-0 flex h-7 w-7 items-center justify-center rounded-full bg-base-100 text-base shadow-paper"
+						title={m.mood_partner_feels({
+							name: partnerName,
+							mood: MOOD_LABEL_KEY[partnerMood.mood]()
+						})}
+						aria-label={m.mood_partner_feels({
+							name: partnerName,
+							mood: MOOD_LABEL_KEY[partnerMood.mood]()
+						})}
+					>
+						<span aria-hidden="true">{MOOD_EMOJI[partnerMood.mood]}</span>
+					</span>
+				{/if}
 			</div>
 			<p class="mt-2 text-xs font-semibold text-base-content">{partnerName}</p>
 			<p class="text-[11px] text-base-content/50">
 				{partnerGhost ? m.pulse_partner_hidden() : partnerLastSeen || m.pulse_no_fix()}
 			</p>
 		</article>
+	</section>
+
+	<!-- 5b. Mood picker (F5) -->
+	<section class="mt-4">
+		<MoodPicker
+			current={myMood?.mood ?? null}
+			online={net.online}
+			onChange={(mood) => {
+				myMood = { mood, setAt: new Date().toISOString() };
+			}}
+		/>
 	</section>
 
 	<!-- 6. Memory Resurface (如有) -->
