@@ -73,11 +73,14 @@
 		<p class="text-xs tracking-wider text-base-content/60 uppercase">
 			{m.bucket_settings_link()}
 		</p>
-		<h1 class="text-2xl font-semibold">{m.bucket_compose_heading()}</h1>
+		<h1 class="text-display text-3xl font-semibold tracking-wide">
+			{m.bucket_compose_heading()}
+		</h1>
 	</header>
 
-	<section class="card bg-base-200/50 shadow">
-		<div class="card-body space-y-3 p-5">
+	<section
+		class="space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
+	>
 			<label class="form-control">
 				<div class="label">
 					<span class="label-text">{m.bucket_title_label()}</span>
@@ -117,7 +120,6 @@
 			>
 				{m.bucket_add()}
 			</button>
-		</div>
 	</section>
 
 	<section class="mt-8">

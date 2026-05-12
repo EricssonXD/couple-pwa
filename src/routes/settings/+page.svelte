@@ -415,7 +415,7 @@
 				href={resolve('/chat')}
 				class="-mx-2 flex items-center justify-between rounded-[var(--radius-card)] px-2 py-2.5 text-sm hover:bg-base-100"
 			>
-				<span>Chat (7-day messages)</span>
+				<span>{m.settings_diagnostics_chat()}</span>
 				<Icon icon={CaretRightIcon} size={14} weight="bold" class="text-base-content/40" />
 			</a>
 			<a

@@ -20,12 +20,14 @@
 
 	let { title, icon, tone = 'primary', class: className = '' }: Props = $props();
 
-	const iconColor = {
-		primary: 'text-primary',
-		secondary: 'text-secondary',
-		accent: 'text-accent',
-		muted: 'text-base-content/70'
-	}[tone];
+	const iconColor = $derived(
+		{
+			primary: 'text-primary',
+			secondary: 'text-secondary',
+			accent: 'text-accent',
+			muted: 'text-base-content/70'
+		}[tone]
+	);
 </script>
 
 <header class="flex items-center gap-2 {className}">

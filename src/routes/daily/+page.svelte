@@ -46,16 +46,16 @@
 <main class="mx-auto min-h-screen max-w-md px-4 py-8">
 	<header class="mb-4">
 		<p class="text-xs tracking-wider text-base-content/60 uppercase">{m.daily_heading()}</p>
-		<h1 class="text-2xl font-semibold">{daily.dateKey}</h1>
+		<h1 class="text-display text-3xl font-semibold tracking-wide">{daily.dateKey}</h1>
 	</header>
 
-	<section class="card bg-gradient-to-br from-primary/10 to-accent/10 shadow">
-		<div class="card-body p-5">
-			<p class="text-lg leading-relaxed font-medium">{daily.question.promptEn}</p>
-			{#if daily.question.promptZh}
-				<p class="mt-1 text-base text-base-content/70">{daily.question.promptZh}</p>
-			{/if}
-		</div>
+	<section
+		class="rounded-[var(--radius-card)] border border-base-content/5 bg-gradient-to-br from-primary/10 to-accent/10 p-5 shadow-paper"
+	>
+		<p class="text-lg leading-relaxed font-medium">{daily.question.promptEn}</p>
+		{#if daily.question.promptZh}
+			<p class="mt-1 text-base text-base-content/70">{daily.question.promptZh}</p>
+		{/if}
 	</section>
 
 	{#if !mine}

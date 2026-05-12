@@ -27,17 +27,20 @@
 
 	let { tone = 'default', padding = 'md', class: className = '', children }: Props = $props();
 
-	const padClass = {
-		none: '',
-		sm: 'p-4',
-		md: 'p-5',
-		lg: 'p-6'
-	}[padding];
+	const padClass = $derived(
+		{
+			none: '',
+			sm: 'p-4',
+			md: 'p-5',
+			lg: 'p-6'
+		}[padding]
+	);
 
-	const toneClass =
+	const toneClass = $derived(
 		tone === 'danger'
 			? 'border-error/30 bg-error/5'
-			: 'border-base-content/5 bg-base-200 shadow-paper';
+			: 'border-base-content/5 bg-base-200 shadow-paper'
+	);
 </script>
 
 <section

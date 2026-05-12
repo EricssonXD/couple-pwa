@@ -79,11 +79,14 @@
 <main class="mx-auto min-h-screen max-w-md px-4 py-8 pb-24">
 	<header class="mb-6">
 		<p class="text-xs tracking-wider text-base-content/60 uppercase">{m.notes_settings_link()}</p>
-		<h1 class="text-2xl font-semibold">{m.notes_compose_heading()}</h1>
+		<h1 class="text-display text-3xl font-semibold tracking-wide">
+			{m.notes_compose_heading()}
+		</h1>
 	</header>
 
-	<section class="card bg-base-200/50 shadow">
-		<div class="card-body space-y-3 p-5">
+	<section
+		class="space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
+	>
 			<label class="form-control">
 				<div class="label">
 					<span class="label-text">{m.notes_body_label()}</span>
@@ -111,7 +114,6 @@
 			>
 				{submitting ? m.notes_saving() : m.notes_save()}
 			</button>
-		</div>
 	</section>
 
 	<section class="mt-8">
