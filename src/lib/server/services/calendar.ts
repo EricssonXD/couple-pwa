@@ -13,6 +13,7 @@ import { db } from '$lib/server/db';
 import { calendarEvents } from '$lib/server/db/app.schema';
 import { MAX_TITLE_LEN, MAX_NOTES_LEN, MAX_EVENTS_PER_COUPLE } from '$lib/calendar.constants';
 import { expandOccurrences, normalizeRrule, RruleValidationError } from './recurrence';
+import { clearPendingForEvent, populateForEvent } from './calendarReminders';
 
 export { MAX_TITLE_LEN, MAX_NOTES_LEN, MAX_EVENTS_PER_COUPLE };
 
@@ -225,7 +226,20 @@ export async function createEvent(input: {
 			rrule
 		})
 		.returning();
-	return rowToEvent(row);
+	const event = rowToEvent(row);
+	// Reminder rows are derived from startsAt/rrule. Failure here must
+	// not roll back the event itself (the cron will keep working off
+	// whatever rows we did manage to insert), so we log and move on.
+	try {
+		await populateForEvent({
+			eventId: event.id,
+			startsAt: event.startsAt,
+			rrule: event.rrule
+		});
+	} catch (err) {
+		console.error('[calendar] populateForEvent failed', { eventId: event.id, err });
+	}
+	return event;
 }
 
 export async function updateEvent(input: {
@@ -261,8 +275,31 @@ export async function updateEvent(input: {
 		.update(calendarEvents)
 		.set(patch)
 		.where(and(eq(calendarEvents.id, input.id), eq(calendarEvents.coupleId, input.coupleId)))
-		.returning({ id: calendarEvents.id });
-	return result.length > 0;
+		.returning();
+	if (result.length === 0) return false;
+
+	// Re-derive reminders only when the schedule (or recurrence) shifted.
+	// Other field edits (title, notes, allDay) leave the existing rows
+	// alone — the cron joins back to calendar_events for the title at
+	// fire time, so retitles propagate naturally.
+	const scheduleChanged = patch.startsAt !== undefined || patch.rrule !== undefined;
+	if (scheduleChanged) {
+		const updated = rowToEvent(result[0]);
+		try {
+			await clearPendingForEvent(updated.id);
+			await populateForEvent({
+				eventId: updated.id,
+				startsAt: updated.startsAt,
+				rrule: updated.rrule
+			});
+		} catch (err) {
+			console.error('[calendar] reminder re-population failed', {
+				eventId: updated.id,
+				err
+			});
+		}
+	}
+	return true;
 }
 
 export async function deleteEvent(input: { id: string; coupleId: string }): Promise<boolean> {

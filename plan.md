@@ -104,13 +104,15 @@ update banner.
 
 ### v2 of shipped features
 
-- **F8 calendar v2 — reminder cron** (recurrence + UI already shipped).
-  Add `calendar_reminders(event_id, occurrence_at, kind)` table +
+- **F8 calendar v2 — reminder cron** ✅ shipped.
+  `drizzle/manual/0018_calendar_reminders.sql` adds the
+  `calendar_reminders(event_id, occurrence_at, kind)` table +
   `app.deliver_due_calendar_reminders()` SECURITY DEFINER pg_cron
-  function (mirror of `app.deliver_due_scheduled_notes` in
-  `0014_scheduled_notes_cron.sql`). Wire population into create/
-  update/delete; horizon = 30 days. Push 24h + 1h before each
-  occurrence via the existing `push_outbox` pipeline.
+  job (every minute, mirror of `0014_scheduled_notes_cron.sql`).
+  TS service `calendarReminders.ts` populates rows on create/
+  update (30-day horizon, idempotent ON CONFLICT) and provides a
+  `deliverDue` mirror. Both partners receive a push outbox row per
+  (occurrence, kind), deduped on `cal_reminder:<id>:<epoch>:<kind>`.
 
 ---
 

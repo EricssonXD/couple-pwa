@@ -37,7 +37,8 @@ describe('CalendarEventValidationError', () => {
 			'invalid_starts_at',
 			'invalid_ends_at',
 			'ends_before_starts',
-			'quota_exceeded'
+			'quota_exceeded',
+			'invalid_rrule'
 		];
 		for (const c of codes) {
 			expect(new CalendarEventValidationError('x', c).code).toBe(c);

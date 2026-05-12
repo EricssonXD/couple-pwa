@@ -14,6 +14,7 @@ import { relations, sql } from 'drizzle-orm';
 import {
 	pgSchema,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	date,
@@ -470,6 +471,30 @@ export const calendarEvents = pgTable(
 			sql`${t.endsAt} is null or ${t.endsAt} >= ${t.startsAt}`
 		),
 		index('calendar_events_couple_starts_idx').on(t.coupleId, t.startsAt)
+	]
+);
+
+// F8 v2 — per-occurrence reminders. Composite PK lets ON CONFLICT
+// dedupe a re-population of the same (event, occurrence, kind). See
+// drizzle/manual/0018_calendar_reminders.sql for RLS + cron details.
+export const calendarReminders = pgTable(
+	'calendar_reminders',
+	{
+		eventId: uuid('event_id')
+			.notNull()
+			.references(() => calendarEvents.id, { onDelete: 'cascade' }),
+		occurrenceAt: timestamp('occurrence_at', { withTimezone: true }).notNull(),
+		kind: text('kind').notNull(),
+		fireAt: timestamp('fire_at', { withTimezone: true }).notNull(),
+		sentAt: timestamp('sent_at', { withTimezone: true }),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(t) => [
+		primaryKey({ columns: [t.eventId, t.occurrenceAt, t.kind] }),
+		check('calendar_reminders_kind_chk', sql`${t.kind} in ('h24', 'h1')`),
+		index('calendar_reminders_pending_idx')
+			.on(t.fireAt)
+			.where(sql`${t.sentAt} is null`)
 	]
 );
 
