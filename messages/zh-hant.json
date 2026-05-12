@@ -181,6 +181,7 @@
 	"pulse_partner_fallback": "夥伴",
 	"pulse_partner_hidden": "隱身中",
 	"pulse_partner_tapped": "{name} 點了你 💞",
+	"pulse_self_tapped": "已點 💞 給 {name}",
 	"pulse_perm_denied": "位置權限已拒. 請在瀏覽器設定中開啟以共享距離.",
 	"pulse_perm_requesting": "請求位置權限中…",
 	"pulse_perm_unsupported": "此瀏覽器不支援地理定位.",

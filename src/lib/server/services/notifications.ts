@@ -159,6 +159,29 @@ function windowBucket(hours: number): string {
 	return String(Math.floor(now / (hours * 60 * 60 * 1000)));
 }
 
+export interface HeartbeatTapTrigger {
+	coupleId: string;
+	recipientId: string;
+	authorDisplayName: string | null;
+}
+
+/**
+ * Partner double-tapped the heartbeat zone. Dedupes per-minute so a
+ * burst of taps doesn't fan out to N pushes.
+ */
+export async function notifyHeartbeatTap(t: HeartbeatTapTrigger): Promise<void> {
+	const name = t.authorDisplayName ?? 'Your partner';
+	await enqueue({
+		coupleId: t.coupleId,
+		recipientId: t.recipientId,
+		kind: 'partner_heartbeat_tap',
+		title: `${name} tapped you 💞`,
+		body: '',
+		data: { kind: 'partner_heartbeat_tap' },
+		dedupeKey: `tap:${windowBucket(1 / 60)}`
+	});
+}
+
 /** Test helper. */
 export async function _internalDrainOutbox() {
 	await db.execute(sql`DELETE FROM push_outbox`);

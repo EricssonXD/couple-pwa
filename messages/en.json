@@ -181,6 +181,7 @@
 	"pulse_partner_fallback": "them",
 	"pulse_partner_hidden": "Hidden",
 	"pulse_partner_tapped": "{name} tapped you 💞",
+	"pulse_self_tapped": "Sent 💞 to {name}",
 	"pulse_perm_denied": "Location permission denied. Enable it in your browser to share distance.",
 	"pulse_perm_requesting": "Requesting location permission…",
 	"pulse_perm_unsupported": "This browser doesn't support geolocation.",

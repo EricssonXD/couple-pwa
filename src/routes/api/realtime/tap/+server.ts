@@ -15,16 +15,41 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { broadcastToCouple } from '$lib/server/realtime';
+import { notifyHeartbeatTap } from '$lib/server/services/notifications';
+import { db } from '$lib/server/db';
+import { profile } from '$lib/server/db/app.schema';
+import { eq } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ locals }) => {
 	if (!locals.user) error(401, 'unauthorized');
 	if (!locals.couple) error(409, 'not_paired');
 
+	const userId = locals.user.id;
+	const partnerId =
+		locals.couple.partnerA === userId ? locals.couple.partnerB : locals.couple.partnerA;
+
 	await broadcastToCouple(locals.couple.id, {
 		t: 'heartbeat_tap',
 		ts: Date.now(),
-		p: { userId: locals.user.id }
+		p: { userId }
 	});
+
+	// Push notification to partner. Failure shouldn't 500 the tap — the
+	// realtime broadcast already succeeded, push is best-effort.
+	try {
+		const [author] = await db
+			.select({ displayName: profile.displayName })
+			.from(profile)
+			.where(eq(profile.userId, userId))
+			.limit(1);
+		await notifyHeartbeatTap({
+			coupleId: locals.couple.id,
+			recipientId: partnerId,
+			authorDisplayName: author?.displayName ?? null
+		});
+	} catch (e) {
+		console.error('notifyHeartbeatTap failed', e);
+	}
 
 	return json({ ok: true });
 };

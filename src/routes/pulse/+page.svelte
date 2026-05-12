@@ -91,6 +91,7 @@
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 	let tickTimer: ReturnType<typeof setInterval> | null = null;
 	let tapPulse = $state(0);
+	let selfTapPulse = $state(0);
 	let myMood = $state<MoodSnapshot | null>(untrack(() => data.myMood));
 	let partnerMood = $state<MoodSnapshot | null>(untrack(() => data.partnerMood));
 	// hydrated 為旗: 必先讀 IDB 再寫入, 否則第一輪 effect 會以 SSR 舊狀覆蓋緩存.
@@ -182,6 +183,7 @@
 		if (t - lastSendAt < 1000) return;
 		lastSendAt = t;
 		void rt.sendHeartbeatTap();
+		selfTapPulse = t;
 		// HeartbeatZone 已 vibrate(TAP_HEARTBEAT); 無需再震
 	}
 
@@ -360,11 +362,19 @@
 	<!-- 9. partner 心跳 echo (aria-live polite so SR reads new taps) -->
 	<div role="status" aria-live="polite" aria-atomic="true" class="sr-only">
 		{#if tapPulse}{m.pulse_partner_tapped({ name: partnerName })}{/if}
+		{#if selfTapPulse}{m.pulse_self_tapped({ name: partnerName })}{/if}
 	</div>
 	{#if tapPulse}
 		{#key tapPulse}
 			<p class="animate-bloom mt-4 text-center text-sm text-primary" aria-hidden="true">
 				{m.pulse_partner_tapped({ name: partnerName })}
+			</p>
+		{/key}
+	{/if}
+	{#if selfTapPulse}
+		{#key selfTapPulse}
+			<p class="animate-bloom mt-2 text-center text-sm text-secondary" aria-hidden="true">
+				{m.pulse_self_tapped({ name: partnerName })}
 			</p>
 		{/key}
 	{/if}
