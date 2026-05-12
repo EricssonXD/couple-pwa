@@ -2,6 +2,16 @@
 	"servers": {
 		"svelte": {
 			"url": "https://mcp.svelte.dev/mcp"
+		},
+		"playwright": {
+			"command": "npx",
+			"args": ["-y", "@playwright/mcp@latest"],
+			"type": "stdio"
+		},
+		"memory": {
+			"command": "npx",
+			"args": ["-y", "@modelcontextprotocol/server-memory"],
+			"type": "stdio"
 		}
 	}
 }
