@@ -64,7 +64,10 @@ test('offline page renders standalone', async ({ page }) => {
 async function readInlineRedirectScript(): Promise<string> {
 	const fs = await import('node:fs/promises');
 	const path = await import('node:path');
-	return fs.readFile(path.resolve('static/route-stub.js'), 'utf8');
+	const html = await fs.readFile(path.resolve('src/app.html'), 'utf8');
+	const match = html.match(/<script>([\s\S]*?\bds_auth\b[\s\S]*?)<\/script>/);
+	if (!match) throw new Error('pre-paint redirect script not found in src/app.html');
+	return match[1];
 }
 
 for (const [cookieValue, expectedPath, label] of [
