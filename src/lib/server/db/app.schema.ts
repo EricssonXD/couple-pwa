@@ -435,3 +435,40 @@ export const bucketItems = pgTable(
 		index('bucket_items_couple_idx').on(t.coupleId, t.doneAt, t.createdAt)
 	]
 );
+
+// F8 — Shared calendar (v1). Couple-collaborative events. v1 ships
+// single-occurrence CRUD; the `rrule` column is reserved for v2
+// recurrence expansion via rrule.js. Reminder cron (24h + 1h push)
+// is also v2.
+export const calendarEvents = pgTable(
+	'calendar_events',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		createdBy: uuid('created_by')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		title: text('title').notNull(),
+		notes: text('notes'),
+		startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+		endsAt: timestamp('ends_at', { withTimezone: true }),
+		allDay: boolean('all_day').notNull().default(false),
+		rrule: text('rrule'),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true })
+			.defaultNow()
+			.notNull()
+			.$onUpdate(() => new Date())
+	},
+	(t) => [
+		check('calendar_events_title_len', sql`char_length(${t.title}) between 1 and 200`),
+		check('calendar_events_notes_len', sql`${t.notes} is null or char_length(${t.notes}) <= 2000`),
+		check(
+			'calendar_events_ends_after_starts',
+			sql`${t.endsAt} is null or ${t.endsAt} >= ${t.startsAt}`
+		),
+		index('calendar_events_couple_starts_idx').on(t.coupleId, t.startsAt)
+	]
+);
