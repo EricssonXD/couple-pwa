@@ -23,9 +23,14 @@ describe('kickPushDeliver — push-deliver inline trigger', () => {
 		expect(fetcher).not.toHaveBeenCalled();
 	});
 
-	it('POSTs to the URL with a Bearer authorization header', () => {
-		const fetcher = vi.fn(() => Promise.resolve(new Response()));
-		const ok = kickPushDeliver(URL, TOKEN, fetcher as unknown as typeof fetch, undefined);
+	it('POSTs to the URL with a Bearer authorization header', async () => {
+		const fetcher = vi.fn(() => Promise.resolve(new Response('', { status: 200 })));
+		let captured: Promise<unknown> | undefined;
+		const waitUntil = vi.fn((p: Promise<unknown>) => {
+			captured = p;
+		});
+		const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
+		const ok = kickPushDeliver(URL, TOKEN, fetcher as unknown as typeof fetch, waitUntil);
 		expect(ok).toBe(true);
 		expect(fetcher).toHaveBeenCalledTimes(1);
 		const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
@@ -33,6 +38,12 @@ describe('kickPushDeliver — push-deliver inline trigger', () => {
 		expect(init.method).toBe('POST');
 		const auth = (init.headers as Record<string, string>).authorization;
 		expect(auth).toBe(`Bearer ${TOKEN}`);
+		// Drain so the success-log fires before we assert.
+		await captured;
+		expect(consoleLog).toHaveBeenCalledWith(
+			expect.stringContaining('push-deliver kick status=200')
+		);
+		consoleLog.mockRestore();
 	});
 
 	it('hands the in-flight promise to waitUntil so it survives the response', () => {

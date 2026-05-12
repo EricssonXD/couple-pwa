@@ -97,14 +97,23 @@ export function kickPushDeliver(
 	waitUntil: ((p: Promise<unknown>) => void) | undefined
 ): boolean {
 	if (!url || !token) return false;
+	const startedAt = Date.now();
 	const p = fetcher(url, {
 		method: 'POST',
 		headers: { authorization: `Bearer ${token}` }
-	}).catch((e) => {
-		// Best-effort. The pg_cron schedule will retry on its next tick.
-		console.error('push-deliver kick failed', e);
-		return undefined;
-	});
+	})
+		.then((res) => {
+			// One-line structured log per kick. Grep `push-deliver kick`
+			// in Cloudflare Worker logs to verify the inline path is firing
+			// in prod and to check the round-trip latency.
+			console.log(`push-deliver kick status=${res.status} ms=${Date.now() - startedAt}`);
+			return res;
+		})
+		.catch((e) => {
+			// Best-effort. The pg_cron schedule will retry on its next tick.
+			console.error('push-deliver kick failed', e);
+			return undefined;
+		});
 	if (waitUntil) waitUntil(p);
 	else void p;
 	return true;
