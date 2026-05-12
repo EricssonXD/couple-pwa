@@ -42,6 +42,39 @@
 	],
 	"shortcuts": [
 		{ "name": "Pulse", "short_name": "Pulse", "url": "/pulse", "description": "Open the shared pulse dashboard" },
+		{ "name": "Map", "short_name": "Map", "url": "/map", "description": "See where you both are" },
+		{ "name": "Moments", "short_name": "Moments", "url": "/moments", "description": "Browse shared moments" },
+		{ "name": "Calendar", "short_name": "Calendar", "url": "/calendar", "description": "Open the shared calendar" },
 		{ "name": "Chat", "short_name": "Chat", "url": "/chat", "description": "Open whisper chat" }
+	],
+	"widgets": [
+		{
+			"name": "Days together",
+			"tag": "days-together",
+			"description": "How long you've been a couple",
+			"ms_ac_template": "/widgets/days-together.template.json",
+			"data": "/api/widgets/days-together",
+			"type": "application/json",
+			"auth": false,
+			"update": 3600,
+			"icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }],
+			"screenshots": [
+				{ "src": "/widgets/days-together.screenshot.png", "sizes": "600x400", "label": "Days together" }
+			]
+		},
+		{
+			"name": "Partner pulse",
+			"tag": "partner-pulse",
+			"description": "Partner's latest heartbeat and mood",
+			"ms_ac_template": "/widgets/partner-pulse.template.json",
+			"data": "/api/widgets/partner-pulse",
+			"type": "application/json",
+			"auth": false,
+			"update": 900,
+			"icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }],
+			"screenshots": [
+				{ "src": "/widgets/partner-pulse.screenshot.png", "sizes": "600x400", "label": "Partner pulse" }
+			]
+		}
 	]
 }

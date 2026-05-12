@@ -1,0 +1,58 @@
+{
+	"type": "AdaptiveCard",
+	"$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+	"version": "1.5",
+	"body": [
+		{
+			"type": "TextBlock",
+			"text": "${nickname}",
+			"size": "Small",
+			"weight": "Default",
+			"color": "Accent"
+		},
+		{
+			"type": "ColumnSet",
+			"columns": [
+				{
+					"type": "Column",
+					"width": "auto",
+					"items": [
+						{
+							"type": "TextBlock",
+							"text": "${moodEmoji}",
+							"size": "ExtraLarge",
+							"horizontalAlignment": "Center"
+						}
+					]
+				},
+				{
+					"type": "Column",
+					"width": "stretch",
+					"items": [
+						{
+							"type": "TextBlock",
+							"text": "${statusLine}",
+							"weight": "Bolder",
+							"wrap": true
+						},
+						{
+							"type": "TextBlock",
+							"text": "${lastSeenLine}",
+							"size": "Small",
+							"isSubtle": true,
+							"spacing": "None",
+							"wrap": true
+						}
+					]
+				}
+			]
+		}
+	],
+	"actions": [
+		{
+			"type": "Action.OpenUrl",
+			"title": "Open Pulse",
+			"url": "${openUrl}"
+		}
+	]
+}

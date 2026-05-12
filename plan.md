@@ -88,7 +88,11 @@ update banner.
 
 ### Phase 2 — Tier 3 (re-prioritize after retention metrics)
 
-- F11 widgets (iOS PWA limited; Android web-app shortcuts first)
+- F11 widgets ✅ shipped (manifest shortcuts + PWA Widgets API entries
+  for "days together" and "partner pulse" with Adaptive Cards
+  templates and `/api/widgets/<tag>` data endpoints; SW
+  widgetinstall/widgetresume handler refreshes via updateByTag).
+  iOS PWA widgets remain a future native-extension lift.
 - F14 cycle sharing (sensitive — needs explicit opt-in toggle +
   audit log entry + clear delete path)
 - F16 conflict-resolution / repair toolkit (therapeutic copy)

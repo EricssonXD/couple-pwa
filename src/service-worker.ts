@@ -241,6 +241,45 @@ sw.addEventListener('message', (event) => {
 	}
 });
 
+// ─── F11 PWA Widgets API ───────────────────────────────────────────────────
+// Hosts (Windows 11 today; spec is web-platform aspirational) ask the SW
+// to (re)render an installed widget by firing `widgetinstall`,
+// `widgetresume`, or `widgetuninstall`. Our handler refetches the data
+// endpoint declared in the manifest and pushes it back via
+// `widgets.updateByTag` — Adaptive Cards templates in
+// `static/widgets/*.template.json` hydrate against the returned JSON.
+//
+// `widgetuninstall` is a no-op (we hold no widget-side state); the host
+// drops the rendered card on its own.
+type WidgetEvent = ExtendableEvent & {
+	widget?: { definition?: { tag?: string; data?: string } };
+};
+
+async function refreshWidget(tag: string, dataUrl: string): Promise<void> {
+	const widgets = (
+		sw as unknown as { widgets?: { updateByTag: (t: string, payload: unknown) => Promise<void> } }
+	).widgets;
+	if (!widgets || typeof widgets.updateByTag !== 'function') return;
+	try {
+		const res = await fetch(dataUrl, { credentials: 'include' });
+		if (!res.ok) return;
+		const data = await res.json();
+		await widgets.updateByTag(tag, { data: JSON.stringify(data) });
+	} catch {
+		// Widgets are best-effort; failing here just leaves the card
+		// stale until the next periodic update.
+	}
+}
+
+function handleWidgetEvent(event: WidgetEvent): void {
+	const def = event.widget?.definition;
+	if (!def?.tag || !def?.data) return;
+	event.waitUntil(refreshWidget(def.tag, def.data));
+}
+
+sw.addEventListener('widgetinstall', handleWidgetEvent as EventListener);
+sw.addEventListener('widgetresume', handleWidgetEvent as EventListener);
+
 sw.addEventListener('fetch', (event) => {
 	const { request } = event;
 	if (request.method !== 'GET') return;
