@@ -54,8 +54,8 @@
 		if (!('share' in navigator)) return copyCode();
 		try {
 			await navigator.share({
-				title: 'Join me on DuoSync',
-				text: `Pair with me using code ${data.code}`,
+				title: m.onboarding_link_share_title(),
+				text: m.onboarding_link_share_text({ code: data.code }),
 				url: data.shareUrl
 			});
 		} catch {
@@ -123,7 +123,7 @@
 				{#if qrDataUrl}
 					<img
 						src={qrDataUrl}
-						alt="QR code linking to {data.shareUrl}"
+						alt={m.onboarding_link_qr_alt({ url: data.shareUrl })}
 						width="240"
 						height="240"
 						class="mx-auto mt-5 rounded-[var(--radius-card)]"
@@ -170,7 +170,7 @@
 				minlength="4"
 				maxlength="10"
 				bind:value={typedCode}
-				placeholder="ABCXYZ"
+				placeholder={m.onboarding_link_code_placeholder()}
 				autocomplete="one-time-code"
 				inputmode="text"
 			/>
