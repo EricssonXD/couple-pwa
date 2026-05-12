@@ -68,8 +68,15 @@ update banner.
 - **Phase 2 features**: F1 anniversary timeline, F2 daily prompts,
   F3 time-capsule (cron + UI), F4 connection streak, F5 mood pulse,
   F5b mood-trend strip, F6 shared bucket list, F8 shared calendar
-  (v1 CRUD + v2 RRULE recurrence), F9 quiz packs (catalog + runner +
-  reveal), F10 throwbacks.
+  (v1 CRUD + v2 RRULE recurrence + v2 reminder cron — 24 h + 1 h
+  push via `calendar_reminders` + `app.deliver_due_calendar_reminders`
+  pg_cron job), F9 quiz packs (catalog + runner + reveal), F10
+  throwbacks, **F11 PWA widgets** (manifest shortcuts + Adaptive
+  Cards templates + `/api/widgets/<tag>` data endpoints + SW
+  widgetinstall/widgetresume handler; Windows 11 today, iOS native
+  widget extension still a future lift), **F16 repair toolkit**
+  (cooldown timer → reflection → joint commitment, push to partner,
+  audit-log entries on every transition).
 - **CI/DX**: size-limit perf budget, RLS contract tests, a11y fixes,
   bundle-audit lazy splits.
 
@@ -88,21 +95,10 @@ update banner.
 
 ### Phase 2 — Tier 3 (re-prioritize after retention metrics)
 
-- F11 widgets ✅ shipped (manifest shortcuts + PWA Widgets API entries
-  for "days together" and "partner pulse" with Adaptive Cards
-  templates and `/api/widgets/<tag>` data endpoints; SW
-  widgetinstall/widgetresume handler refreshes via updateByTag).
-  iOS PWA widgets remain a future native-extension lift.
-- F14 cycle sharing (sensitive — needs explicit opt-in toggle +
-  audit log entry + clear delete path)
-- F16 ✅ shipped — repair toolkit. New `repair_sessions` table + RLS
-  + partial unique index (one active session per couple). Service
-  in `src/lib/server/services/repair.ts` (start / join / complete /
-  cancel + audit-log integration + push enqueue to partner). API
-  under `/api/repair[/...]`; UI at `/repair` with cooldown countdown
-  → reflection notes → joint commitment-note. Notes capped at
-  1000 chars; cooldown 5 min – 24 h (default 20 min). Optional
-  `ephemeral` flag flagged on the row for a future cleanup pass.
+- **F14 cycle sharing** — sensitive; needs explicit opt-in toggle +
+  audit log entry + clear delete path. Most useful for couples where
+  one or both partners menstruate; not just data-sharing — surface
+  fertility/symptom prediction tactfully.
 
 ### Parked
 
@@ -112,18 +108,6 @@ update banner.
 - F17 sticker packs / couple avatars (premium-tier polish)
 - F19 smart notification budget (≤3 push/day priority ranking)
 - F20 onboarding personality (3-question intake)
-
-### v2 of shipped features
-
-- **F8 calendar v2 — reminder cron** ✅ shipped.
-  `drizzle/manual/0018_calendar_reminders.sql` adds the
-  `calendar_reminders(event_id, occurrence_at, kind)` table +
-  `app.deliver_due_calendar_reminders()` SECURITY DEFINER pg_cron
-  job (every minute, mirror of `0014_scheduled_notes_cron.sql`).
-  TS service `calendarReminders.ts` populates rows on create/
-  update (30-day horizon, idempotent ON CONFLICT) and provides a
-  `deliverDue` mirror. Both partners receive a push outbox row per
-  (occurrence, kind), deduped on `cal_reminder:<id>:<epoch>:<kind>`.
 
 ---
 
