@@ -15,6 +15,10 @@
 		CHAT_HISTORY_DEFAULT_LIMIT,
 		CHAT_RETENTION_DAYS
 	} from '$lib/chat.constants';
+	import * as m from '$lib/paraglide/messages.js';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
+	import PaperPlaneTiltIcon from 'phosphor-svelte/lib/PaperPlaneTiltIcon';
 	import type { PageData } from './$types';
 
 	type Message = {
@@ -22,11 +26,8 @@
 		senderId: string;
 		body: string;
 		createdAt: string;
-		/** Local optimistic id, present only until the server canonical id arrives. */
 		clientId?: string;
-		/** True while the POST is in-flight. */
 		pending?: boolean;
-		/** True if the POST failed and we surfaced the row as "failed". */
 		failed?: boolean;
 	};
 
@@ -52,21 +53,13 @@
 		};
 	});
 
-	// Append realtime messages from the partner. We rely on Supabase's
-	// `broadcast: { self: false }` to avoid receiving our own echoes,
-	// but we still dedupe by id as belt-and-suspenders for multi-tab.
 	$effect(() => {
 		const ev = rt.lastChatMessage;
 		if (!ev) return;
-		if (messages.some((m) => m.id === ev.id)) return;
+		if (messages.some((msg) => msg.id === ev.id)) return;
 		messages = [
 			...messages,
-			{
-				id: ev.id,
-				senderId: ev.senderId,
-				body: ev.body,
-				createdAt: ev.createdAt
-			}
+			{ id: ev.id, senderId: ev.senderId, body: ev.body, createdAt: ev.createdAt }
 		];
 		queueScrollToBottom();
 	});
@@ -78,17 +71,15 @@
 				credentials: 'same-origin'
 			});
 			if (!res.ok) throw new Error(`http ${res.status}`);
-			const data = (await res.json()) as {
+			const payload = (await res.json()) as {
 				messages: Message[];
 				nextCursor: { createdAt: string; id: string } | null;
 			};
-			// API returns newest-first; UI shows oldest-first at the top,
-			// newest at the bottom (chat-app convention).
-			messages = data.messages.slice().reverse();
-			nextCursor = data.nextCursor;
+			messages = payload.messages.slice().reverse();
+			nextCursor = payload.nextCursor;
 			queueScrollToBottom();
 		} catch (e) {
-			composerError = `Couldn't load chat: ${(e as Error).message}`;
+			composerError = m.chat_load_initial_error({ error: (e as Error).message });
 		} finally {
 			loading = false;
 		}
@@ -104,14 +95,14 @@
 				{ credentials: 'same-origin' }
 			);
 			if (!res.ok) throw new Error(`http ${res.status}`);
-			const data = (await res.json()) as {
+			const payload = (await res.json()) as {
 				messages: Message[];
 				nextCursor: { createdAt: string; id: string } | null;
 			};
-			messages = [...data.messages.slice().reverse(), ...messages];
-			nextCursor = data.nextCursor;
+			messages = [...payload.messages.slice().reverse(), ...messages];
+			nextCursor = payload.nextCursor;
 		} catch (e) {
-			composerError = `Couldn't load older messages: ${(e as Error).message}`;
+			composerError = m.chat_load_more_error({ error: (e as Error).message });
 		} finally {
 			loadingMore = false;
 		}
@@ -124,8 +115,6 @@
 	}
 
 	function genClientId(): string {
-		// Avoid crypto.randomUUID dependency (Safari < 15.4); good enough
-		// as a temporary local id.
 		return `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 	}
 
@@ -133,7 +122,7 @@
 		const body = composerValue.trim();
 		if (body.length === 0) return;
 		if (body.length > CHAT_BODY_MAX_LEN) {
-			composerError = `Message is too long (max ${CHAT_BODY_MAX_LEN} characters).`;
+			composerError = m.chat_too_long({ max: String(CHAT_BODY_MAX_LEN) });
 			return;
 		}
 		composerError = null;
@@ -159,12 +148,12 @@
 			if (!res.ok) {
 				const err = await res.json().catch(() => ({}) as Record<string, string>);
 				if (res.status === 429) {
-					composerError = `Slow down — try again in a moment.`;
+					composerError = m.chat_rate_limited();
 				} else {
-					composerError = err.message ?? `Send failed (HTTP ${res.status}).`;
+					composerError = err.message ?? m.chat_send_failed_status({ status: String(res.status) });
 				}
-				messages = messages.map((m) =>
-					m.clientId === clientId ? { ...m, pending: false, failed: true } : m
+				messages = messages.map((msg) =>
+					msg.clientId === clientId ? { ...msg, pending: false, failed: true } : msg
 				);
 				return;
 			}
@@ -173,24 +162,18 @@
 				message: Message;
 				clientId: string | null;
 			};
-			messages = messages.map((m) =>
-				m.clientId === clientId
-					? {
-							...payload.message,
-							pending: false
-						}
-					: m
+			messages = messages.map((msg) =>
+				msg.clientId === clientId ? { ...payload.message, pending: false } : msg
 			);
 		} catch (e) {
-			composerError = `Send failed: ${(e as Error).message}`;
-			messages = messages.map((m) =>
-				m.clientId === clientId ? { ...m, pending: false, failed: true } : m
+			composerError = m.chat_send_failed({ error: (e as Error).message });
+			messages = messages.map((msg) =>
+				msg.clientId === clientId ? { ...msg, pending: false, failed: true } : msg
 			);
 		}
 	}
 
 	function handleKey(e: KeyboardEvent): void {
-		// Enter sends; Shift+Enter inserts a newline.
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			void send();
@@ -205,41 +188,62 @@
 </script>
 
 <svelte:head>
-	<title>Chat — DuoSync</title>
+	<title>{m.chat_title()} — DuoSync</title>
 </svelte:head>
 
-<section class="chat">
-	<header class="chat__header">
-		<a class="chat__back" href={resolve('/pulse')} aria-label="Back to pulse">←</a>
-		<h1>Chat</h1>
-		<p class="chat__subtitle">Messages disappear after {CHAT_RETENTION_DAYS} days.</p>
+<section class="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col px-4 py-5 pb-24">
+	<header class="mb-3 flex items-center gap-3">
+		<a
+			href={resolve('/pulse')}
+			aria-label={m.chat_back_aria()}
+			class="inline-flex h-9 w-9 items-center justify-center rounded-full text-base-content/60 hover:bg-base-200 hover:text-base-content"
+		>
+			<Icon icon={ArrowLeftIcon} size={18} weight="bold" />
+		</a>
+		<div class="flex-1 space-y-0.5">
+			<h1 class="text-display text-2xl font-semibold tracking-wide">{m.chat_title()}</h1>
+			<p class="text-xs text-base-content/55">
+				{m.chat_subtitle({ days: String(CHAT_RETENTION_DAYS) })}
+			</p>
+		</div>
 	</header>
 
-	<div bind:this={listEl} class="chat__list" aria-live="polite">
+	<div bind:this={listEl} class="-mx-4 flex-1 overflow-y-auto px-4 py-2" aria-live="polite">
 		{#if loading}
-			<p class="chat__empty">Loading…</p>
+			<p class="my-8 text-center text-sm text-base-content/55">{m.chat_loading()}</p>
 		{:else if messages.length === 0}
-			<p class="chat__empty">No messages yet. Say hi 👋</p>
+			<p class="my-8 text-center text-sm text-base-content/55">{m.chat_empty()}</p>
 		{:else}
 			{#if nextCursor}
 				<button
 					type="button"
-					class="chat__loadmore"
 					disabled={loadingMore}
 					onclick={() => void loadMore()}
+					class="mx-auto mb-3 block rounded-full border border-base-content/10 bg-base-100 px-3.5 py-1.5 text-[0.7rem] font-semibold tracking-wider uppercase transition-colors hover:bg-base-200 disabled:opacity-50"
 				>
-					{loadingMore ? 'Loading…' : 'Load older messages'}
+					{loadingMore ? m.chat_loading_more() : m.chat_load_older()}
 				</button>
 			{/if}
-			<ul class="chat__bubbles">
-				{#each messages as m (m.id)}
-					<li class="chat__row {m.senderId === data.viewerId ? 'mine' : 'theirs'}">
-						<div class="chat__bubble" class:pending={m.pending} class:failed={m.failed}>
-							<p class="chat__body">{m.body}</p>
-							<span class="chat__meta">
-								{fmtTime(m.createdAt)}
-								{#if m.pending}· sending…{/if}
-								{#if m.failed}· failed{/if}
+			<ul class="space-y-2">
+				{#each messages as msg (msg.id)}
+					{@const mine = msg.senderId === data.viewerId}
+					<li class="flex {mine ? 'justify-end' : 'justify-start'}">
+						<div
+							class="flex max-w-[78%] flex-col gap-0.5 rounded-2xl px-3.5 py-2 {mine
+								? 'bg-primary text-primary-content'
+								: 'bg-base-200 text-base-content'} {msg.pending ? 'opacity-60' : ''} {msg.failed
+								? 'ring-2 ring-error/60'
+								: ''}"
+						>
+							<p class="text-sm break-words whitespace-pre-wrap">{msg.body}</p>
+							<span
+								class="self-end text-[0.65rem] {mine
+									? 'text-primary-content/70'
+									: 'text-base-content/55'}"
+							>
+								{fmtTime(msg.createdAt)}
+								{#if msg.pending}· {m.chat_sending()}{/if}
+								{#if msg.failed}· {m.chat_failed()}{/if}
 							</span>
 						</div>
 					</li>
@@ -249,177 +253,38 @@
 	</div>
 
 	{#if composerError}
-		<p class="chat__error" role="alert">{composerError}</p>
+		<p
+			class="mt-2 rounded-[var(--radius-field)] border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
+			role="alert"
+		>
+			{composerError}
+		</p>
 	{/if}
 
 	<form
-		class="chat__composer"
+		class="mt-3 flex items-end gap-2 border-t border-base-content/5 pt-3"
 		onsubmit={(e) => {
 			e.preventDefault();
 			void send();
 		}}
 	>
-		<label class="chat__label" for="chat-input">Your message</label>
+		<label for="chat-input" class="sr-only">{m.chat_input_label()}</label>
 		<textarea
 			id="chat-input"
-			class="chat__input"
 			bind:value={composerValue}
 			onkeydown={handleKey}
-			placeholder="Type a message…"
+			placeholder={m.chat_input_placeholder()}
 			maxlength={CHAT_BODY_MAX_LEN}
-			rows="2"
+			rows={1}
+			class="max-h-32 min-h-10 flex-1 resize-y rounded-2xl border border-base-content/10 bg-base-100 px-3.5 py-2 text-sm outline-none focus:border-primary"
 		></textarea>
-		<button type="submit" class="chat__send" disabled={composerValue.trim().length === 0}>
-			Send
+		<button
+			type="submit"
+			disabled={composerValue.trim().length === 0}
+			aria-label={m.chat_send_btn()}
+			class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-content transition-opacity disabled:opacity-50"
+		>
+			<Icon icon={PaperPlaneTiltIcon} size={18} weight="fill" />
 		</button>
 	</form>
 </section>
-
-<style>
-	.chat {
-		display: flex;
-		flex-direction: column;
-		max-width: 640px;
-		margin: 0 auto;
-		padding: 1rem;
-		min-height: calc(100vh - 4rem);
-	}
-	.chat__header {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		margin-bottom: 0.75rem;
-	}
-	.chat__back {
-		text-decoration: none;
-		color: var(--color-fg-muted, #888);
-		font-size: 1.5rem;
-		line-height: 1;
-	}
-	.chat__header h1 {
-		margin: 0;
-		font-size: 1.5rem;
-	}
-	.chat__subtitle {
-		margin: 0;
-		font-size: 0.85rem;
-		color: var(--color-fg-muted, #888);
-	}
-	.chat__list {
-		flex: 1 1 auto;
-		overflow-y: auto;
-		padding: 0.5rem 0;
-		min-height: 200px;
-	}
-	.chat__empty {
-		text-align: center;
-		color: var(--color-fg-muted, #888);
-		margin: 2rem 0;
-	}
-	.chat__loadmore {
-		display: block;
-		margin: 0 auto 0.75rem;
-		padding: 0.35rem 0.75rem;
-		background: transparent;
-		border: 1px solid var(--color-border, #ccc);
-		border-radius: 999px;
-		font-size: 0.8rem;
-		cursor: pointer;
-	}
-	.chat__bubbles {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-	.chat__row {
-		display: flex;
-	}
-	.chat__row.mine {
-		justify-content: flex-end;
-	}
-	.chat__row.theirs {
-		justify-content: flex-start;
-	}
-	.chat__bubble {
-		max-width: 75%;
-		padding: 0.5rem 0.75rem;
-		border-radius: 1rem;
-		background: var(--color-bg-elev, #f0f0f0);
-		display: flex;
-		flex-direction: column;
-		gap: 0.15rem;
-	}
-	.chat__row.mine .chat__bubble {
-		background: var(--color-accent, #d8b4fe);
-		color: var(--color-accent-fg, #1a1a1a);
-	}
-	.chat__bubble.pending {
-		opacity: 0.6;
-	}
-	.chat__bubble.failed {
-		outline: 1px solid var(--color-danger, #c0392b);
-	}
-	.chat__body {
-		margin: 0;
-		white-space: pre-wrap;
-		word-break: break-word;
-		font-size: 0.95rem;
-	}
-	.chat__meta {
-		font-size: 0.7rem;
-		color: var(--color-fg-muted, #888);
-		align-self: flex-end;
-	}
-	.chat__row.mine .chat__meta {
-		color: rgb(0 0 0 / 0.55);
-	}
-	.chat__error {
-		margin: 0.25rem 0;
-		padding: 0.5rem 0.75rem;
-		background: rgb(192 57 43 / 0.1);
-		color: var(--color-danger, #c0392b);
-		border-radius: 0.5rem;
-		font-size: 0.85rem;
-	}
-	.chat__composer {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		gap: 0.5rem;
-		align-items: end;
-		padding-top: 0.5rem;
-		border-top: 1px solid var(--color-border, #ddd);
-	}
-	.chat__label {
-		grid-column: 1 / -1;
-		font-size: 0.75rem;
-		color: var(--color-fg-muted, #888);
-		display: none;
-	}
-	.chat__input {
-		resize: vertical;
-		min-height: 2.5rem;
-		max-height: 8rem;
-		padding: 0.5rem 0.75rem;
-		border-radius: 0.75rem;
-		border: 1px solid var(--color-border, #ccc);
-		font: inherit;
-		background: var(--color-bg, #fff);
-		color: var(--color-fg, #1a1a1a);
-	}
-	.chat__send {
-		padding: 0.5rem 1rem;
-		border-radius: 0.75rem;
-		border: 0;
-		background: var(--color-accent, #d8b4fe);
-		color: var(--color-accent-fg, #1a1a1a);
-		font-weight: 600;
-		cursor: pointer;
-	}
-	.chat__send:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-</style>
