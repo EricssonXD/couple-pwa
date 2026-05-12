@@ -1,0 +1,16 @@
+# Supabase project config — persists per-function settings so re-deploys
+# don't silently flip security-relevant flags.
+#
+# IMPORTANT: push-deliver authenticates callers with our own
+# `Authorization: Bearer <CRON_TOKEN>` check (see index.ts line 92-95).
+# The Supabase gateway's JWT verifier MUST be off for that custom auth to
+# be reachable; otherwise the gateway 401s before our function runs and
+# both the pg_cron schedule AND the inline kick from the SvelteKit Worker
+# stop firing pushes — the symptom is "notifications only appear when I
+# open the app" because the outbox just piles up.
+#
+# Always deploy with the CLI default (which honours this file):
+#   bun x supabase functions deploy push-deliver --project-ref <ref>
+
+[functions.push-deliver]
+verify_jwt = false
