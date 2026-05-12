@@ -155,3 +155,62 @@ test('PURGE_USER_CACHES message wipes HTML + IMG caches but preserves SHELL', as
 	expect(state.hasImg).toBe(false);
 	expect(state.offlineStillCached).toBe(true);
 });
+
+// -----------------------------------------------------------------------
+// Pre-paint redirect (the welcome-flash kill).
+//
+// The inline <script> in src/app.html runs synchronously in <head> before
+// the body parses. It reads the `ds_auth` cookie (set client-readable by
+// hooks.server.ts; values: 'pulse', 'onboarding', '1' legacy, or absent)
+// and `location.replace()`s signed-in users away from `/` and `/welcome`.
+//
+// The behavioural cookie-routing matrix is fully covered by the unit
+// test in src/lib/client/route-stub.spec.ts (it extracts the inline
+// script from app.html and runs every cookie scenario). The two e2e
+// tests below cover what unit tests can't: that the script is actually
+// embedded in the production HTML and survives the SW cache pipeline.
+// -----------------------------------------------------------------------
+
+test('anonymous visitor (no ds_auth cookie) still gets the welcome hero', async ({
+	context,
+	page
+}) => {
+	// Make sure no leaked cookie from a parallel test runs the redirect.
+	await context.clearCookies();
+
+	await page.goto('/welcome');
+	// Welcome page renders normally — the inline script's early-return
+	// path for absent/unknown cookie values keeps anonymous users put.
+	await expect(page.locator('main ul.features li')).toHaveCount(4);
+	expect(new URL(page.url()).pathname).toBe('/welcome');
+});
+
+test('cached `/` HTML embeds the inline pre-paint script (offline cold-launch guard)', async ({
+	page
+}) => {
+	// The whole point of inlining the script is that the cached HTML
+	// served by the SW offline already contains the redirect. Verify by
+	// (a) warming the cache, (b) reading the cached Response body, and
+	// (c) asserting the inline script + ds_auth cookie read are present.
+	//
+	// Note: `/` is a stub route — the server 303s it to /welcome for
+	// anonymous users. The SW caches the redirect target (/welcome).
+	await page.goto('/');
+	await waitForSwActive(page);
+	await page.reload();
+	await waitForController(page);
+	await waitForCachedHtml(page, '/welcome');
+
+	const cachedBody = await page.evaluate(async () => {
+		const hit = (await caches.match('/welcome')) ?? (await caches.match('/'));
+		return hit ? await hit.text() : null;
+	});
+	expect(cachedBody).not.toBeNull();
+	// The inline IIFE reads document.cookie for ds_auth and calls
+	// location.replace — both must be present in the body that the SW
+	// will hand back on a cold offline launch.
+	expect(cachedBody!).toMatch(/ds_auth=/);
+	expect(cachedBody!).toMatch(/location\.replace/);
+	// Must NOT reference the legacy external file.
+	expect(cachedBody!).not.toMatch(/route-stub\.js/);
+});
