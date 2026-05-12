@@ -373,3 +373,33 @@ export const moodPulse = pgTable(
 		index('mood_pulse_user_idx').on(t.userId, t.setAt)
 	]
 );
+
+// ─── F3 Scheduled notes (time capsule) ────────────────────────────────────
+// Author writes a private note that becomes visible to the partner only
+// after `deliver_at`. Cron drains due rows atomically (UPDATE … RETURNING
+// + INSERT INTO push_outbox in one CTE — see services/scheduledNotes.ts).
+// RLS in drizzle/manual/0013 hides pending notes from the partner so the
+// surprise stays a surprise.
+export const scheduledNotes = pgTable(
+	'scheduled_notes',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		authorId: uuid('author_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		body: text('body').notNull(),
+		deliverAt: timestamp('deliver_at', { withTimezone: true }).notNull(),
+		deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+		createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
+	},
+	(t) => [
+		check('scheduled_notes_body_len', sql`char_length(${t.body}) between 1 and 2000`),
+		check('scheduled_notes_deliver_future', sql`${t.deliverAt} > ${t.createdAt}`),
+		index('scheduled_notes_author_idx').on(t.authorId, t.deliverAt),
+		index('scheduled_notes_couple_delivered_idx').on(t.coupleId, t.deliveredAt),
+		index('scheduled_notes_due_idx').on(t.deliverAt)
+	]
+);
