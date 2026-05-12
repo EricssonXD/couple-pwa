@@ -135,7 +135,7 @@ visitor without needing a fourth `onMount` guard on the page itself.
 - **M0–M6**: backend + RLS + private realtime — done.
 - **P-series**: PWA shell hardening — done.
 - **U-series**: design-system rebuild + 8 routes — done.
-- **A / H / N / R / G series** (post-MVP hardening, push, growth, reliability): all but `G3 photo-moments` (blocked on Storage bucket) shipped — see `docs/history.md` for the full chronicle.
+- **A / H / N / R / G series** (post-MVP hardening, push, growth, reliability): all but `G3 photo-moments` (blocked on Storage bucket) shipped. Per-feature trail in `git log`; high-level rationale in `docs/history.md` (frozen pivot-era plan, not a live chronicle).
 - **Phase 2 (F-series)**: F1 anniversary timeline, F2 daily prompts, F3 love-note time capsule (cron + UI), F4 connection streak, F5 mood pulse, F5b mood-trend strip, F6 shared bucket list, F8 shared calendar v1, F10 throwbacks — shipped. Remaining tier-1+2 items tracked in `plan.md`.
 
 ## License

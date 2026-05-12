@@ -1,4 +1,16 @@
-# DuoSync — 雙心同步 Plan.md
+# DuoSync — 雙心同步 Plan.md (HISTORICAL)
+
+> **NOTE — This file is a frozen pivot-era plan, NOT a live chronicle.**
+> Last meaningful update was during Phase-U planning. Everything below
+> through to U-series, plus all subsequent A/H/N/R/G/F-series phases and
+> the push-perf hardening, has since SHIPPED. For what is currently true:
+>
+> - **Active roadmap** → `plan.md` at repo root
+> - **What's live in prod** → README.md "Status" section
+> - **Per-feature commit trail** → `git log --oneline`
+>
+> Kept on disk only for the design rationale captured in §11 (UI rebuild)
+> which the live components still descend from.
 
 > 文體：caveman wenyen (極簡電報文言). 重信號，去虛詞.
 > 模式：context-mode 啟. 後端 (M0–M6) 已立; PWA 殼已硬化; UI rebuild (Phase U) 為 next.

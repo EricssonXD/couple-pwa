@@ -49,4 +49,4 @@ To ensure all agents behave consistently and reliably, follow these rules at all
 - When running a single Vitest test, include `--project client`, `--project server`, or `--project storybook` so the right environment is selected.
 - Playwright e2e depends on the production build path, not the dev server. If an e2e spec fails before the browser opens, inspect `bun run build` and the Cloudflare `preview` path first.
 - Every `href="/foo"` in a `.svelte` file must use `resolve('/foo')` from `$app/paths` — eslint-plugin-svelte's `no-navigation-without-resolve` will fail lint otherwise.
-- See `plan.md` for the canonical routing/offline contract diagram and the active Phase-2 backlog. Historical phase chronicle (M/P/U/A/H/N/R/G series) lives in `docs/history.md`.
+- See `plan.md` for the canonical routing/offline contract diagram and the active Phase-2 backlog. Historical phase chronicle (M/P/U/A/H/N/R/G series) is frozen at `docs/history.md` — not a live source of truth.

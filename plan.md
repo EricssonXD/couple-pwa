@@ -1,7 +1,8 @@
 # DuoSync — Roadmap
 
-> Source of truth for what's left. Anything shipped lives in
-> `docs/history.md` (chronicle) or the README status section.
+> Source of truth for what's left. Anything shipped lives in the
+> README "Status" section or `git log` — `docs/history.md` is a
+> frozen pivot-era plan, not a live chronicle.
 
 ---
 
@@ -49,8 +50,17 @@ update banner.
 - **PWA hardening**: P-series, R1–R4 (offline queue, idempotency,
   presence resilience, shell precache, conflict resolution).
 - **Push (N-series)**: N1 VAPID, N2 trigger surface, N3 delivery
-  worker, N4 iOS UX. Real VAPID keys still need an ops setup pass
-  before anything actually fires in prod.
+  worker, N4 iOS UX. Real VAPID keys provisioned. **Push-perf**: edge
+  fn now sends `Urgency: high` + RFC 8030 `Topic` for OS-immediate
+  wake + same-key coalescing; SvelteKit Worker fires
+  `kickPushDeliver()` inline via `event.platform.context.waitUntil`
+  so taps arrive in ~3-5s instead of waiting up to 60s for the next
+  pg_cron tick. Cron stays as backstop. `verify_jwt=false` for
+  `push-deliver` is pinned in `supabase/config.toml` because the fn
+  authenticates with our own `Bearer CRON_TOKEN` — without that flag
+  the platform 401s before our handler runs and the outbox piles up
+  silently (user-visible symptom: "notifications only appear when I
+  open the app").
 - **Hardening (H-series)**: H1 sentry stub, H2 security headers,
   H3 rate limits, H4 account deletion, H5 anti-coercion + audit log.
 - **Growth (G-series)**: G1 couple-link UX, G2 first-run, G4 unified
@@ -65,13 +75,6 @@ update banner.
 ---
 
 ## Not done — in priority order
-
-### Deploy (UNBLOCK ALL OTHER WORK)
-
-- 8+ local commits sit ahead of `origin`. HTTPS prompt blocks
-  `git push` from this env — needs `git push` from a credential-
-  loaded shell, then `bash scripts/deploy.sh --skip-checks`.
-- Until then, the welcome-flash fix, F3, F6, and F8 are not live.
 
 ### Phase 2 — Tier 1 / 2 remaining
 
