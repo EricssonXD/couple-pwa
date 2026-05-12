@@ -44,7 +44,8 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
 			notes: body.notes,
 			startsAt: body.startsAt,
 			endsAt: body.endsAt,
-			allDay: body.allDay
+			allDay: body.allDay,
+			rrule: body.rrule
 		});
 		if (!ok) error(404, 'not_found');
 		return json({ ok: true });

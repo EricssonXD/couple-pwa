@@ -11,16 +11,18 @@
 	let startsAt = $state('');
 	let endsAt = $state('');
 	let allDay = $state(false);
+	let repeat = $state<'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'>('NONE');
 	let submitting = $state(false);
 	let err = $state<string | null>(null);
 
 	type Ev = PageData['events'][number];
 
-	// Group upcoming events by local YYYY-MM-DD.
+	// Group upcoming events by local YYYY-MM-DD using the resolved
+	// occurrence instant (recurring events expand into multiple).
 	const grouped = $derived.by(() => {
 		const buckets: Record<string, Ev[]> = {};
 		for (const e of data.events) {
-			const d = new Date(e.startsAt);
+			const d = new Date(e.occurrenceAt);
 			const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 			(buckets[key] ??= []).push(e);
 		}
@@ -32,6 +34,10 @@
 		// `datetime-local` returns "YYYY-MM-DDTHH:mm" in local time.
 		const d = new Date(local);
 		return Number.isNaN(d.getTime()) ? null : d.toISOString();
+	}
+
+	function rruleFor(choice: typeof repeat): string | undefined {
+		return choice === 'NONE' ? undefined : `FREQ=${choice}`;
 	}
 
 	async function add() {
@@ -53,15 +59,21 @@
 				notes: notes.trim() || undefined,
 				startsAt: startIso,
 				endsAt: endIso ?? undefined,
-				allDay
+				allDay,
+				rrule: rruleFor(repeat)
 			})
 		});
 		submitting = false;
 		if (!r.ok) {
-			err =
-				r.status === 429
-					? m.calendar_error_quota()
-					: m.calendar_error_generic({ status: String(r.status) });
+			let code: string | null = null;
+			try {
+				code = (await r.clone().json())?.error ?? null;
+			} catch {
+				/* non-JSON */
+			}
+			if (code === 'invalid_rrule') err = m.calendar_error_rrule();
+			else if (r.status === 429) err = m.calendar_error_quota();
+			else err = m.calendar_error_generic({ status: String(r.status) });
 			return;
 		}
 		title = '';
@@ -69,6 +81,7 @@
 		startsAt = '';
 		endsAt = '';
 		allDay = false;
+		repeat = 'NONE';
 		await invalidateAll();
 	}
 
@@ -84,6 +97,17 @@
 
 	function fmtTime(iso: string) {
 		return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+	}
+
+	// Project the stored endsAt forward by the same offset as the
+	// occurrence shifted from DTSTART, so the displayed end time
+	// matches each recurrence.
+	function endTimeForOccurrence(ev: Ev): string | null {
+		if (!ev.endsAt) return null;
+		const startMs = new Date(ev.startsAt).getTime();
+		const endMs = new Date(ev.endsAt).getTime();
+		const occMs = new Date(ev.occurrenceAt).getTime();
+		return new Date(occMs + (endMs - startMs)).toISOString();
 	}
 </script>
 
@@ -142,6 +166,18 @@
 				<input type="checkbox" bind:checked={allDay} class="checkbox checkbox-sm" />
 				<span class="label-text">{m.calendar_all_day_label()}</span>
 			</label>
+			<label class="form-control">
+				<div class="label">
+					<span class="label-text">{m.calendar_repeat_label()}</span>
+				</div>
+				<select bind:value={repeat} class="select-bordered select">
+					<option value="NONE">{m.calendar_repeat_none()}</option>
+					<option value="DAILY">{m.calendar_repeat_daily()}</option>
+					<option value="WEEKLY">{m.calendar_repeat_weekly()}</option>
+					<option value="MONTHLY">{m.calendar_repeat_monthly()}</option>
+					<option value="YEARLY">{m.calendar_repeat_yearly()}</option>
+				</select>
+			</label>
 			{#if err}<p class="text-sm text-error">{err}</p>{/if}
 			<button
 				class="btn btn-block btn-primary"
@@ -166,7 +202,7 @@
 						{fmtDay(day)}
 					</h3>
 					<ul class="space-y-2">
-						{#each events as ev (ev.id)}
+						{#each events as ev (`${ev.id}-${ev.occurrenceAt}`)}
 							<li class="card bg-base-100 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-start gap-3">
@@ -181,11 +217,15 @@
 												{#if ev.allDay}
 													<span>🗓 {m.calendar_all_day_badge()}</span>
 												{:else}
+													{@const endIso = endTimeForOccurrence(ev)}
 													<span
-														>🕐 {fmtTime(ev.startsAt)}{ev.endsAt
-															? ' – ' + fmtTime(ev.endsAt)
+														>🕐 {fmtTime(ev.occurrenceAt)}{endIso
+															? ' – ' + fmtTime(endIso)
 															: ''}</span
 													>
+												{/if}
+												{#if ev.rrule}
+													<span>↻ {m.calendar_repeats_badge()}</span>
 												{/if}
 												<span>
 													{ev.createdBy === data.viewerId

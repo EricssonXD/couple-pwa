@@ -1,15 +1,18 @@
-// DuoSync — F8 Shared calendar service (v1).
+// DuoSync — F8 Shared calendar service.
 //
-// CRUD over couple-shared events. v1 returns only single occurrences;
-// the `rrule` column is reserved for v2 recurrence expansion.
+// CRUD over couple-shared events. v2 supports recurrence: the `rrule`
+// column stores a normalised RFC 5545 fragment, validated server-side
+// via `services/recurrence.ts`. `listForCouple` expands recurring
+// events into virtual occurrences within the requested window.
 //
 // Service-role Drizzle bypasses RLS, so API handlers MUST derive
 // coupleId from `locals.couple`, never from the request body.
 
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { calendarEvents } from '$lib/server/db/app.schema';
 import { MAX_TITLE_LEN, MAX_NOTES_LEN, MAX_EVENTS_PER_COUPLE } from '$lib/calendar.constants';
+import { expandOccurrences, normalizeRrule, RruleValidationError } from './recurrence';
 
 export { MAX_TITLE_LEN, MAX_NOTES_LEN, MAX_EVENTS_PER_COUPLE };
 
@@ -26,6 +29,15 @@ export type CalendarEvent = {
 	updatedAt: Date;
 };
 
+/**
+ * A virtual single instant of a (possibly recurring) calendar event.
+ * `occurrenceAt` is the resolved start instant; `startsAt` remains the
+ * stored DTSTART so the UI can derive duration via `endsAt - startsAt`.
+ */
+export type CalendarEventOccurrence = CalendarEvent & {
+	occurrenceAt: Date;
+};
+
 export class CalendarEventValidationError extends Error {
 	constructor(
 		message: string,
@@ -37,6 +49,7 @@ export class CalendarEventValidationError extends Error {
 			| 'invalid_ends_at'
 			| 'ends_before_starts'
 			| 'quota_exceeded'
+			| 'invalid_rrule'
 	) {
 		super(message);
 		this.name = 'CalendarEventValidationError';
@@ -70,6 +83,19 @@ function normalizeNotes(raw: unknown): string | null {
 	return n;
 }
 
+function normalizeOptionalRrule(raw: unknown): string | null {
+	if (raw === undefined || raw === null) return null;
+	if (typeof raw === 'string' && raw.trim().length === 0) return null;
+	try {
+		return normalizeRrule(raw);
+	} catch (err) {
+		if (err instanceof RruleValidationError) {
+			throw new CalendarEventValidationError(`invalid rrule: ${err.code}`, 'invalid_rrule');
+		}
+		throw err;
+	}
+}
+
 function normalizeDate(raw: unknown, code: 'invalid_starts_at' | 'invalid_ends_at'): Date {
 	if (typeof raw !== 'string') {
 		throw new CalendarEventValidationError(`${code} must be ISO 8601`, code);
@@ -97,26 +123,59 @@ function rowToEvent(r: typeof calendarEvents.$inferSelect): CalendarEvent {
 }
 
 /**
- * v1: returns single-occurrence events only. v2 will expand `rrule`
- * into virtual rows within [from, to].
+ * Returns all event occurrences inside `[from, to]`. Single-occurrence
+ * events whose `startsAt` falls in-window are returned directly.
+ * Recurring events (rrule != null) are expanded into virtual
+ * `CalendarEventOccurrence` rows — one per concrete instant — sharing
+ * the parent event's id. Caller can disambiguate via `occurrenceAt`.
+ *
+ * The DB filter loads:
+ *   - non-recurring rows whose startsAt ≤ to (we still bound by from
+ *     post-expansion so a long-tailed event isn't dropped)
+ *   - all recurring rows whose DTSTART (startsAt) ≤ to (the rule may
+ *     still produce occurrences after now even if it started years ago)
+ *
+ * To keep the worker bounded we cap recurring expansion per-event in
+ * `services/recurrence.ts` (MAX_OCCURRENCES_PER_EXPAND).
  */
 export async function listForCouple(input: {
 	coupleId: string;
 	from: Date;
 	to: Date;
-}): Promise<CalendarEvent[]> {
+}): Promise<CalendarEventOccurrence[]> {
 	const rows = await db
 		.select()
 		.from(calendarEvents)
 		.where(
 			and(
 				eq(calendarEvents.coupleId, input.coupleId),
-				gte(calendarEvents.startsAt, input.from),
-				lte(calendarEvents.startsAt, input.to)
+				lte(calendarEvents.startsAt, input.to),
+				or(isNotNull(calendarEvents.rrule), isNull(calendarEvents.rrule))
 			)
 		)
 		.orderBy(asc(calendarEvents.startsAt));
-	return rows.map(rowToEvent);
+
+	const out: CalendarEventOccurrence[] = [];
+	for (const r of rows) {
+		const event = rowToEvent(r);
+		if (!event.rrule) {
+			if (event.startsAt >= input.from && event.startsAt <= input.to) {
+				out.push({ ...event, occurrenceAt: event.startsAt });
+			}
+			continue;
+		}
+		const instants = expandOccurrences({
+			rrule: event.rrule,
+			dtstart: event.startsAt,
+			from: input.from,
+			to: input.to
+		});
+		for (const occurrenceAt of instants) {
+			out.push({ ...event, occurrenceAt });
+		}
+	}
+	out.sort((a, b) => a.occurrenceAt.getTime() - b.occurrenceAt.getTime());
+	return out;
 }
 
 export async function createEvent(input: {
@@ -127,6 +186,7 @@ export async function createEvent(input: {
 	startsAt: unknown;
 	endsAt?: unknown;
 	allDay?: unknown;
+	rrule?: unknown;
 }): Promise<CalendarEvent> {
 	const title = normalizeTitle(input.title);
 	const notes = normalizeNotes(input.notes);
@@ -139,6 +199,7 @@ export async function createEvent(input: {
 		throw new CalendarEventValidationError('endsAt is before startsAt', 'ends_before_starts');
 	}
 	const allDay = input.allDay === true;
+	const rrule = normalizeOptionalRrule(input.rrule);
 
 	const [{ count }] = await db
 		.select({ count: sql<number>`count(*)::int` })
@@ -160,7 +221,8 @@ export async function createEvent(input: {
 			notes,
 			startsAt,
 			endsAt,
-			allDay
+			allDay,
+			rrule
 		})
 		.returning();
 	return rowToEvent(row);
@@ -174,6 +236,7 @@ export async function updateEvent(input: {
 	startsAt?: unknown;
 	endsAt?: unknown;
 	allDay?: unknown;
+	rrule?: unknown;
 }): Promise<boolean> {
 	const patch: Record<string, unknown> = {};
 	if (input.title !== undefined) patch.title = normalizeTitle(input.title);
@@ -184,6 +247,7 @@ export async function updateEvent(input: {
 		patch.endsAt = input.endsAt === null ? null : normalizeDate(input.endsAt, 'invalid_ends_at');
 	}
 	if (input.allDay !== undefined) patch.allDay = input.allDay === true;
+	if (input.rrule !== undefined) patch.rrule = normalizeOptionalRrule(input.rrule);
 	if (
 		patch.startsAt instanceof Date &&
 		patch.endsAt instanceof Date &&

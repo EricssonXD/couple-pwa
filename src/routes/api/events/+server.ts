@@ -10,6 +10,7 @@
  *   startsAt: string (ISO 8601);
  *   endsAt?: string (ISO 8601);
  *   allDay?: boolean;
+ *   rrule?: string;  // RFC 5545 fragment (FREQ=…), no DTSTART prefix
  * }
  */
 
@@ -48,7 +49,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			notes: body.notes,
 			startsAt: body.startsAt,
 			endsAt: body.endsAt,
-			allDay: body.allDay
+			allDay: body.allDay,
+			rrule: body.rrule
 		});
 		return json({ ok: true, id: row.id });
 	} catch (e) {

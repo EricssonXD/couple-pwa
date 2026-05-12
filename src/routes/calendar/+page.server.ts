@@ -22,6 +22,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			...e,
 			startsAt: e.startsAt.toISOString(),
 			endsAt: e.endsAt ? e.endsAt.toISOString() : null,
+			occurrenceAt: e.occurrenceAt.toISOString(),
 			createdAt: e.createdAt.toISOString(),
 			updatedAt: e.updatedAt.toISOString()
 		})),
