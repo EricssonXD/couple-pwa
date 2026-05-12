@@ -67,12 +67,14 @@ update banner.
 ## Not done — in priority order
 
 ### Deploy (UNBLOCK ALL OTHER WORK)
+
 - 8+ local commits sit ahead of `origin`. HTTPS prompt blocks
   `git push` from this env — needs `git push` from a credential-
   loaded shell, then `bash scripts/deploy.sh --skip-checks`.
 - Until then, the welcome-flash fix, F3, F6, and F8 are not live.
 
 ### Phase 2 — Tier 1 / 2 remaining
+
 - **F7 couple-only chat** — text + voice notes via existing Supabase
   channel. Voice notes blocked on G3 (Storage bucket).
 - **F9 quiz packs** — "How well do you know me?" — static JSON in
@@ -83,12 +85,14 @@ update banner.
   storage >100MB, advanced widgets.
 
 ### Phase 2 — Tier 3 (re-prioritize after retention metrics)
+
 - F11 widgets (iOS PWA limited; Android web-app shortcuts first)
 - F14 cycle sharing (sensitive — needs explicit opt-in toggle +
   audit log entry + clear delete path)
 - F16 conflict-resolution / repair toolkit (therapeutic copy)
 
 ### Parked
+
 - F12 therapy modules (content-heavy; partner with therapist for IP)
 - F13 shared playlist (per-provider OAuth cost)
 - F15 voice/video calling (WebRTC + TURN cost; users have WhatsApp)
@@ -97,6 +101,7 @@ update banner.
 - F20 onboarding personality (3-question intake)
 
 ### v2 of shipped features
+
 - **F8 calendar v2**: rrule expansion (`rrule.js`), reminder cron
   (24h + 1h push). The `rrule TEXT NULLABLE` column is already in
   the schema — no migration needed.
