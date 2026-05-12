@@ -13,7 +13,7 @@ To ensure all agents behave consistently and reliably, follow these rules at all
 
 - **Language**: TypeScript
 - **Package Manager**: bun
-- **Add-ons**: prettier, eslint, vitest, playwright, sveltekit-adapter, tailwindcss, devtools-json, paraglide, mcp, storybook, drizzle, better-auth, mdsvex
+- **Add-ons**: prettier, eslint, vitest, playwright, sveltekit-adapter-cloudflare, tailwindcss v4, daisyui, paraglide, mcp, storybook, drizzle, supabase (auth + realtime + postgres + RLS), web-push (VAPID), bits-ui, phosphor-svelte, mdsvex
 
 ---
 
