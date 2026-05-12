@@ -512,18 +512,12 @@ export const quizRuns = pgTable(
 	(t) => [
 		check('quiz_runs_quiz_id_shape', sql`${t.quizId} ~ '^[a-z0-9][a-z0-9_-]{0,63}$'`),
 		check('quiz_runs_partners_distinct', sql`${t.aUserId} <> ${t.bUserId}`),
-		check(
-			'quiz_runs_started_by_member',
-			sql`${t.startedBy} in (${t.aUserId}, ${t.bUserId})`
-		),
+		check('quiz_runs_started_by_member', sql`${t.startedBy} in (${t.aUserId}, ${t.bUserId})`),
 		check(
 			'quiz_runs_completion_consistent',
 			sql`${t.completedAt} is null or (${t.aCompletedAt} is not null and ${t.bCompletedAt} is not null)`
 		),
-		check(
-			'quiz_runs_terminal_state',
-			sql`${t.completedAt} is null or ${t.abandonedAt} is null`
-		),
+		check('quiz_runs_terminal_state', sql`${t.completedAt} is null or ${t.abandonedAt} is null`),
 		index('quiz_runs_couple_idx').on(
 			t.coupleId,
 			sql`${t.completedAt} desc nulls first`,

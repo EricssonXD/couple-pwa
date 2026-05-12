@@ -10,12 +10,7 @@
 // transition is reported once across two concurrent submissions.
 
 import { describe, it, expect } from 'vitest';
-import {
-	loadCatalog,
-	loadQuiz,
-	QuizValidationError,
-	type QuizPack
-} from './quiz';
+import { loadCatalog, loadQuiz, QuizValidationError, type QuizPack } from './quiz';
 import {
 	MAX_QUESTIONS_PER_PACK,
 	MAX_CHOICES_PER_QUESTION,
@@ -162,9 +157,7 @@ describe('loadQuiz validation chain', () => {
 
 	it('rejects packs with too-long prompts', async () => {
 		const big = pack({
-			questions: [
-				{ id: 'q1', prompt: 'x'.repeat(MAX_PROMPT_LEN + 1), choices: ['a', 'b'] }
-			]
+			questions: [{ id: 'q1', prompt: 'x'.repeat(MAX_PROMPT_LEN + 1), choices: ['a', 'b'] }]
 		});
 		const f = fetcherOf({
 			'/quizzes/index.json': goodCatalog,

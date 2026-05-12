@@ -575,10 +575,7 @@ export async function listRunsForCouple(input: {
 		})
 		.from(quizRuns)
 		.where(eq(quizRuns.coupleId, input.coupleId))
-		.orderBy(
-			sql`${quizRuns.completedAt} desc nulls first`,
-			desc(quizRuns.createdAt)
-		)
+		.orderBy(sql`${quizRuns.completedAt} desc nulls first`, desc(quizRuns.createdAt))
 		.limit(50);
 	return rows.map((r) => {
 		const side = viewerSide(
