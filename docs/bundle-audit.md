@@ -4,17 +4,21 @@ Snapshot of the production build's chunk graph and which routes pay
 for which dependency. Used as the rationale behind `.size-limit.json`
 budgets.
 
-## Top chunks (raw bytes)
+## Top chunks (illustrative — hashes change per build)
 
-| chunk         | size    | content                                   |
-| ------------- | ------- | ----------------------------------------- |
-| `DW_CbNrr.js` | ~220 KB | `@supabase/supabase-js` + `@supabase/ssr` |
-| `DLjhuocD.js` | ~150 KB | `leaflet`                                 |
-| `BoErq7hP.js` | ~50 KB  | shared component glue (phosphor + svelte) |
-| `CanSzVn7.js` | ~33 KB  | SvelteKit start + load_css                |
-| `Jq5A5zMO.js` | ~33 KB  | Svelte 5 runtime                          |
+| chunk     | size    | content                                   |
+| --------- | ------- | ----------------------------------------- |
+| supabase  | ~220 KB | `@supabase/supabase-js` + `@supabase/ssr` |
+| leaflet   | ~150 KB | `leaflet`                                 |
+| ui-glue   | ~50 KB  | shared component glue (phosphor + svelte) |
+| sk-start  | ~33 KB  | SvelteKit start + load_css                |
+| svelte-rt | ~33 KB  | Svelte 5 runtime                          |
 
-Gzipped, the entire `chunks/*.js` set is **179.37 KB** — well under
+Hashes (e.g. `Cr1MznA9.js`) are content-addressed and rotate every
+build — don't pin docs to specific filenames. Re-derive with the
+audit script below.
+
+Gzipped, the entire `chunks/*.js` set is **~180 KB** — well under
 the 220 KB budget.
 
 ## Critical-path verification (welcome + sign-in)
@@ -22,11 +26,10 @@ the 220 KB budget.
 The two routes a logged-out user sees (`/welcome` and `/auth/sign-in`)
 are **already off the supabase + leaflet payloads** by architecture:
 
-- node 18 (`/welcome`) → 2.23 KB gz
-- node 4 (`/auth/sign-in`) → 1.96 KB gz
+- node 18 (`/welcome`) → ~2 KB gz
+- node 4 (`/auth/sign-in`) → ~2 KB gz
 
-Neither imports `DW_CbNrr.js` (supabase) nor `DLjhuocD.js` (leaflet).
-This is because:
+Neither imports the supabase nor leaflet chunks. This is because:
 
 1. `@supabase/supabase-js` is only consumed via
    `src/lib/client/realtime.svelte.ts` and `src/lib/client/supabase.ts`,
