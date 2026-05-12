@@ -20,6 +20,8 @@ import { db } from '$lib/server/db';
 import { profile, pushOutbox } from '$lib/server/db/app.schema';
 import { eq } from 'drizzle-orm';
 import { isGhostActive } from './location';
+import { env } from '$env/dynamic/private';
+import { getRequestEvent } from '$app/server';
 
 const LOW_BATTERY_THRESHOLD = 15;
 // Suppress repeat low-battery pings for an hour even if battery dips
@@ -72,6 +74,56 @@ async function enqueue(args: EnqueueArgs): Promise<void> {
 			target: [pushOutbox.recipientId, pushOutbox.dedupeKey],
 			where: sql`${pushOutbox.dedupeKey} IS NOT NULL`
 		});
+
+	// Fire-and-forget kick to push-deliver so the notification arrives in
+	// seconds instead of waiting up to a minute for the next pg_cron tick.
+	// Cron stays scheduled as a backstop for the no-context / network-fail
+	// case (and to drain rows that were inserted in scripts / tests).
+	maybeKickPushDeliver();
+}
+
+/**
+ * Pure helper, exported for tests. Returns true iff a kick was scheduled.
+ *
+ * Schedules an HTTP POST to the push-deliver edge function via the
+ * provided `waitUntil` (so it survives past the response on Cloudflare
+ * Workers) or, when no waitUntil is available, fires it untracked and
+ * relies on the runtime to keep the promise alive long enough.
+ */
+export function kickPushDeliver(
+	url: string | undefined,
+	token: string | undefined,
+	fetcher: typeof fetch,
+	waitUntil: ((p: Promise<unknown>) => void) | undefined
+): boolean {
+	if (!url || !token) return false;
+	const p = fetcher(url, {
+		method: 'POST',
+		headers: { authorization: `Bearer ${token}` }
+	}).catch((e) => {
+		// Best-effort. The pg_cron schedule will retry on its next tick.
+		console.error('push-deliver kick failed', e);
+		return undefined;
+	});
+	if (waitUntil) waitUntil(p);
+	else void p;
+	return true;
+}
+
+function maybeKickPushDeliver(): void {
+	let event: ReturnType<typeof getRequestEvent> | undefined;
+	try {
+		event = getRequestEvent();
+	} catch {
+		// Outside a request scope (cron self-invocation, scripts, tests).
+		// No worker context → nothing to schedule against.
+		return;
+	}
+	const platform = event.platform as
+		| { context?: { waitUntil?: (p: Promise<unknown>) => void } }
+		| undefined;
+	const waitUntil = platform?.context?.waitUntil?.bind(platform.context);
+	kickPushDeliver(env.PUSH_DELIVER_URL, env.CRON_TOKEN, fetch, waitUntil);
 }
 
 export interface MomentNearbyTrigger {

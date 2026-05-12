@@ -29,6 +29,26 @@ supabase functions deploy push-deliver --project-ref <ref>
 # 4. Schedule (pg_cron example — see index.ts header)
 ```
 
+### Low-latency tap delivery
+
+pg_cron's minimum interval is 1 minute, which is too slow for tap-class
+notifications. The SvelteKit Worker also fires the push-deliver function
+inline (fire-and-forget via `ctx.waitUntil`) immediately after enqueueing
+a row, so the typical latency drops from ~30s avg to ~3-5s. Cron stays
+scheduled as a backstop for failed inline calls.
+
+To enable, set in Cloudflare Workers (NOT Supabase):
+
+```sh
+# Worker env vars (wrangler.jsonc / dashboard / `wrangler secret put`)
+PUSH_DELIVER_URL=https://<ref>.functions.supabase.co/push-deliver
+CRON_TOKEN=<same value used for the cron schedule>
+```
+
+The Worker reads both via `$env/dynamic/private`. If either is missing,
+`enqueue()` skips the kick silently and you fall back to cron-only
+(higher latency but everything still works).
+
 Local test:
 
 ```sh

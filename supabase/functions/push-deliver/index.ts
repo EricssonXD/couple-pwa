@@ -71,6 +71,23 @@ function configureVapid() {
 	webpush.setVapidDetails(subject, pub, priv);
 }
 
+// Map verbose `kind` values to short codes so the Topic header stays
+// well under the RFC8030 32-char limit even with the recipient suffix.
+const KIND_CODE: Record<string, string> = {
+	partner_heartbeat_tap: 'tap',
+	partner_low_battery: 'bat',
+	partner_arrived: 'arr',
+	partner_dropped_moment: 'mom'
+};
+
+function pushTopic(kind: string, recipientId: string): string {
+	const code = KIND_CODE[kind] ?? kind.slice(0, 6);
+	// Strip dashes from the UUID and take a 12-char suffix — random
+	// enough for per-user dedupe across all couples on this deployment.
+	const suffix = recipientId.replace(/-/g, '').slice(-12);
+	return `${code}-${suffix}`;
+}
+
 Deno.serve(async (req) => {
 	const cronToken = Deno.env.get('CRON_TOKEN');
 	const auth = req.headers.get('authorization') ?? '';
@@ -139,7 +156,21 @@ Deno.serve(async (req) => {
 						keys: { p256dh: sub.p256dh, auth: sub.auth }
 					},
 					payload,
-					{ TTL: 60 * 60 * 24 }
+					{
+						TTL: 60 * 60 * 24,
+						// `urgency: 'high'` bypasses Doze on Android and Low
+						// Power on iOS PWA — without it, the OS may batch
+						// the push for several minutes. We treat every kind
+						// we ship today as user-facing & time-sensitive
+						// (tap, low-battery, partner-arrived, moment-nearby).
+						urgency: 'high',
+						// Topic dedupes at the push service edge: a burst
+						// of the same kind for the same recipient collapses
+						// to one delivery. Must be ≤32 URL-safe chars per
+						// RFC8030; we use a short kind-code + the random
+						// suffix of the recipient UUID.
+						topic: pushTopic(row.kind, row.recipient_id)
+					}
 				);
 				anyOk = true;
 			} catch (err: any) {
