@@ -294,7 +294,7 @@ export const pushSubscription = pgTable(
 // start friendly and so retries / dedupe can be moved into a dedicated
 // worker without a public-API change.
 //
-// `kind` mirrors the trigger taxonomy in docs/next-phases.md (N2):
+// `kind` mirrors the trigger taxonomy from N-series planning notes (N2):
 //   - 'partner_arrived' — partner entered a saved place radius
 //   - 'partner_dropped_moment' — partner authored a moment near you
 //   - 'partner_low_battery' — partner crossed 15% on this ping

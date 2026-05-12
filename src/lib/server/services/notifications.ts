@@ -6,7 +6,7 @@
  * row-level postgres triggers — keeps the orchestration in TypeScript so
  * we can re-use the dedupe / rate-limit logic).
  *
- * Three triggers ship today (matches docs/next-phases.md N2):
+ * Three triggers ship today (N2 trigger taxonomy):
  *   - notifyMomentDroppedNearby — partner authors a moment within reach
  *   - notifyLowBattery — partner battery just crossed below 15%
  *   - notifyPartnerArrived — partner entered a saved place radius
