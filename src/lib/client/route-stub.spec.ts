@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-// route-stub.js runs synchronously in <head> before paint to redirect
-// signed-in users away from `/` and `/welcome`. The script reads the
+// The pre-paint redirect is inlined into src/app.html — a returning
+// signed-in user opening the PWA cold (online OR offline) gets the
+// redirect with zero network/cache fetch. The script reads the
 // `ds_auth` cookie (set client-readable by hooks.server.ts) and decides:
 //
 //   path \ cookie  | (none)        | onboarding   | pulse / "1"
@@ -11,13 +12,20 @@ import { fileURLToPath } from 'node:url';
 //   /              | /welcome      | /onboarding  | /pulse
 //   /welcome       | (stay)        | /onboarding  | /pulse
 //
-// This guard is what kills the welcome-flash for users whose cached HTML
-// is served by the SW offline (where hooks.server.ts never runs to do
-// the SSR-side redirect). Server-online flashes are killed separately
-// by /+page.server.ts 303s.
+// This guard kills the welcome-flash whether the cached HTML is served
+// online (server 303s) or offline (SW serves cached `/`). Server-online
+// flashes are killed separately by /+page.server.ts 303s.
 
-const STUB_PATH = fileURLToPath(new URL('../../../static/route-stub.js', import.meta.url));
-const STUB_SRC = readFileSync(STUB_PATH, 'utf8');
+const APP_HTML_PATH = fileURLToPath(new URL('../../app.html', import.meta.url));
+const APP_HTML = readFileSync(APP_HTML_PATH, 'utf8');
+
+// Extract the (single) inline pre-paint script from app.html.
+function extractStub(): string {
+	const m = APP_HTML.match(/<script>([\s\S]*?)<\/script>/);
+	if (!m) throw new Error('No inline <script> found in app.html');
+	return m[1];
+}
+const STUB_SRC = extractStub();
 
 interface RunResult {
 	pathname: string;

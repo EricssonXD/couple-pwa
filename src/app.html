@@ -4,12 +4,30 @@
 	<head>
 		<meta charset="utf-8" />
 		<!--
-		  Pre-paint redirect for `/`. The script is external (and cached
-		  by the SW under SHELL_CACHE) so we can keep CSP strict without
-		  juggling per-request nonces — and so the page template stays
-		  prerender-friendly.
+		  Pre-paint redirect for `/` and `/welcome`. Inlined (not external)
+		  so it executes BEFORE the body parses with zero network/cache
+		  fetch — a returning signed-in user opening the PWA cold (online
+		  OR offline) never sees a frame of the welcome page. CSP `hash`
+		  mode in svelte.config.js auto-hashes this tag.
+
+		  Reads the client-readable `ds_auth` cookie set by
+		  hooks.server.ts (no secrets — values: 'pulse', 'onboarding',
+		  legacy '1' = pulse). Unknown values are treated as no session
+		  so a corrupt cookie can't strand a real user.
 		-->
-		<script src="%sveltekit.assets%/route-stub.js"></script>
+		<script>
+			(function () {
+				var path = location.pathname;
+				if (path !== '/' && path !== '/welcome') return;
+				var match = document.cookie.match(/(?:^|;\s*)ds_auth=([^;]+)/);
+				var hint = match ? match[1] : null;
+				var dest = null;
+				if (hint === 'onboarding') dest = '/onboarding';
+				else if (hint === 'pulse' || hint === '1') dest = '/pulse';
+				else if (path === '/') dest = '/welcome';
+				if (dest && dest !== path) location.replace(dest);
+			})();
+		</script>
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="application-name" content="DuoSync" />
 		<meta name="apple-mobile-web-app-title" content="DuoSync" />

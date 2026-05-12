@@ -10,8 +10,8 @@
 	// Two layers keep signed-in users off it:
 	//   1. `/welcome/+page.server.ts` 303s any request that arrives with
 	//      `locals.user` populated → no flash on online direct hits.
-	//   2. `static/route-stub.js` (loaded synchronously from app.html
-	//      <head>) runs before the body parses, reads the `ds_auth`
+	//   2. The inline pre-paint script in `src/app.html` runs synchronously
+	//      in <head> with zero fetch (CSP-hashed), reads the `ds_auth`
 	//      cookie, and `location.replace()`s authed visitors away from
 	//      both `/` AND `/welcome`. This catches the offline / cached-
 	//      HTML path where the server load can't run, so a returning

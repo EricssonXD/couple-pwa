@@ -56,35 +56,40 @@ describe('service-worker offline precache contract', () => {
 	});
 });
 
-// The pre-paint redirect script in static/route-stub.js is the offline
-// safety-net for `/` and `/welcome`. If it loses its ability to read
-// the ds_auth cookie or stops handling /welcome, signed-in users will
-// see the welcome hero flash on every cold launch (or worse, get
-// stranded on the wrong cached page). Keep it under static guard.
-describe('route-stub.js client-side router', () => {
-	const stubPath = join(process.cwd(), 'static/route-stub.js');
+// The pre-paint redirect is now inlined directly into src/app.html
+// (was previously external static/route-stub.js). Inlining eliminates
+// the script-fetch tick — even SW-cached, an external <script src>
+// requires a microtask before execution, leaving a vanishing-but-real
+// race window where the body could paint. Inline runs synchronously
+// in <head> with zero fetch overhead. CSP `hash` mode auto-hashes it.
+//
+// If this script loses its ability to read the ds_auth cookie or stops
+// handling /welcome, signed-in users will see the welcome hero flash
+// on every cold launch (or worse, get stranded on the wrong cached
+// page). Keep it under static guard.
+describe('app.html pre-paint redirect', () => {
+	const appHtmlPath = join(process.cwd(), 'src/app.html');
+	const appHtml = readFileSync(appHtmlPath, 'utf8');
+	const inlineScript = appHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1] ?? '';
 
-	it('exists and is a static asset (cached as part of SHELL_ASSETS via $service-worker `files`)', () => {
-		expect(existsSync(stubPath)).toBe(true);
+	it('has an inline <script> in <head>', () => {
+		expect(inlineScript).not.toBe('');
 	});
 
 	it('runs only on / and /welcome', () => {
-		const src = readFileSync(stubPath, 'utf8');
 		// Must early-return for any other path so layout-loaded scripts
 		// don't double-redirect mid-navigation.
-		expect(src).toMatch(/['"]\/welcome['"]/);
-		expect(src).toMatch(/path !==/);
+		expect(inlineScript).toMatch(/['"]\/welcome['"]/);
+		expect(inlineScript).toMatch(/path !==/);
 	});
 
 	it('reads the ds_auth cookie and routes signed-in users to /pulse or /onboarding', () => {
-		const src = readFileSync(stubPath, 'utf8');
-		expect(src).toMatch(/ds_auth=/);
-		expect(src).toMatch(/['"]\/pulse['"]/);
-		expect(src).toMatch(/['"]\/onboarding['"]/);
+		expect(inlineScript).toMatch(/ds_auth=/);
+		expect(inlineScript).toMatch(/['"]\/pulse['"]/);
+		expect(inlineScript).toMatch(/['"]\/onboarding['"]/);
 	});
 
-	it('is referenced from app.html so it loads synchronously in <head>', () => {
-		const appHtml = readFileSync(join(process.cwd(), 'src/app.html'), 'utf8');
-		expect(appHtml).toMatch(/route-stub\.js/);
+	it('does NOT reference the legacy external route-stub.js (must stay inlined)', () => {
+		expect(appHtml).not.toMatch(/route-stub\.js/);
 	});
 });
