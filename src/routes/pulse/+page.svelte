@@ -210,7 +210,7 @@
 		if (tickTimer) clearInterval(tickTimer);
 	});
 
-	const partnerName = $derived(data.partner?.displayName ?? 'them');
+	const partnerName = $derived(data.partner?.displayName ?? m.pulse_partner_fallback());
 	const partnerLastSeen = $derived(
 		live.partner ? relativeTime(live.partner.capturedAt ?? null, now) : ''
 	);
@@ -231,7 +231,7 @@
 </script>
 
 <svelte:head>
-	<title>Pulse — DuoSync</title>
+	<title>{m.pulse_title()} · DuoSync</title>
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 pt-6 pb-32">

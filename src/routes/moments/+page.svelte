@@ -116,7 +116,8 @@
 			href={resolve('/moments/new')}
 			class="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold tracking-wider text-primary-content uppercase shadow-paper"
 		>
-			<Icon icon={PlusIcon} size={14} weight="bold" /> drop
+			<Icon icon={PlusIcon} size={14} weight="bold" />
+			{m.moments_drop_button()}
 		</a>
 	</header>
 
@@ -127,7 +128,7 @@
 			>
 				<Icon icon={SparkleIcon} size={36} weight="duotone" class="text-primary/60" />
 				<p class="mt-3 max-w-[14rem] text-sm text-base-content/70">
-					{m.moments_empty_long({ plus: '+ Drop' })}
+					{m.moments_empty_long({ plus: `+ ${m.moments_drop_button()}` })}
 				</p>
 			</div>
 		{:else}
@@ -138,28 +139,28 @@
 							{g.label}
 						</p>
 						<ul class="space-y-3">
-							{#each g.items as m (m.id)}
-								{@const locked = !m.isMine && m.unlockedAt == null}
+							{#each g.items as moment (moment.id)}
+								{@const locked = !moment.isMine && moment.unlockedAt == null}
 								<li class="relative">
 									<MomentCard
 										{locked}
-										authorIsViewer={m.isMine}
+										authorIsViewer={moment.isMine}
 										authorName={data.partnerName}
-										body={m.body}
-										createdAt={m.createdAt}
-										radiusM={m.radiusM}
-										distanceFromViewerM={distanceFor(m)}
-										onOpenMap={() => openMap(m)}
+										body={moment.body}
+										createdAt={moment.createdAt}
+										radiusM={moment.radiusM}
+										distanceFromViewerM={distanceFor(moment)}
+										onOpenMap={() => openMap(moment)}
 									/>
-									{#if m.isMine}
+									{#if moment.isMine}
 										<button
 											type="button"
 											class="absolute top-3 right-12 text-xs text-base-content/40 hover:text-error"
-											disabled={busyDelete === m.id}
-											onclick={() => remove(m.id)}
-											aria-label="Delete moment"
+											disabled={busyDelete === moment.id}
+											onclick={() => remove(moment.id)}
+											aria-label={m.moments_delete_aria()}
 										>
-											{busyDelete === m.id ? '...' : '✕'}
+											{busyDelete === moment.id ? '...' : '✕'}
 										</button>
 									{/if}
 								</li>
