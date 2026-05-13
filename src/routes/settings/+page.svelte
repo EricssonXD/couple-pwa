@@ -36,6 +36,7 @@
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
 	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -200,13 +201,9 @@
 					placeholder="🌱"
 				/>
 			</label>
-			<button
-				class="w-full rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase disabled:opacity-50"
-				disabled={busy === 'profile'}
-				onclick={saveProfile}
-			>
+			<PillButton block disabled={busy === 'profile'} onclick={saveProfile}>
 				{busy === 'profile' ? m.settings_saving() : m.settings_save()}
-			</button>
+			</PillButton>
 			<MoodTrendStrip buckets={data.moodTrend} />
 		</Card>
 
@@ -312,13 +309,9 @@
 						class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
 					/>
 				</label>
-				<button
-					class="w-full rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase disabled:opacity-50"
-					disabled={busy === 'couple'}
-					onclick={saveCouple}
-				>
+				<PillButton block disabled={busy === 'couple'} onclick={saveCouple}>
 					{busy === 'couple' ? m.settings_saving() : m.settings_save()}
-				</button>
+				</PillButton>
 			</Card>
 
 			<!-- danger -->
@@ -332,27 +325,22 @@
 					{m.settings_unpair_warning()}
 				</p>
 				{#if !confirmUnpair}
-					<button
-						class="w-full rounded-full border border-error/50 py-2.5 text-xs font-semibold tracking-wider text-error uppercase hover:bg-error/10"
-						onclick={() => (confirmUnpair = true)}
-					>
+					<PillButton variant="danger" block onclick={() => (confirmUnpair = true)}>
 						{m.settings_unpair_open()}
-					</button>
+					</PillButton>
 				{:else}
 					<div class="flex gap-2">
-						<button
-							class="flex-1 rounded-full bg-error py-2.5 text-xs font-semibold tracking-wider text-error-content uppercase disabled:opacity-50"
+						<PillButton
+							variant="dangerSolid"
+							class="flex-1"
 							disabled={busy === 'unpair'}
 							onclick={doUnpair}
 						>
 							{busy === 'unpair' ? m.settings_unpairing() : m.settings_unpair_confirm()}
-						</button>
-						<button
-							class="flex-1 rounded-full py-2.5 text-xs font-semibold tracking-wider text-base-content/60 uppercase"
-							onclick={() => (confirmUnpair = false)}
-						>
+						</PillButton>
+						<PillButton variant="ghost" class="flex-1" onclick={() => (confirmUnpair = false)}>
 							{m.common_cancel()}
-						</button>
+						</PillButton>
 					</div>
 				{/if}
 			</section>
@@ -421,37 +409,33 @@
 				<p class="text-xs text-base-content/80">
 					{m.settings_delete_pending({ date: new Date(pendingDeletionAt).toLocaleDateString() })}
 				</p>
-				<button
-					class="w-full rounded-full border border-base-content/20 py-2.5 text-xs font-semibold tracking-wider uppercase hover:bg-base-content/5 disabled:opacity-50"
+				<PillButton
+					variant="subtle"
+					block
 					disabled={busy === 'delete-cancel'}
 					onclick={cancelDelete}
 				>
 					{busy === 'delete-cancel' ? m.settings_delete_cancelling() : m.settings_delete_cancel()}
-				</button>
+				</PillButton>
 			{:else}
 				<p class="text-xs text-base-content/70">{m.settings_delete_warning()}</p>
 				{#if !confirmDelete}
-					<button
-						class="w-full rounded-full border border-error/50 py-2.5 text-xs font-semibold tracking-wider text-error uppercase hover:bg-error/10"
-						onclick={() => (confirmDelete = true)}
-					>
+					<PillButton variant="danger" block onclick={() => (confirmDelete = true)}>
 						{m.settings_delete_open()}
-					</button>
+					</PillButton>
 				{:else}
 					<div class="flex gap-2">
-						<button
-							class="flex-1 rounded-full bg-error py-2.5 text-xs font-semibold tracking-wider text-error-content uppercase disabled:opacity-50"
+						<PillButton
+							variant="dangerSolid"
+							class="flex-1"
 							disabled={busy === 'delete'}
 							onclick={requestDelete}
 						>
 							{busy === 'delete' ? m.settings_deleting() : m.settings_delete_confirm()}
-						</button>
-						<button
-							class="flex-1 rounded-full py-2.5 text-xs font-semibold tracking-wider text-base-content/60 uppercase"
-							onclick={() => (confirmDelete = false)}
-						>
+						</PillButton>
+						<PillButton variant="ghost" class="flex-1" onclick={() => (confirmDelete = false)}>
 							{m.common_cancel()}
-						</button>
+						</PillButton>
 					</div>
 				{/if}
 			{/if}
