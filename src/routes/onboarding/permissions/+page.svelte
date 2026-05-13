@@ -19,6 +19,7 @@
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import MapPinIcon from 'phosphor-svelte/lib/MapPinIcon';
 	import BellIcon from 'phosphor-svelte/lib/BellIcon';
 	import CheckCircleIcon from 'phosphor-svelte/lib/CheckCircleIcon';
@@ -96,9 +97,10 @@
 					{/if}
 				</div>
 				{#if geoState !== 'granted'}
-					<button
-						class="mt-3 w-full rounded-full border border-primary/30 bg-base-100 py-2.5 text-xs font-semibold tracking-wider uppercase hover:bg-primary/10 disabled:opacity-50"
-						type="button"
+					<PillButton
+						variant="outline"
+						block
+						class="mt-3"
 						onclick={askGeolocation}
 						disabled={geoState === 'requesting'}
 					>
@@ -107,7 +109,7 @@
 							: geoState === 'denied'
 								? m.onboarding_perms_geo_retry()
 								: m.onboarding_perms_geo_btn()}
-					</button>
+					</PillButton>
 				{/if}
 			</div>
 
@@ -123,9 +125,10 @@
 					{/if}
 				</div>
 				{#if pushState !== 'granted' && pushState !== 'unsupported'}
-					<button
-						class="mt-3 w-full rounded-full border border-primary/30 bg-base-100 py-2.5 text-xs font-semibold tracking-wider uppercase hover:bg-primary/10 disabled:opacity-50"
-						type="button"
+					<PillButton
+						variant="outline"
+						block
+						class="mt-3"
 						onclick={askPush}
 						disabled={pushState === 'requesting'}
 					>
@@ -134,7 +137,7 @@
 							: pushState === 'denied'
 								? m.onboarding_perms_push_retry()
 								: m.onboarding_perms_push_btn()}
-					</button>
+					</PillButton>
 				{/if}
 				{#if pushState === 'unsupported'}
 					<p class="mt-3 text-xs text-base-content/60">{m.onboarding_perms_push_unsupported()}</p>
@@ -142,13 +145,8 @@
 			</div>
 		</div>
 
-		<button
-			class="w-full rounded-full bg-primary py-3.5 text-base font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-transform active:scale-[0.98] disabled:opacity-50"
-			type="button"
-			onclick={finish}
-			disabled={busy}
-		>
+		<PillButton size="lg" block onclick={finish} disabled={busy}>
 			{m.onboarding_perms_continue()}
-		</button>
+		</PillButton>
 	</section>
 </main>

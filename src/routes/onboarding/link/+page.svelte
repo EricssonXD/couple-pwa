@@ -13,6 +13,7 @@
 	import QRCode from 'qrcode';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
 	import ShareNetworkIcon from 'phosphor-svelte/lib/ShareNetworkIcon';
@@ -134,22 +135,14 @@
 				{/if}
 
 				<div class="mt-5 flex gap-2">
-					<button
-						class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-base-content/15 py-2.5 text-xs font-semibold tracking-wider uppercase hover:bg-base-300"
-						type="button"
-						onclick={copyCode}
-					>
+					<PillButton variant="subtle" class="flex-1" onclick={copyCode}>
 						<Icon icon={CopyIcon} size={14} weight="duotone" />
 						{copied ? m.link_copied() : m.link_copy()}
-					</button>
-					<button
-						class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase"
-						type="button"
-						onclick={shareLink}
-					>
+					</PillButton>
+					<PillButton class="flex-1" onclick={shareLink}>
 						<Icon icon={ShareNetworkIcon} size={14} weight="duotone" />
 						{m.link_share()}
-					</button>
+					</PillButton>
 				</div>
 			</div>
 		</Card>
@@ -173,13 +166,9 @@
 				autocomplete="one-time-code"
 				inputmode="text"
 			/>
-			<button
-				class="w-full rounded-full bg-primary py-3.5 text-base font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-transform active:scale-[0.98] disabled:opacity-50"
-				type="submit"
-				disabled={busy || !typedCode.trim()}
-			>
+			<PillButton type="submit" size="lg" block disabled={busy || !typedCode.trim()}>
 				{busy ? m.onboarding_link_pairing() : m.link_pair_btn()}
-			</button>
+			</PillButton>
 			{#if error}
 				<div class="rounded-[var(--radius-card)] bg-error/10 px-4 py-3 text-sm text-error">
 					{error}

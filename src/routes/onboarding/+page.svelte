@@ -14,6 +14,7 @@
 	import { enhance } from '$app/forms';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import type { ActionData, PageData } from './$types';
 
@@ -98,12 +99,9 @@
 				</div>
 			{/if}
 
-			<button
-				class="w-full rounded-full bg-primary py-3.5 text-base font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-transform active:scale-[0.98]"
-				type="submit"
-			>
+			<PillButton type="submit" size="lg" block>
 				{m.onboarding_continue()} →
-			</button>
+			</PillButton>
 		</form>
 	</div>
 </main>
