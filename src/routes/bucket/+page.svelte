@@ -4,6 +4,9 @@
 	import { MAX_TITLE_LEN, MAX_NOTES_LEN } from '$lib/bucketList.constants';
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import CalendarBlankIcon from 'phosphor-svelte/lib/CalendarBlankIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 
 	const { data }: { data: PageData } = $props();
 
@@ -140,8 +143,13 @@
 									{#if it.notes}
 										<p class="mt-1 text-sm whitespace-pre-wrap text-base-content/70">{it.notes}</p>
 									{/if}
-									<div class="mt-2 flex flex-wrap gap-2 text-xs text-base-content/60">
-										{#if it.targetDate}<span>📅 {fmtDate(it.targetDate)}</span>{/if}
+									<div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-base-content/60">
+										{#if it.targetDate}
+											<span class="inline-flex items-center gap-1">
+												<Icon icon={CalendarBlankIcon} size={12} />
+												{fmtDate(it.targetDate)}
+											</span>
+										{/if}
 										<span>
 											{it.createdBy === data.viewerId
 												? m.bucket_added_by_you()
@@ -154,7 +162,7 @@
 									onclick={() => remove(it.id)}
 									aria-label={m.bucket_remove()}
 								>
-									✕
+									<Icon icon={XIcon} size={14} weight="bold" />
 								</button>
 							</div>
 						</div>
@@ -193,7 +201,7 @@
 									onclick={() => remove(it.id)}
 									aria-label={m.bucket_remove()}
 								>
-									✕
+									<Icon icon={XIcon} size={14} weight="bold" />
 								</button>
 							</div>
 						</div>

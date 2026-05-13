@@ -8,6 +8,8 @@
 -->
 <script lang="ts">
 	import * as tr from '$lib/paraglide/messages.js';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
 
 	type Props = {
 		coupleSince: Date | string;
@@ -56,7 +58,12 @@
 >
 	<div class="min-w-0">
 		{#if isMilestoneToday}
-			<p class="text-[10px] font-semibold tracking-[0.2em] text-primary uppercase">🎉 milestone</p>
+			<p
+				class="inline-flex items-center gap-1 text-[10px] font-semibold tracking-[0.2em] text-primary uppercase"
+			>
+				<Icon icon={SparkleIcon} size={11} weight="fill" />
+				<span>milestone</span>
+			</p>
 		{:else if nickname}
 			<p class="truncate text-[10px] tracking-[0.2em] text-base-content/50 uppercase">
 				{nickname}

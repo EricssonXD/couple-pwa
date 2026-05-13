@@ -31,6 +31,7 @@
 	import TranslateIcon from 'phosphor-svelte/lib/TranslateIcon';
 	import WrenchIcon from 'phosphor-svelte/lib/WrenchIcon';
 	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
+	import FlameIcon from 'phosphor-svelte/lib/FlameIcon';
 	import { setUserTheme, getUserChoice, type ThemeChoice } from '$lib/theme/index.svelte';
 	import { locales, getLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
 	import type { PageData } from './$types';
@@ -270,8 +271,9 @@
 					})}
 				</p>
 				{#if data.streak && data.streak.current > 0}
-					<p class="text-xs text-base-content/70">
-						🔥 {m.streak_label({ n: data.streak.current })}
+					<p class="inline-flex items-center gap-1.5 text-xs text-base-content/70">
+						<Icon icon={FlameIcon} size={14} weight="fill" class="text-primary" />
+						<span>{m.streak_label({ n: data.streak.current })}</span>
 					</p>
 				{/if}
 				<a

@@ -21,6 +21,7 @@
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -153,12 +154,16 @@
 									{#if moment.isMine}
 										<button
 											type="button"
-											class="absolute top-3 right-12 text-xs text-base-content/40 hover:text-error"
+											class="absolute top-3 right-12 inline-flex h-7 w-7 items-center justify-center text-base-content/40 hover:text-error"
 											disabled={busyDelete === moment.id}
 											onclick={() => remove(moment.id)}
 											aria-label={m.moments_delete_aria()}
 										>
-											{busyDelete === moment.id ? '...' : '✕'}
+											{#if busyDelete === moment.id}
+												<span class="text-xs">…</span>
+											{:else}
+												<Icon icon={XIcon} size={14} weight="bold" />
+											{/if}
 										</button>
 									{/if}
 								</li>

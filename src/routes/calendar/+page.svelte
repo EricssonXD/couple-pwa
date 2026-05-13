@@ -4,6 +4,11 @@
 	import { MAX_TITLE_LEN, MAX_NOTES_LEN } from '$lib/calendar.constants';
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import CalendarBlankIcon from 'phosphor-svelte/lib/CalendarBlankIcon';
+	import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
+	import ArrowsClockwiseIcon from 'phosphor-svelte/lib/ArrowsClockwiseIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 
 	const { data }: { data: PageData } = $props();
 
@@ -214,19 +219,26 @@
 													{ev.notes}
 												</p>
 											{/if}
-											<div class="mt-2 flex flex-wrap gap-2 text-xs text-base-content/60">
+											<div
+												class="mt-2 flex flex-wrap items-center gap-2 text-xs text-base-content/60"
+											>
 												{#if ev.allDay}
-													<span>🗓 {m.calendar_all_day_badge()}</span>
+													<span class="inline-flex items-center gap-1">
+														<Icon icon={CalendarBlankIcon} size={12} />
+														{m.calendar_all_day_badge()}
+													</span>
 												{:else}
 													{@const endIso = endTimeForOccurrence(ev)}
-													<span
-														>🕐 {fmtTime(ev.occurrenceAt)}{endIso
-															? ' – ' + fmtTime(endIso)
-															: ''}</span
-													>
+													<span class="inline-flex items-center gap-1">
+														<Icon icon={ClockIcon} size={12} />
+														{fmtTime(ev.occurrenceAt)}{endIso ? ' – ' + fmtTime(endIso) : ''}
+													</span>
 												{/if}
 												{#if ev.rrule}
-													<span>↻ {m.calendar_repeats_badge()}</span>
+													<span class="inline-flex items-center gap-1">
+														<Icon icon={ArrowsClockwiseIcon} size={12} />
+														{m.calendar_repeats_badge()}
+													</span>
 												{/if}
 												<span>
 													{ev.createdBy === data.viewerId
@@ -240,7 +252,7 @@
 											onclick={() => remove(ev.id)}
 											aria-label={m.calendar_remove()}
 										>
-											✕
+											<Icon icon={XIcon} size={14} weight="bold" />
 										</button>
 									</div>
 								</div>

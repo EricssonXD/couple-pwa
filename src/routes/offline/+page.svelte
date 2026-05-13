@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import MoonIcon from 'phosphor-svelte/lib/MoonIcon';
 
 	let online = $state(true);
 
@@ -31,7 +33,9 @@
 
 <main class="offline">
 	<div class="card">
-		<div class="emoji" aria-hidden="true">🌙</div>
+		<div class="moon-icon" aria-hidden="true">
+			<Icon icon={MoonIcon} size={48} weight="duotone" />
+		</div>
 		<h1 class="text-display">{m.offline_heading()}</h1>
 		<p>
 			{m.offline_body()}
@@ -60,8 +64,8 @@
 		padding: 2rem 1.5rem;
 		box-shadow: var(--shadow-paper);
 	}
-	.emoji {
-		font-size: 3rem;
+	.moon-icon {
+		color: color-mix(in oklab, var(--color-primary) 75%, var(--color-base-content));
 		margin-bottom: 0.5rem;
 	}
 	h1 {

@@ -5,6 +5,12 @@
 	import { iosInstallMode, type IosInstallMode } from '$lib/pwa/ios-install';
 	import { IosInstallSheet } from '$lib/components/duosync';
 	import * as m from '$lib/paraglide/messages.js';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import WaveformIcon from 'phosphor-svelte/lib/WaveformIcon';
+	import ChatCircleDotsIcon from 'phosphor-svelte/lib/ChatCircleDotsIcon';
+	import MapPinIcon from 'phosphor-svelte/lib/MapPinIcon';
+	import BellIcon from 'phosphor-svelte/lib/BellIcon';
+	import CheckCircleIcon from 'phosphor-svelte/lib/CheckCircleIcon';
 
 	// `/welcome` is the marketing/install page for anonymous users only.
 	// Two layers keep signed-in users off it:
@@ -61,10 +67,22 @@
 	<p class="tag">{m.welcome_tag()}</p>
 
 	<ul class="features">
-		<li>{m.welcome_feature_pulse()}</li>
-		<li>{m.welcome_feature_chat()}</li>
-		<li>{m.welcome_feature_moments()}</li>
-		<li>{m.welcome_feature_proximity()}</li>
+		<li>
+			<Icon icon={WaveformIcon} size={20} class="text-primary" />
+			<span>{m.welcome_feature_pulse()}</span>
+		</li>
+		<li>
+			<Icon icon={ChatCircleDotsIcon} size={20} class="text-primary" />
+			<span>{m.welcome_feature_chat()}</span>
+		</li>
+		<li>
+			<Icon icon={MapPinIcon} size={20} class="text-primary" />
+			<span>{m.welcome_feature_moments()}</span>
+		</li>
+		<li>
+			<Icon icon={BellIcon} size={20} class="text-primary" />
+			<span>{m.welcome_feature_proximity()}</span>
+		</li>
 	</ul>
 
 	{#if installable}
@@ -74,7 +92,10 @@
 			{iosMode === 'safari' ? m.welcome_ios_install_safari() : m.welcome_ios_install_other()}
 		</button>
 	{:else if standalone}
-		<p class="installed">{m.welcome_installed()}</p>
+		<p class="installed">
+			<Icon icon={CheckCircleIcon} size={16} class="text-success" />
+			<span>{m.welcome_installed()}</span>
+		</p>
 	{/if}
 
 	{#if online}
@@ -134,6 +155,9 @@
 		padding: 0.75rem 1rem;
 		border-radius: var(--radius-card);
 		color: var(--color-base-content);
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
 	}
 	.cta {
 		margin-top: 0.5rem;
@@ -164,6 +188,11 @@
 		color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
 		font-size: 0.9rem;
 		margin: 0;
+	}
+	.installed {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
 	}
 	.muted {
 		margin-top: 0.5rem;

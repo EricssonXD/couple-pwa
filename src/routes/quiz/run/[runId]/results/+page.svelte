@@ -6,6 +6,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { PageData } from './$types';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
+	import XIcon from 'phosphor-svelte/lib/XIcon';
 
 	const { data }: { data: PageData } = $props();
 	const r = $derived(data.run.reveal!);
@@ -58,20 +61,20 @@
 					<div class="rounded bg-base-100 p-2">
 						<p class="text-xs text-base-content/60 uppercase">You</p>
 						<p>Truth: {choiceText(q.id, viewerSelf)}</p>
-						<p>
-							Your guess about partner: {choiceText(q.id, viewerGuess)}
+						<p class="inline-flex items-center gap-1">
+							<span>Your guess about partner: {choiceText(q.id, viewerGuess)}</span>
 							<span class={youGotIt ? 'text-success' : 'text-error'}>
-								{youGotIt ? '✓' : '✗'}
+								<Icon icon={youGotIt ? CheckIcon : XIcon} size={14} weight="bold" />
 							</span>
 						</p>
 					</div>
 					<div class="rounded bg-base-100 p-2">
 						<p class="text-xs text-base-content/60 uppercase">Partner</p>
 						<p>Truth: {choiceText(q.id, partnerSelf)}</p>
-						<p>
-							Their guess about you: {choiceText(q.id, partnerGuess)}
+						<p class="inline-flex items-center gap-1">
+							<span>Their guess about you: {choiceText(q.id, partnerGuess)}</span>
 							<span class={partnerGotIt ? 'text-success' : 'text-error'}>
-								{partnerGotIt ? '✓' : '✗'}
+								<Icon icon={partnerGotIt ? CheckIcon : XIcon} size={14} weight="bold" />
 							</span>
 						</p>
 					</div>
