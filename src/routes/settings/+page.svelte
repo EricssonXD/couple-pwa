@@ -301,10 +301,7 @@
 				</PillButton>
 			</Card>
 
-			<!-- danger -->
-			<section
-				class="mt-4 space-y-3 rounded-[var(--radius-card)] border border-error/30 bg-error/5 p-5"
-			>
+			<Card tone="danger" class="mt-4 space-y-3">
 				<h2 class="text-sm font-semibold tracking-wider text-error uppercase">
 					{m.settings_unpair_section()}
 				</h2>
@@ -330,7 +327,7 @@
 						</PillButton>
 					</div>
 				{/if}
-			</section>
+			</Card>
 		{/if}
 
 		<!-- diagnostics -->
@@ -385,10 +382,7 @@
 			</a>
 		</Card>
 
-		<!-- delete account (H4) -->
-		<section
-			class="mt-4 space-y-3 rounded-[var(--radius-card)] border border-error/30 bg-error/5 p-5"
-		>
+		<Card tone="danger" class="mt-4 space-y-3">
 			<h2 class="text-sm font-semibold tracking-wider text-error uppercase">
 				{m.settings_delete_section()}
 			</h2>
@@ -426,7 +420,7 @@
 					</div>
 				{/if}
 			{/if}
-		</section>
+		</Card>
 
 		<form method="POST" action="/auth/sign-out" class="mt-6">
 			<button
