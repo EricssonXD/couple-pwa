@@ -6,6 +6,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
 	import type { ActionData, PageData } from './$types';
 
@@ -109,6 +110,7 @@
 
 			<PillButton type="submit" block disabled={busy}>
 				{#if busy}
+					<Spinner />
 					{mode === 'signup' ? m.auth_creating() : m.auth_signing_in()}
 				{:else}
 					{mode === 'signup' ? m.auth_signup_title() : m.auth_signin_title()}

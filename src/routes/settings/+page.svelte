@@ -39,6 +39,7 @@
 	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -195,6 +196,7 @@
 				<InputField bind:value={avatarEmoji} maxlength={8} placeholder="🌱" />
 			</label>
 			<PillButton block disabled={busy === 'profile'} onclick={saveProfile}>
+				{#if busy === 'profile'}<Spinner />{/if}
 				{busy === 'profile' ? m.settings_saving() : m.settings_save()}
 			</PillButton>
 			<MoodTrendStrip buckets={data.moodTrend} />
@@ -299,6 +301,7 @@
 					<InputField bind:value={anniversary} type="date" />
 				</label>
 				<PillButton block disabled={busy === 'couple'} onclick={saveCouple}>
+					{#if busy === 'couple'}<Spinner />{/if}
 					{busy === 'couple' ? m.settings_saving() : m.settings_save()}
 				</PillButton>
 			</Card>
