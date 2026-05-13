@@ -245,6 +245,7 @@
 	"onboarding_form_displayname": "Display name",
 	"onboarding_form_optional": "(optional)",
 	"onboarding_form_pronouns": "Pronouns",
+	"onboarding_form_pronouns_placeholder": "she/her, he/him, they/them…",
 	"onboarding_link_code_placeholder": "ABCXYZ",
 	"onboarding_link_or_enter": "or enter their code below",
 	"onboarding_link_pair": "Pair",

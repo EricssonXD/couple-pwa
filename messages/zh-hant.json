@@ -237,6 +237,7 @@
 	"onboarding_form_displayname": "顯示名",
 	"onboarding_form_optional": "(選填)",
 	"onboarding_form_pronouns": "稱謂",
+	"onboarding_form_pronouns_placeholder": "她/她、他/他、TA/TA…",
 	"onboarding_link_code_placeholder": "ABCXYZ",
 	"onboarding_link_or_enter": "或輸入對方的碼",
 	"onboarding_link_pair": "配對",

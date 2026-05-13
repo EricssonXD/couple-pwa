@@ -64,7 +64,7 @@
 					type="text"
 					name="pronouns"
 					value={data.profile?.pronouns ?? ''}
-					placeholder="she/her, he/him, they/them…"
+					placeholder={m.onboarding_form_pronouns_placeholder()}
 				/>
 			</label>
 
