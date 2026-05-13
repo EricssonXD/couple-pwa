@@ -63,8 +63,8 @@
 	const sizeClass = $derived(
 		{
 			sm: 'px-3 py-1.5 text-xs',
-			md: 'px-4 py-2.5 text-xs',
-			lg: 'py-3.5 text-base shadow-paper transition-transform active:scale-[0.98]'
+			md: 'px-4 py-2.5 text-xs min-h-11',
+			lg: 'py-3.5 text-base shadow-paper transition-transform active:scale-[0.98] min-h-12'
 		}[size]
 	);
 
