@@ -3,6 +3,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { MAX_TITLE_LEN, MAX_NOTES_LEN } from '$lib/calendar.constants';
 	import type { PageData } from './$types';
+	import Card from '$lib/components/ui/Card.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -125,9 +126,7 @@
 		</h1>
 	</header>
 
-	<section
-		class="space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-	>
+	<Card class="space-y-3">
 		<label class="form-control">
 			<div class="label">
 				<span class="label-text">{m.calendar_title_label()}</span>
@@ -189,7 +188,7 @@
 		>
 			{m.calendar_add()}
 		</button>
-	</section>
+	</Card>
 
 	<section class="mt-8">
 		<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70 uppercase">

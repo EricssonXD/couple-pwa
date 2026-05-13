@@ -21,6 +21,7 @@
 	import ClockCounterClockwiseIcon from 'phosphor-svelte/lib/ClockCounterClockwiseIcon';
 	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
 	import type { PageData } from './$types';
+	import Card from '$lib/components/ui/Card.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -196,9 +197,7 @@
 	{/if}
 
 	{#if !active}
-		<section
-			class="space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-		>
+		<Card class="space-y-4">
 			<SectionHeader icon={HandshakeIcon} title={m.repair_start_heading()} />
 			<form onsubmit={start} class="space-y-4">
 				<label class="block space-y-1.5">
@@ -244,11 +243,9 @@
 					{submitting ? m.repair_starting() : m.repair_start_btn()}
 				</button>
 			</form>
-		</section>
+		</Card>
 	{:else}
-		<section
-			class="space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-		>
+		<Card class="space-y-4">
 			<header class="flex items-center justify-between gap-3">
 				<span
 					class="rounded-full px-2.5 py-1 text-[0.65rem] font-semibold tracking-wider uppercase {statusToneClass(
@@ -366,13 +363,11 @@
 					</button>
 				</div>
 			</form>
-		</section>
+		</Card>
 	{/if}
 
 	{#if data.history.length > 0}
-		<section
-			class="space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-		>
+		<Card class="space-y-4">
 			<SectionHeader
 				icon={ClockCounterClockwiseIcon}
 				title={m.repair_history_heading()}
@@ -399,6 +394,6 @@
 					</li>
 				{/each}
 			</ul>
-		</section>
+		</Card>
 	{/if}
 </main>

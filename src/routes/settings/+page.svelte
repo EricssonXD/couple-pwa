@@ -34,6 +34,7 @@
 	import { setUserTheme, getUserChoice, type ThemeChoice } from '$lib/theme/index.svelte';
 	import { locales, getLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
 	import type { PageData } from './$types';
+	import Card from '$lib/components/ui/Card.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -179,9 +180,7 @@
 		{/if}
 
 		<!-- profile -->
-		<section
-			class="mt-2 space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-		>
+		<Card class="mt-2 space-y-4">
 			<header class="flex items-center gap-2">
 				<Icon icon={UserIcon} size={18} weight="duotone" class="text-primary" />
 				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.pulse_you()}</h2>
@@ -211,12 +210,10 @@
 				{busy === 'profile' ? m.settings_saving() : m.settings_save()}
 			</button>
 			<MoodTrendStrip buckets={data.moodTrend} />
-		</section>
+		</Card>
 
 		<!-- privacy / ghost -->
-		<section
-			class="mt-4 space-y-1 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-		>
+		<Card class="mt-4 space-y-1">
 			<header class="mb-2 flex items-center gap-2">
 				<Icon icon={GhostIcon} size={18} weight="duotone" class="text-base-content/70" />
 				<h2 class="text-sm font-semibold tracking-wider uppercase">
@@ -232,12 +229,10 @@
 			<div class="mt-3">
 				<PushSubscribeCard />
 			</div>
-		</section>
+		</Card>
 
 		<!-- theme -->
-		<section
-			class="mt-4 space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-		>
+		<Card class="mt-4 space-y-3">
 			<header class="flex items-center gap-2">
 				<Icon icon={SunIcon} size={18} weight="duotone" class="text-accent" />
 				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_theme()}</h2>
@@ -259,12 +254,10 @@
 					</button>
 				{/each}
 			</div>
-		</section>
+		</Card>
 
 		<!-- language -->
-		<section
-			class="mt-4 space-y-3 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-		>
+		<Card class="mt-4 space-y-3">
 			<header class="flex items-center gap-2">
 				<Icon icon={TranslateIcon} size={18} weight="duotone" class="text-accent" />
 				<h2 class="text-sm font-semibold tracking-wider uppercase">
@@ -285,13 +278,11 @@
 					</button>
 				{/each}
 			</div>
-		</section>
+		</Card>
 
 		<!-- couple -->
 		{#if data.couple}
-			<section
-				class="mt-4 space-y-4 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-			>
+			<Card class="mt-4 space-y-4">
 				<header class="flex items-center gap-2">
 					<Icon icon={HeartIcon} size={18} weight="duotone" class="text-primary" />
 					<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_us()}</h2>
@@ -341,7 +332,7 @@
 				>
 					{busy === 'couple' ? m.settings_saving() : m.settings_save()}
 				</button>
-			</section>
+			</Card>
 
 			<!-- danger -->
 			<section
@@ -381,9 +372,7 @@
 		{/if}
 
 		<!-- diagnostics -->
-		<section
-			class="mt-4 space-y-2 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 p-5 shadow-paper"
-		>
+		<Card class="mt-4 space-y-2">
 			<header class="mb-1 flex items-center gap-2">
 				<Icon icon={WrenchIcon} size={18} weight="duotone" class="text-base-content/70" />
 				<h2 class="text-sm font-semibold tracking-wider uppercase">
@@ -432,7 +421,7 @@
 				<span>{m.settings_diagnostics_activity()}</span>
 				<Icon icon={CaretRightIcon} size={14} weight="bold" class="text-base-content/40" />
 			</a>
-		</section>
+		</Card>
 
 		<!-- delete account (H4) -->
 		<section

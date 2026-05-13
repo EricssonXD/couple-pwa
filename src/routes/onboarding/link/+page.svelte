@@ -18,6 +18,7 @@
 	import ShareNetworkIcon from 'phosphor-svelte/lib/ShareNetworkIcon';
 	import CodeScanner, { isCodeScannerSupported } from '$lib/components/duosync/CodeScanner.svelte';
 	import type { PageData } from './$types';
+	import Card from '$lib/components/ui/Card.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -110,9 +111,7 @@
 			<p class="mt-2 text-sm text-base-content/60">{m.link_subtitle()}</p>
 		</div>
 
-		<section
-			class="mt-6 rounded-[var(--radius-card)] border border-base-content/5 bg-base-200 shadow-paper"
-		>
+		<Card padding="none" class="mt-6">
 			<div class="p-6 text-center">
 				<p class="text-[10px] tracking-[0.3em] text-base-content/50 uppercase">
 					{m.link_your_code()}
@@ -153,7 +152,7 @@
 					</button>
 				</div>
 			</div>
-		</section>
+		</Card>
 
 		<div
 			class="my-8 flex items-center gap-3 text-[10px] tracking-[0.3em] text-base-content/40 uppercase"
