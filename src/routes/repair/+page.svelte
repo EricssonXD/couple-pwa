@@ -23,6 +23,7 @@
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import InputField from '$lib/components/ui/InputField.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -205,13 +206,14 @@
 					<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase">
 						{m.repair_cooldown_label()}
 					</span>
-					<input
+					<InputField
+						tone="sunken"
+						size="sm"
 						type="number"
-						min={minMin}
-						max={maxMin}
+						min={String(minMin)}
+						max={String(maxMin)}
 						bind:value={cooldownMinutes}
 						aria-describedby="cooldown-hint"
-						class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
 					/>
 					<span id="cooldown-hint" class="block text-xs text-base-content/55">
 						{m.repair_cooldown_hint({ min: String(minMin), max: String(maxMin) })}
@@ -222,13 +224,14 @@
 					<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase">
 						{m.repair_initiator_note_label()}
 					</span>
-					<textarea
+					<InputField
+						tone="sunken"
+						size="sm"
 						bind:value={initiatorNote}
 						maxlength={REPAIR_NOTE_MAX_LEN}
 						rows={3}
 						placeholder={m.repair_initiator_note_placeholder()}
-						class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
-					></textarea>
+					/>
 				</label>
 
 				<label class="flex items-center gap-2 text-sm">
@@ -292,13 +295,14 @@
 						<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase">
 							{m.repair_partner_reflection_label()}
 						</span>
-						<textarea
+						<InputField
+							tone="sunken"
+							size="sm"
 							bind:value={partnerNote}
 							maxlength={REPAIR_NOTE_MAX_LEN}
 							rows={3}
 							placeholder={active.partnerNote ?? m.repair_partner_reflection_placeholder()}
-							class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
-						></textarea>
+						/>
 					</label>
 					<PillButton
 						type="submit"
@@ -334,13 +338,14 @@
 					<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase">
 						{m.repair_commitment_label()}
 					</span>
-					<textarea
+					<InputField
+						tone="sunken"
+						size="sm"
 						bind:value={commitmentNote}
 						maxlength={REPAIR_NOTE_MAX_LEN}
 						rows={2}
 						placeholder={m.repair_commitment_placeholder()}
-						class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
-					></textarea>
+					/>
 				</label>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<PillButton type="submit" disabled={submitting || !canComplete} class="flex-1">

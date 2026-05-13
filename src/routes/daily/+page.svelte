@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import * as m from '$lib/paraglide/messages.js';
 	import Card from '$lib/components/ui/Card.svelte';
+	import InputField from '$lib/components/ui/InputField.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -67,13 +68,7 @@
 				>
 				<span class="text-[10px] text-base-content/40">{body.length}/1000</span>
 			</div>
-			<textarea
-				bind:value={body}
-				maxlength={1000}
-				rows={5}
-				placeholder={m.daily_placeholder()}
-				class="w-full resize-none rounded-[var(--radius-card)] border border-base-content/10 bg-base-200 px-4 py-3 text-base outline-none focus:border-primary"
-			></textarea>
+			<InputField bind:value={body} maxlength={1000} rows={5} placeholder={m.daily_placeholder()} />
 			{#if err}
 				<p
 					class="rounded-[var(--radius-field)] border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"

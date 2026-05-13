@@ -15,6 +15,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import InputField from '$lib/components/ui/InputField.svelte';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import type { ActionData, PageData } from './$types';
 
@@ -45,8 +46,7 @@
 				<span class="mb-1.5 block text-xs tracking-wider text-base-content/70 uppercase"
 					>{m.onboarding_form_displayname()}</span
 				>
-				<input
-					class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-200 px-4 py-3 text-base outline-none focus:border-primary"
+				<InputField
 					type="text"
 					name="displayName"
 					required
@@ -60,8 +60,7 @@
 					{m.onboarding_form_pronouns()}
 					<span class="text-base-content/40 normal-case">{m.onboarding_form_optional()}</span>
 				</span>
-				<input
-					class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-200 px-4 py-3 text-base outline-none focus:border-primary"
+				<InputField
 					type="text"
 					name="pronouns"
 					value={data.profile?.pronouns ?? ''}

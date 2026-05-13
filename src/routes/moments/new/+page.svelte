@@ -26,6 +26,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import InputField from '$lib/components/ui/InputField.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
 	import CrosshairIcon from 'phosphor-svelte/lib/CrosshairIcon';
@@ -268,13 +269,12 @@
 					>
 					<span class="text-[10px] text-base-content/40">{body.length}/280</span>
 				</div>
-				<textarea
+				<InputField
 					bind:value={body}
-					maxlength="280"
-					rows="4"
-					class="w-full resize-none rounded-[var(--radius-card)] border border-base-content/10 bg-base-200 px-4 py-3 text-base outline-none focus:border-primary"
+					maxlength={280}
+					rows={4}
 					placeholder={m.moments_new_caption_placeholder()}
-				></textarea>
+				/>
 			</section>
 
 			<!-- expiry -->

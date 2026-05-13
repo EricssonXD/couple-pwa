@@ -5,6 +5,7 @@
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import InputField from '$lib/components/ui/InputField.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -79,8 +80,7 @@
 				<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase"
 					>{m.auth_email_label()}</span
 				>
-				<input
-					class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-200/60 px-3.5 py-2.5 text-base outline-none focus:border-primary"
+				<InputField
 					type="email"
 					name="email"
 					bind:value={email}
@@ -94,8 +94,7 @@
 				<span class="text-xs font-semibold tracking-wider text-base-content/70 uppercase"
 					>{m.auth_password_label()}</span
 				>
-				<input
-					class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-200/60 px-3.5 py-2.5 text-base outline-none focus:border-primary"
+				<InputField
 					type="password"
 					name="password"
 					autocomplete={mode === 'signup' ? 'new-password' : 'current-password'}

@@ -37,6 +37,7 @@
 	import Card from '$lib/components/ui/Card.svelte';
 	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import InputField from '$lib/components/ui/InputField.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -186,20 +187,11 @@
 			<SectionHeader icon={UserIcon} tone="primary" title={m.pulse_you()} />
 			<label class="block">
 				<span class="mb-1.5 block text-xs text-base-content/60">{m.settings_displayname()}</span>
-				<input
-					bind:value={displayName}
-					maxlength="40"
-					class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
-				/>
+				<InputField bind:value={displayName} maxlength={40} />
 			</label>
 			<label class="block">
 				<span class="mb-1.5 block text-xs text-base-content/60">{m.settings_avatar()}</span>
-				<input
-					bind:value={avatarEmoji}
-					maxlength="8"
-					class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
-					placeholder="🌱"
-				/>
+				<InputField bind:value={avatarEmoji} maxlength={8} placeholder="🌱" />
 			</label>
 			<PillButton block disabled={busy === 'profile'} onclick={saveProfile}>
 				{busy === 'profile' ? m.settings_saving() : m.settings_save()}
@@ -292,10 +284,9 @@
 					<span class="mb-1.5 block text-xs text-base-content/60"
 						>{m.settings_couple_nickname()}</span
 					>
-					<input
+					<InputField
 						bind:value={nickname}
-						maxlength="60"
-						class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
+						maxlength={60}
 						placeholder={m.settings_couple_nickname_placeholder()}
 					/>
 				</label>
@@ -303,11 +294,7 @@
 					<span class="mb-1.5 block text-xs text-base-content/60"
 						>{m.settings_couple_anniversary()}</span
 					>
-					<input
-						bind:value={anniversary}
-						type="date"
-						class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-4 py-2.5 outline-none focus:border-primary"
-					/>
+					<InputField bind:value={anniversary} type="date" />
 				</label>
 				<PillButton block disabled={busy === 'couple'} onclick={saveCouple}>
 					{busy === 'couple' ? m.settings_saving() : m.settings_save()}
