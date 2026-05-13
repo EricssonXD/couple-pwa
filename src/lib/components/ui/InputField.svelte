@@ -1,10 +1,9 @@
 <!--
 	InputField — paper-dialect text/textarea primitive.
 
-	Encodes the
-		w-full rounded-[var(--radius-...)] border border-base-content/10
-		bg-base-... px-... py-... text-base outline-none focus:border-primary
-	chain that repeats across every form in the app.
+	Encodes the canonical input chain (full-width, rounded radius token,
+	hairline border, raised or sunken surface, focus-primary border) that
+	repeats across every form in the app.
 
 	Use `rows={n}` to render a <textarea> instead of an <input>. Pass `tone`
 	(raised = bg-base-200 over a card, sunken = bg-base-100 inside a card)
