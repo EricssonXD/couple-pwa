@@ -40,6 +40,7 @@
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import ChoiceChip from '$lib/components/ui/ChoiceChip.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -226,19 +227,13 @@
 			<SectionHeader icon={SunIcon} tone="accent" title={m.settings_section_theme()} />
 			<div class="grid grid-cols-3 gap-2">
 				{#each [{ k: 'auto' as const, label: m.settings_theme_auto(), icon: undefined }, { k: 'duosync-light' as const, label: m.settings_theme_light(), icon: SunIcon }, { k: 'duosync-dark' as const, label: m.settings_theme_dark(), icon: MoonIcon }] as o (o.k)}
-					<button
-						type="button"
+					<ChoiceChip
+						selected={themeChoice === o.k}
 						onclick={() => setThemeChoice(o.k)}
-						class="rounded-[var(--radius-card)] border px-2 py-3 text-xs font-semibold tracking-wider uppercase {themeChoice ===
-						o.k
-							? 'border-primary bg-primary/10 text-primary'
-							: 'border-base-content/10 text-base-content/60'}"
+						icon={o.icon}
 					>
-						{#if o.icon}
-							<Icon icon={o.icon} size={16} weight="duotone" class="mx-auto mb-1" />
-						{/if}
 						{o.label}
-					</button>
+					</ChoiceChip>
 				{/each}
 			</div>
 		</Card>
@@ -248,16 +243,9 @@
 			<SectionHeader icon={TranslateIcon} tone="accent" title={m.settings_section_language()} />
 			<div class="grid grid-cols-2 gap-2">
 				{#each locales as code (code)}
-					<button
-						type="button"
-						onclick={() => changeLocale(code)}
-						class="rounded-[var(--radius-card)] border px-2 py-3 text-xs font-semibold tracking-wider uppercase {currentLocale ===
-						code
-							? 'border-primary bg-primary/10 text-primary'
-							: 'border-base-content/10 text-base-content/60'}"
-					>
+					<ChoiceChip selected={currentLocale === code} onclick={() => changeLocale(code)}>
 						{code === 'en' ? m.settings_language_en() : m.settings_language_zh_hant()}
-					</button>
+					</ChoiceChip>
 				{/each}
 			</div>
 		</Card>
