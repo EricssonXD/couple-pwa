@@ -25,6 +25,7 @@
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
 	import CrosshairIcon from 'phosphor-svelte/lib/CrosshairIcon';
@@ -303,14 +304,10 @@
 				</div>
 			{/if}
 
-			<button
-				type="submit"
-				disabled={busy}
-				class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-base font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-transform active:scale-[0.98] disabled:opacity-50"
-			>
+			<PillButton type="submit" size="lg" block disabled={busy} class="gap-2">
 				<Icon icon={SparkleIcon} size={18} weight="duotone" />
 				{busy ? m.moments_new_dropping() : m.moments_new_drop_here()}
-			</button>
+			</PillButton>
 		</form>
 	</main>
 </div>

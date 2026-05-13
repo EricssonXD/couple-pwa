@@ -22,6 +22,7 @@
 	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -235,13 +236,9 @@
 					<span>{m.repair_ephemeral_label()}</span>
 				</label>
 
-				<button
-					type="submit"
-					disabled={submitting}
-					class="w-full rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase transition-opacity disabled:opacity-50"
-				>
+				<PillButton type="submit" block disabled={submitting}>
 					{submitting ? m.repair_starting() : m.repair_start_btn()}
-				</button>
+				</PillButton>
 			</form>
 		</Card>
 	{:else}
@@ -303,15 +300,17 @@
 							class="w-full rounded-[var(--radius-field)] border border-base-content/10 bg-base-100 px-3.5 py-2.5 text-base outline-none focus:border-primary"
 						></textarea>
 					</label>
-					<button
+					<PillButton
 						type="submit"
+						variant="outline"
+						block
 						disabled={submitting}
-						class="w-full rounded-full border border-primary/40 bg-base-100 py-2.5 text-xs font-semibold tracking-wider text-primary uppercase transition-opacity disabled:opacity-50"
+						class="border-primary/40 text-primary"
 					>
 						{active.partnerNote
 							? m.repair_partner_reflection_update()
 							: m.repair_partner_reflection_save()}
-					</button>
+					</PillButton>
 				</form>
 				{#if active.partnerNote}
 					<div class="space-y-1.5 rounded-[var(--radius-field)] bg-base-100/70 p-4">
@@ -344,23 +343,14 @@
 					></textarea>
 				</label>
 				<div class="flex flex-col gap-2 sm:flex-row">
-					<button
-						type="submit"
-						disabled={submitting || !canComplete}
-						class="flex-1 rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase transition-opacity disabled:opacity-50"
-					>
+					<PillButton type="submit" disabled={submitting || !canComplete} class="flex-1">
 						{canComplete
 							? m.repair_complete_btn()
 							: m.repair_complete_locked({ countdown: fmtCountdown(cooldownRemainingMs) })}
-					</button>
-					<button
-						type="button"
-						onclick={cancel}
-						disabled={submitting}
-						class="rounded-full border border-base-content/15 bg-base-100 px-5 py-2.5 text-xs font-semibold tracking-wider text-base-content/70 uppercase transition-opacity disabled:opacity-50"
-					>
+					</PillButton>
+					<PillButton variant="subtle" onclick={cancel} disabled={submitting} class="px-5">
 						{m.repair_cancel_btn()}
-					</button>
+					</PillButton>
 				</div>
 			</form>
 		</Card>

@@ -18,6 +18,7 @@
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { MomentCard } from '$lib/components/duosync';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
 	import type { PageData } from './$types';
@@ -112,13 +113,10 @@
 		class="sticky top-0 z-10 mx-auto flex max-w-md items-baseline justify-between bg-base-100/85 px-5 py-4 backdrop-blur"
 	>
 		<h1 class="text-display text-2xl font-semibold tracking-wide">{m.moments_title()}</h1>
-		<a
-			href={resolve('/moments/new')}
-			class="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold tracking-wider text-primary-content uppercase shadow-paper"
-		>
+		<PillButton href={resolve('/moments/new')} size="sm" class="shadow-paper">
 			<Icon icon={PlusIcon} size={14} weight="bold" />
 			{m.moments_drop_button()}
-		</a>
+		</PillButton>
 	</header>
 
 	<main class="mx-auto max-w-md px-5 pb-32">

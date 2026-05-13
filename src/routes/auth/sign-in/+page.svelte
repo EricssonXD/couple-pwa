@@ -4,6 +4,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -106,17 +107,13 @@
 				/>
 			</label>
 
-			<button
-				class="w-full rounded-full bg-primary py-2.5 text-xs font-semibold tracking-wider text-primary-content uppercase transition-opacity disabled:opacity-50"
-				disabled={busy}
-				type="submit"
-			>
+			<PillButton type="submit" block disabled={busy}>
 				{#if busy}
 					{mode === 'signup' ? m.auth_creating() : m.auth_signing_in()}
 				{:else}
 					{mode === 'signup' ? m.auth_signup_title() : m.auth_signin_title()}
 				{/if}
-			</button>
+			</PillButton>
 		</form>
 
 		{#if form?.error}
