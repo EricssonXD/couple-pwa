@@ -1,10 +1,11 @@
 <!--
   MoodPicker — F5 mood pulse input.
 
-  Five-bucket emoji picker (😄😊😐😔😢) rendered as an accessible radio
-  group. The component owns its own POST + pending state; callers wire
-  the current value (server snapshot) and a callback for the success
-  case so they can update partner-visible state optimistically.
+  Five-bucket mood picker rendered as an accessible radio group of
+  hand-drawn MoodFace SVGs. The component owns its own POST + pending
+  state; callers wire the current value (server snapshot) and a
+  callback for the success case so they can update partner-visible
+  state optimistically.
 
   Behavior:
     - Disabled while a POST is in flight or `online === false`.
@@ -14,6 +15,7 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import type { Mood } from '$lib/server/services/mood';
+	import MoodFace from '$lib/components/ui/MoodFace.svelte';
 
 	type Props = {
 		current: Mood | null;
@@ -25,12 +27,12 @@
 	let pending = $state(false);
 	let error = $state<string | null>(null);
 
-	const OPTIONS: Array<{ value: Mood; emoji: string; label: () => string }> = [
-		{ value: 'joyful', emoji: '😄', label: () => m.mood_pick_joyful() },
-		{ value: 'happy', emoji: '😊', label: () => m.mood_pick_happy() },
-		{ value: 'neutral', emoji: '😐', label: () => m.mood_pick_neutral() },
-		{ value: 'sad', emoji: '😔', label: () => m.mood_pick_sad() },
-		{ value: 'upset', emoji: '😢', label: () => m.mood_pick_upset() }
+	const OPTIONS: Array<{ value: Mood; label: () => string }> = [
+		{ value: 'joyful', label: () => m.mood_pick_joyful() },
+		{ value: 'happy', label: () => m.mood_pick_happy() },
+		{ value: 'neutral', label: () => m.mood_pick_neutral() },
+		{ value: 'sad', label: () => m.mood_pick_sad() },
+		{ value: 'upset', label: () => m.mood_pick_upset() }
 	];
 
 	async function pick(next: Mood) {
@@ -85,7 +87,7 @@
 				aria-checked={selected}
 				aria-label={opt.label()}
 				disabled={pending || !online}
-				class="flex h-12 w-12 items-center justify-center rounded-full text-2xl transition disabled:opacity-50"
+				class="flex h-12 w-12 items-center justify-center rounded-full transition disabled:opacity-50"
 				class:bg-primary={selected}
 				class:text-primary-content={selected}
 				class:bg-base-100={!selected}
@@ -93,7 +95,7 @@
 				onkeydown={(e) => onKey(e, i)}
 				data-mood={opt.value}
 			>
-				<span aria-hidden="true">{opt.emoji}</span>
+				<MoodFace mood={opt.value} size={28} tinted={!selected} />
 			</button>
 		{/each}
 	</div>

@@ -41,14 +41,8 @@
 	import type { DistanceBucket } from '$lib/server/services/location';
 	import type { Mood, MoodSnapshot } from '$lib/server/services/mood';
 	import type { PageData } from './$types';
+	import MoodFace from '$lib/components/ui/MoodFace.svelte';
 
-	const MOOD_EMOJI: Record<Mood, string> = {
-		joyful: '😄',
-		happy: '😊',
-		neutral: '😐',
-		sad: '😔',
-		upset: '😢'
-	};
 	const MOOD_LABEL_KEY: Record<Mood, () => string> = {
 		joyful: m.mood_pick_joyful,
 		happy: m.mood_pick_happy,
@@ -313,7 +307,7 @@
 							mood: MOOD_LABEL_KEY[partnerMood.mood]()
 						})}
 					>
-						<span aria-hidden="true">{MOOD_EMOJI[partnerMood.mood]}</span>
+						<MoodFace mood={partnerMood.mood} size={20} />
 					</span>
 				{/if}
 			</div>

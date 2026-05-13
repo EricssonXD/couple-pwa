@@ -14,16 +14,10 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages';
 	import type { Mood, TrendBucket } from '$lib/server/services/mood';
+	import MoodFace from '$lib/components/ui/MoodFace.svelte';
 
 	let { buckets }: { buckets: TrendBucket[] } = $props();
 
-	const EMOJI: Record<Mood, string> = {
-		joyful: '😄',
-		happy: '😊',
-		neutral: '😐',
-		sad: '😔',
-		upset: '😢'
-	};
 	const LABEL: Record<Mood, () => string> = {
 		joyful: m.mood_pick_joyful,
 		happy: m.mood_pick_happy,
@@ -46,15 +40,15 @@
 					? `${b.date}: ${LABEL[b.mood]()}`
 					: `${b.date}: ${m.mood_trend_no_data()}`}
 				<li
-					class="flex h-7 w-7 items-center justify-center rounded-md border border-base-content/10 bg-base-100 text-base"
+					class="flex h-7 w-7 items-center justify-center rounded-md border border-base-content/10 bg-base-100"
 					class:opacity-30={!b.mood}
 					title={label}
 					aria-label={label}
 				>
 					{#if b.mood}
-						<span aria-hidden="true">{EMOJI[b.mood]}</span>
+						<MoodFace mood={b.mood} size={20} />
 					{:else}
-						<span aria-hidden="true" class="text-xs">·</span>
+						<span aria-hidden="true" class="text-xs text-base-content/40">·</span>
 					{/if}
 				</li>
 			{/each}
