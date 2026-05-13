@@ -215,7 +215,7 @@ export async function deliverDue(now: Date = new Date(), batchSize = 50): Promis
 			r.couple_id,
 			r.recipient_id,
 			'scheduled_note',
-			coalesce(p.display_name, '💌') || ' sent you a time capsule',
+			coalesce(p.display_name, 'Your partner') || ' sent you a time capsule',
 			substring(r.body from 1 for 140),
 			json_build_object('noteId', r.note_id)::text,
 			'scheduled_note:' || r.note_id

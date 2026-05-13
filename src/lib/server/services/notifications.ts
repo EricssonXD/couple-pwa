@@ -242,7 +242,7 @@ export async function notifyHeartbeatTap(t: HeartbeatTapTrigger): Promise<void> 
 		coupleId: t.coupleId,
 		recipientId: t.recipientId,
 		kind: 'partner_heartbeat_tap',
-		title: `${name} tapped you 💞`,
+		title: `${name} tapped you`,
 		body: '',
 		data: { kind: 'partner_heartbeat_tap' },
 		dedupeKey: `tap:${windowBucket(1 / 60)}`
