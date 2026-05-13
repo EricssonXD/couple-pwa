@@ -15,6 +15,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
 	import ShareNetworkIcon from 'phosphor-svelte/lib/ShareNetworkIcon';
@@ -168,7 +169,12 @@
 				inputmode="text"
 			/>
 			<PillButton type="submit" size="lg" block disabled={busy || !typedCode.trim()}>
-				{busy ? m.onboarding_link_pairing() : m.link_pair_btn()}
+				{#if busy}
+					<Spinner />
+					{m.onboarding_link_pairing()}
+				{:else}
+					{m.link_pair_btn()}
+				{/if}
 			</PillButton>
 			{#if error}
 				<Notice>{error}</Notice>

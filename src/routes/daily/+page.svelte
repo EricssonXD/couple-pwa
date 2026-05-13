@@ -4,6 +4,7 @@
 	import Card from '$lib/components/ui/Card.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -74,11 +75,16 @@
 				<Notice>{err}</Notice>
 			{/if}
 			<button
-				class="w-full rounded-full bg-primary py-3 text-xs font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-opacity disabled:opacity-50"
+				class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-xs font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-opacity disabled:opacity-50"
 				disabled={submitting || !body.trim()}
 				onclick={submit}
 			>
-				{submitting ? m.daily_saving() : m.daily_send()}
+				{#if submitting}
+					<Spinner />
+					{m.daily_saving()}
+				{:else}
+					{m.daily_send()}
+				{/if}
 			</button>
 		</section>
 	{:else}

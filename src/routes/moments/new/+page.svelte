@@ -26,6 +26,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
@@ -302,8 +303,13 @@
 			{/if}
 
 			<PillButton type="submit" size="lg" block disabled={busy} class="gap-2">
-				<Icon icon={SparkleIcon} size={18} weight="duotone" />
-				{busy ? m.moments_new_dropping() : m.moments_new_drop_here()}
+				{#if busy}
+					<Spinner />
+					{m.moments_new_dropping()}
+				{:else}
+					<Icon icon={SparkleIcon} size={18} weight="duotone" />
+					{m.moments_new_drop_here()}
+				{/if}
 			</PillButton>
 		</form>
 	</main>

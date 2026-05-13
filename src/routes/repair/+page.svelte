@@ -23,6 +23,7 @@
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
 
@@ -236,7 +237,12 @@
 				</label>
 
 				<PillButton type="submit" block disabled={submitting}>
-					{submitting ? m.repair_starting() : m.repair_start_btn()}
+					{#if submitting}
+						<Spinner />
+						{m.repair_starting()}
+					{:else}
+						{m.repair_start_btn()}
+					{/if}
 				</PillButton>
 			</form>
 		</Card>

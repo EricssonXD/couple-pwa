@@ -318,6 +318,7 @@
 							disabled={busy === 'unpair'}
 							onclick={doUnpair}
 						>
+							{#if busy === 'unpair'}<Spinner />{/if}
 							{busy === 'unpair' ? m.settings_unpairing() : m.settings_unpair_confirm()}
 						</PillButton>
 						<PillButton variant="ghost" class="flex-1" onclick={() => (confirmUnpair = false)}>
@@ -394,6 +395,7 @@
 					disabled={busy === 'delete-cancel'}
 					onclick={cancelDelete}
 				>
+					{#if busy === 'delete-cancel'}<Spinner />{/if}
 					{busy === 'delete-cancel' ? m.settings_delete_cancelling() : m.settings_delete_cancel()}
 				</PillButton>
 			{:else}
@@ -410,6 +412,7 @@
 							disabled={busy === 'delete'}
 							onclick={requestDelete}
 						>
+							{#if busy === 'delete'}<Spinner />{/if}
 							{busy === 'delete' ? m.settings_deleting() : m.settings_delete_confirm()}
 						</PillButton>
 						<PillButton variant="ghost" class="flex-1" onclick={() => (confirmDelete = false)}>

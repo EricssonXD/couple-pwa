@@ -4,6 +4,7 @@
 	import { MAX_BODY_LEN, MIN_LEAD_TIME_MS } from '$lib/scheduledNotes.constants';
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -111,7 +112,12 @@
 			disabled={submitting || !body.trim()}
 			onclick={submit}
 		>
-			{submitting ? m.notes_saving() : m.notes_save()}
+			{#if submitting}
+				<Spinner />
+				{m.notes_saving()}
+			{:else}
+				{m.notes_save()}
+			{/if}
 		</button>
 	</Card>
 
