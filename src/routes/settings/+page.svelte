@@ -41,6 +41,7 @@
 	import InputField from '$lib/components/ui/InputField.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ChoiceChip from '$lib/components/ui/ChoiceChip.svelte';
+	import Notice from '$lib/components/ui/Notice.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -61,7 +62,7 @@
 	}
 
 	let busy = $state<string | null>(null);
-	let msg = $state<string | null>(null);
+	let toast = $state<{ kind: 'success' | 'error'; text: string } | null>(null);
 	let confirmUnpair = $state(false);
 	let confirmDelete = $state(false);
 	let pendingDeletionAt = $state<string | null>(null);
@@ -93,21 +94,23 @@
 
 	async function saveProfile() {
 		busy = 'profile';
-		msg = null;
+		toast = null;
 		const r = await fetch('/api/profile', {
 			method: 'PATCH',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ displayName, avatarEmoji })
 		});
 		busy = null;
-		msg = r.ok ? m.settings_saved() : `Profile save failed: ${r.status}`;
+		toast = r.ok
+			? { kind: 'success', text: m.settings_saved() }
+			: { kind: 'error', text: m.settings_save_failed({ status: r.status }) };
 		if (r.ok) await invalidateAll();
 	}
 
 	async function saveCouple() {
 		if (!data.couple) return;
 		busy = 'couple';
-		msg = null;
+		toast = null;
 		const r = await fetch('/api/couple', {
 			method: 'PATCH',
 			headers: { 'content-type': 'application/json' },
@@ -117,7 +120,9 @@
 			})
 		});
 		busy = null;
-		msg = r.ok ? m.settings_saved() : `Couple save failed: ${r.status}`;
+		toast = r.ok
+			? { kind: 'success', text: m.settings_saved() }
+			: { kind: 'error', text: m.settings_save_failed({ status: r.status }) };
 		if (r.ok) await invalidateAll();
 	}
 
@@ -139,7 +144,7 @@
 
 	async function requestDelete() {
 		busy = 'delete';
-		msg = null;
+		toast = null;
 		const r = await fetch('/api/account/deletion', { method: 'POST' });
 		busy = null;
 		if (r.ok) {
@@ -148,20 +153,20 @@
 			confirmDelete = false;
 			await invalidateAll();
 		} else {
-			msg = `Delete failed: ${r.status}`;
+			toast = { kind: 'error', text: m.settings_delete_failed({ status: r.status }) };
 		}
 	}
 
 	async function cancelDelete() {
 		busy = 'delete-cancel';
-		msg = null;
+		toast = null;
 		const r = await fetch('/api/account/deletion', { method: 'DELETE' });
 		busy = null;
 		if (r.ok) {
 			pendingDeletionAt = null;
 			await invalidateAll();
 		} else {
-			msg = `Cancel failed: ${r.status}`;
+			toast = { kind: 'error', text: m.settings_cancel_failed({ status: r.status }) };
 		}
 	}
 </script>
@@ -177,11 +182,11 @@
 	</header>
 
 	<main class="mx-auto max-w-md px-5 pb-32">
-		{#if msg}
-			<div
-				class="mb-4 rounded-[var(--radius-card)] bg-secondary/15 px-4 py-2.5 text-sm text-secondary-content"
-			>
-				{msg}
+		{#if toast}
+			<div class="mb-4">
+				<Notice tone={toast.kind === 'success' ? 'success' : 'error'} role="status">
+					{toast.text}
+				</Notice>
 			</div>
 		{/if}
 
