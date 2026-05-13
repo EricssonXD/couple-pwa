@@ -14,6 +14,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import Notice from '$lib/components/ui/Notice.svelte';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
 	import ShareNetworkIcon from 'phosphor-svelte/lib/ShareNetworkIcon';
@@ -170,9 +171,7 @@
 				{busy ? m.onboarding_link_pairing() : m.link_pair_btn()}
 			</PillButton>
 			{#if error}
-				<div class="rounded-[var(--radius-card)] bg-error/10 px-4 py-3 text-sm text-error">
-					{error}
-				</div>
+				<Notice>{error}</Notice>
 			{/if}
 		</form>
 

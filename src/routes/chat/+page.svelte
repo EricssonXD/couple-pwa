@@ -17,6 +17,7 @@
 	} from '$lib/chat.constants';
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Notice from '$lib/components/ui/Notice.svelte';
 	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
 	import PaperPlaneTiltIcon from 'phosphor-svelte/lib/PaperPlaneTiltIcon';
 	import type { PageData } from './$types';
@@ -253,12 +254,7 @@
 	</div>
 
 	{#if composerError}
-		<p
-			class="mt-2 rounded-[var(--radius-field)] border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
-			role="alert"
-		>
-			{composerError}
-		</p>
+		<Notice class="mt-2">{composerError}</Notice>
 	{/if}
 
 	<form

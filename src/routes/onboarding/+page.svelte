@@ -15,6 +15,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import Notice from '$lib/components/ui/Notice.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
 	import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 	import type { ActionData, PageData } from './$types';
@@ -93,9 +94,7 @@
 			</fieldset>
 
 			{#if form?.error}
-				<div class="rounded-[var(--radius-card)] bg-error/10 px-4 py-3 text-sm text-error">
-					{form.error}
-				</div>
+				<Notice>{form.error}</Notice>
 			{/if}
 
 			<PillButton type="submit" size="lg" block>

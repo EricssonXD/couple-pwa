@@ -3,6 +3,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Card from '$lib/components/ui/Card.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
+	import Notice from '$lib/components/ui/Notice.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -70,12 +71,7 @@
 			</div>
 			<InputField bind:value={body} maxlength={1000} rows={5} placeholder={m.daily_placeholder()} />
 			{#if err}
-				<p
-					class="rounded-[var(--radius-field)] border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
-					role="alert"
-				>
-					{err}
-				</p>
+				<Notice>{err}</Notice>
 			{/if}
 			<button
 				class="w-full rounded-full bg-primary py-3 text-xs font-semibold tracking-wider text-primary-content uppercase shadow-paper transition-opacity disabled:opacity-50"

@@ -23,6 +23,7 @@
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import Notice from '$lib/components/ui/Notice.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
 
 	const { data }: { data: PageData } = $props();
@@ -190,12 +191,7 @@
 	</header>
 
 	{#if err}
-		<div
-			class="rounded-[var(--radius-field)] border border-error/30 bg-error/10 px-3 py-2.5 text-sm text-error"
-			role="alert"
-		>
-			{err}
-		</div>
+		<Notice>{err}</Notice>
 	{/if}
 
 	{#if !active}

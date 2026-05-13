@@ -26,6 +26,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import Notice from '$lib/components/ui/Notice.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
@@ -229,9 +230,7 @@
 			</p>
 		{/if}
 		{#if geoErr}
-			<div class="mt-2 rounded-[var(--radius-card)] bg-error/10 px-3 py-2 text-xs text-error">
-				{geoErr}
-			</div>
+			<Notice size="sm" class="mt-2">{geoErr}</Notice>
 		{/if}
 
 		<form class="mt-6 space-y-6" onsubmit={submit}>
@@ -299,9 +298,7 @@
 			</section>
 
 			{#if saveErr}
-				<div class="rounded-[var(--radius-card)] bg-error/10 px-3 py-2 text-sm text-error">
-					{saveErr}
-				</div>
+				<Notice>{saveErr}</Notice>
 			{/if}
 
 			<PillButton type="submit" size="lg" block disabled={busy} class="gap-2">
