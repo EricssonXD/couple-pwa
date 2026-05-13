@@ -99,6 +99,53 @@
 	}
 }
 
-.animate-map-pin-pulse {
-	animation: duosync-map-pin-pulse 2.4s ease-in-out infinite;
+/* Bottom sheet — backdrop fade + sheet slide-from-bottom. Driven by
+   bits-ui `data-state` so we don't need a JS animation library. */
+@keyframes duosync-sheet-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes duosync-sheet-fade-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes duosync-sheet-slide-in {
+	from {
+		transform: translateY(100%);
+	}
+	to {
+		transform: translateY(0);
+	}
+}
+
+@keyframes duosync-sheet-slide-out {
+	from {
+		transform: translateY(0);
+	}
+	to {
+		transform: translateY(100%);
+	}
+}
+
+.animate-sheet-overlay-in {
+	animation: duosync-sheet-fade-in 180ms ease-out both;
+}
+.animate-sheet-overlay-out {
+	animation: duosync-sheet-fade-out 140ms ease-in both;
+}
+.animate-sheet-content-in {
+	animation: duosync-sheet-slide-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-sheet-content-out {
+	animation: duosync-sheet-slide-out 180ms ease-in both;
 }

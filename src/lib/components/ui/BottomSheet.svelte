@@ -31,10 +31,10 @@
 <Dialog.Root bind:open>
 	<Dialog.Portal>
 		<Dialog.Overlay
-			class="data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]"
+			class="animate-sheet-overlay-in data-[state=closed]:animate-sheet-overlay-out fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]"
 		/>
 		<Dialog.Content
-			class="data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom fixed right-0 bottom-0 left-0 z-50 mx-auto max-h-[85dvh] overflow-y-auto rounded-t-[var(--radius-card)] bg-base-100 px-5 pt-4 shadow-paper {contained
+			class="animate-sheet-content-in data-[state=closed]:animate-sheet-content-out fixed right-0 bottom-0 left-0 z-50 mx-auto max-h-[85dvh] overflow-y-auto rounded-t-[var(--radius-card)] bg-base-100 px-5 pt-4 shadow-paper {contained
 				? 'sm:max-w-md'
 				: ''}"
 			style="padding-bottom: calc(var(--safe-bottom) + 1rem);"

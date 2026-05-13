@@ -96,7 +96,7 @@
 				stroke-linecap="round"
 				stroke-dasharray={circumference}
 				stroke-dashoffset={dashOffset}
-				style="transition: stroke-dashoffset .6s ease, stroke .3s;"
+				class="ring-progress"
 			/>
 		{/if}
 	</svg>
@@ -130,3 +130,11 @@
 		</span>
 	{/if}
 </div>
+
+<style>
+	.ring-progress {
+		transition:
+			stroke-dashoffset 0.6s ease,
+			stroke 0.3s;
+	}
+</style>
