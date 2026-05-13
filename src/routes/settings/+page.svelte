@@ -35,6 +35,7 @@
 	import { locales, getLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
+	import SectionHeader from '$lib/components/ui/SectionHeader.svelte';
 
 	const { data }: { data: PageData } = $props();
 
@@ -181,10 +182,7 @@
 
 		<!-- profile -->
 		<Card class="mt-2 space-y-4">
-			<header class="flex items-center gap-2">
-				<Icon icon={UserIcon} size={18} weight="duotone" class="text-primary" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.pulse_you()}</h2>
-			</header>
+			<SectionHeader icon={UserIcon} tone="primary" title={m.pulse_you()} />
 			<label class="block">
 				<span class="mb-1.5 block text-xs text-base-content/60">{m.settings_displayname()}</span>
 				<input
@@ -214,12 +212,12 @@
 
 		<!-- privacy / ghost -->
 		<Card class="mt-4 space-y-1">
-			<header class="mb-2 flex items-center gap-2">
-				<Icon icon={GhostIcon} size={18} weight="duotone" class="text-base-content/70" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">
-					{m.settings_section_privacy()}
-				</h2>
-			</header>
+			<SectionHeader
+				icon={GhostIcon}
+				tone="muted"
+				title={m.settings_section_privacy()}
+				class="mb-2"
+			/>
 			<Toggle
 				checked={ghost}
 				label={m.settings_ghost_label()}
@@ -233,10 +231,7 @@
 
 		<!-- theme -->
 		<Card class="mt-4 space-y-3">
-			<header class="flex items-center gap-2">
-				<Icon icon={SunIcon} size={18} weight="duotone" class="text-accent" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_theme()}</h2>
-			</header>
+			<SectionHeader icon={SunIcon} tone="accent" title={m.settings_section_theme()} />
 			<div class="grid grid-cols-3 gap-2">
 				{#each [{ k: 'auto' as const, label: m.settings_theme_auto(), icon: undefined }, { k: 'duosync-light' as const, label: m.settings_theme_light(), icon: SunIcon }, { k: 'duosync-dark' as const, label: m.settings_theme_dark(), icon: MoonIcon }] as o (o.k)}
 					<button
@@ -258,12 +253,7 @@
 
 		<!-- language -->
 		<Card class="mt-4 space-y-3">
-			<header class="flex items-center gap-2">
-				<Icon icon={TranslateIcon} size={18} weight="duotone" class="text-accent" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">
-					{m.settings_section_language()}
-				</h2>
-			</header>
+			<SectionHeader icon={TranslateIcon} tone="accent" title={m.settings_section_language()} />
 			<div class="grid grid-cols-2 gap-2">
 				{#each locales as code (code)}
 					<button
@@ -283,10 +273,7 @@
 		<!-- couple -->
 		{#if data.couple}
 			<Card class="mt-4 space-y-4">
-				<header class="flex items-center gap-2">
-					<Icon icon={HeartIcon} size={18} weight="duotone" class="text-primary" />
-					<h2 class="text-sm font-semibold tracking-wider uppercase">{m.settings_section_us()}</h2>
-				</header>
+				<SectionHeader icon={HeartIcon} tone="primary" title={m.settings_section_us()} />
 				<p class="text-xs text-base-content/60">
 					{m.settings_paired_with({
 						emoji: data.partner?.avatarEmoji ?? '💞',
@@ -373,12 +360,12 @@
 
 		<!-- diagnostics -->
 		<Card class="mt-4 space-y-2">
-			<header class="mb-1 flex items-center gap-2">
-				<Icon icon={WrenchIcon} size={18} weight="duotone" class="text-base-content/70" />
-				<h2 class="text-sm font-semibold tracking-wider uppercase">
-					{m.settings_section_diagnostics()}
-				</h2>
-			</header>
+			<SectionHeader
+				icon={WrenchIcon}
+				tone="muted"
+				title={m.settings_section_diagnostics()}
+				class="mb-1"
+			/>
 			<a
 				href={resolve('/settings/offline-queue')}
 				class="-mx-2 flex items-center justify-between rounded-[var(--radius-card)] px-2 py-2.5 text-sm hover:bg-base-100"
