@@ -12,6 +12,10 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
+	import * as m from '$lib/paraglide/messages.js';
+	import Notice from '$lib/components/ui/Notice.svelte';
+	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -55,9 +59,9 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ kind: 'draft', selfAnswers, guessAnswers })
 			});
-			if (!r.ok) err = `Save failed (status ${r.status}).`;
+			if (!r.ok) err = m.quiz_run_save_failed({ status: r.status });
 		} catch (e) {
-			err = e instanceof Error ? e.message : 'Save failed.';
+			err = e instanceof Error ? e.message : m.quiz_run_save_failed_generic();
 		} finally {
 			saving = false;
 		}
@@ -74,7 +78,7 @@
 		});
 		submitting = false;
 		if (!r.ok) {
-			err = `Submit failed (status ${r.status}).`;
+			err = m.quiz_run_submit_failed({ status: r.status });
 			return;
 		}
 		const body = (await r.json()) as { run: { reveal: unknown | null } };
@@ -87,7 +91,7 @@
 	}
 
 	async function abandon() {
-		if (!confirm('Abandon this quiz? You can start a new run anytime.')) return;
+		if (!confirm(m.quiz_run_abandon_confirm())) return;
 		const r = await fetch(`/api/quiz/runs/${data.run.id}`, { method: 'DELETE' });
 		if (r.ok) await goto(resolve('/quiz'));
 	}
@@ -98,7 +102,7 @@
 </svelte:head>
 
 <div class="mx-auto max-w-xl space-y-6 p-4">
-	<a class="text-sm underline" href={resolve('/quiz')}>← All packs</a>
+	<a class="text-sm underline" href={resolve('/quiz')}>{m.quiz_run_back_link()}</a>
 
 	<header class="space-y-1">
 		<h1 class="text-2xl font-semibold">{data.pack.title}</h1>
@@ -107,14 +111,14 @@
 
 	{#if viewerLocked}
 		<div class="space-y-2 rounded-lg bg-base-200 p-4">
-			<p class="font-medium">You're done — waiting for your partner.</p>
+			<p class="font-medium">{m.quiz_run_locked_heading()}</p>
 			<p class="text-sm text-base-content/70">
-				You'll see the reveal as soon as they submit. We'll send a quiet push to nudge them.
+				{m.quiz_run_locked_body()}
 			</p>
 		</div>
 	{:else}
 		<p class="text-xs text-base-content/60">
-			{saving ? 'Saving…' : 'Drafts auto-save · partner cannot see your choices.'}
+			{saving ? m.quiz_run_saving() : m.quiz_run_autosave_hint()}
 		</p>
 	{/if}
 
@@ -128,12 +132,14 @@
 		{#each data.pack.questions as q, idx (q.id)}
 			<fieldset class="space-y-3 rounded-lg bg-base-200 p-4" disabled={viewerLocked}>
 				<legend class="px-2 text-xs text-base-content/60">
-					Question {idx + 1} of {data.pack.questions.length}
+					{m.quiz_run_question_index({ idx: idx + 1, total: data.pack.questions.length })}
 				</legend>
 				<p class="font-medium">{q.prompt}</p>
 
 				<div class="space-y-2">
-					<p class="text-xs tracking-wide text-base-content/80 uppercase">You'd actually pick</p>
+					<p class="text-xs tracking-wide text-base-content/80 uppercase">
+						{m.quiz_run_self_label()}
+					</p>
 					<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 						{#each q.choices as c, ci (ci)}
 							<label class="flex cursor-pointer items-center gap-2 rounded bg-base-100 p-2">
@@ -155,7 +161,7 @@
 
 				<div class="space-y-2">
 					<p class="text-xs tracking-wide text-base-content/80 uppercase">
-						You think your partner picked
+						{m.quiz_run_guess_label()}
 					</p>
 					<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 						{#each q.choices as c, ci (ci)}
@@ -179,15 +185,22 @@
 		{/each}
 
 		{#if err}
-			<p class="text-sm text-error" role="alert">{err}</p>
+			<Notice>{err}</Notice>
 		{/if}
 
 		{#if !viewerLocked}
 			<div class="flex flex-wrap gap-2">
-				<button class="btn flex-1 btn-primary" type="submit" disabled={!allAnswered || submitting}>
-					{submitting ? 'Submitting…' : 'Lock in my answers'}
-				</button>
-				<button class="btn btn-ghost" type="button" onclick={abandon}> Abandon </button>
+				<PillButton type="submit" class="flex-1" disabled={!allAnswered || submitting}>
+					{#if submitting}
+						<Spinner />
+						{m.quiz_run_submitting()}
+					{:else}
+						{m.quiz_run_submit_btn()}
+					{/if}
+				</PillButton>
+				<PillButton variant="ghost" type="button" onclick={abandon}>
+					{m.quiz_run_abandon_btn()}
+				</PillButton>
 			</div>
 		{/if}
 	</form>
