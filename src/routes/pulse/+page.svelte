@@ -38,6 +38,7 @@
 		StreakBadge,
 		MoodPicker
 	} from '$lib/components/duosync';
+	import { PetBadge } from '$lib/components/pet';
 	import type { DistanceBucket } from '$lib/server/services/location';
 	import type { Mood, MoodSnapshot } from '$lib/server/services/mood';
 	import type { PageData } from './$types';
@@ -243,8 +244,35 @@
 			/>
 		</a>
 		{#if data.streak && data.streak.current > 0}
-			<div class="mt-2 flex justify-center">
+			<div class="mt-2 flex items-center justify-center gap-2">
 				<StreakBadge streak={data.streak.current} />
+				{#if data.petSnapshot?.pet}
+					<a
+						href={resolve('/pet')}
+						class="inline-flex items-center rounded-full transition hover:opacity-80"
+						aria-label={m.pet_open_link()}
+					>
+						<PetBadge
+							species={data.petSnapshot.pet.species}
+							stage={data.petSnapshot.pet.stage}
+							mood={data.petSnapshot.pet.mood}
+						/>
+					</a>
+				{/if}
+			</div>
+		{:else if data.petSnapshot?.pet}
+			<div class="mt-2 flex justify-center">
+				<a
+					href={resolve('/pet')}
+					class="inline-flex items-center rounded-full transition hover:opacity-80"
+					aria-label={m.pet_open_link()}
+				>
+					<PetBadge
+						species={data.petSnapshot.pet.species}
+						stage={data.petSnapshot.pet.stage}
+						mood={data.petSnapshot.pet.mood}
+					/>
+				</a>
 			</div>
 		{/if}
 	</header>
