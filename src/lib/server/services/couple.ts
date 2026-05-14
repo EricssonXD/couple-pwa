@@ -66,6 +66,30 @@ export async function getActiveCouple(userId: string) {
 }
 
 /**
+ * Look up *any* couple (active, paused, broken) the user belongs to.
+ *
+ * Pet routes use this so the shared pet stays accessible across pause /
+ * unpair transitions (B1 — see pet-system.md §"Inactive couples"). The
+ * default `event.locals.couple` is active-only by design and the rest of
+ * the app relies on that invariant; we deliberately do NOT widen it.
+ *
+ * If the user belongs to multiple historic couples, the active one wins,
+ * else the most recently updated row.
+ */
+export async function loadCoupleAnyStatus(userId: string) {
+	const rows = await db
+		.select()
+		.from(couple)
+		.where(or(eq(couple.partnerA, userId), eq(couple.partnerB, userId)))
+		.orderBy(
+			sql`case ${couple.status} when 'active' then 0 when 'paused' then 1 else 2 end`,
+			sql`${couple.createdAt} desc`
+		)
+		.limit(1);
+	return rows[0] ?? null;
+}
+
+/**
  * Redeem a code: validate, then atomically create the couple and mark the
  * code consumed. Throws PairingError on any business-rule violation.
  */

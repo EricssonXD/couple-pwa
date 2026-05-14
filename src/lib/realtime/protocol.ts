@@ -12,6 +12,8 @@
  * Short keys keep idle frames tiny.
  */
 
+import type { PetSnapshot } from '$lib/pet.constants';
+
 export type Presence = 'online' | 'away' | 'offline';
 
 // ─── Server-originated events (sent via REST /realtime/v1/api/broadcast) ──
@@ -97,6 +99,15 @@ export type ServerEvent =
 				body: string;
 				createdAt: string;
 			};
+	  }
+	| {
+			// Pet system: full snapshot broadcast on every server-side
+			// pet write. Snapshot-on-commit (no deltas) — see
+			// pet-system.md §"Real-time sync". Receiver collapses bursts
+			// via RAF + (pet.version, wallet.version) version-gate.
+			t: 'pet_state';
+			ts: number;
+			p: PetSnapshot;
 	  };
 
 // ─── Client-originated events ────────────────────────────────────────────
