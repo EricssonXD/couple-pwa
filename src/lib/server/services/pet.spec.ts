@@ -6,6 +6,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	DECAY_PER_DAY,
+	EARN_SOURCES,
+	EARN_TABLE,
 	HUNGER_CEIL,
 	HUNGER_FLOOR,
 	MOOD_CEIL,
@@ -15,9 +17,11 @@ import {
 	SPECIES,
 	STAGE_THRESHOLDS,
 	STAGES,
+	TREAT_EFFECTS,
 	WELCOME_BACK_DEDUPE_DAYS,
 	WELCOME_BACK_INACTIVE_DAYS,
 	WELCOME_BACK_TREAT_ID,
+	computePay,
 	isSpecies,
 	projectDecay,
 	stageForXp,
@@ -215,4 +219,86 @@ describe('broadcastPetState — couple.status gate (B1)', () => {
 	// The active-path is integration-tested (it touches the DB); we
 	// only assert the gate here so adding new statuses doesn't
 	// silently start broadcasting.
+});
+
+describe('EARN_TABLE (P2.3 — economy values)', () => {
+	it('covers exactly the 7 documented sources, no extras', () => {
+		expect(EARN_SOURCES).toEqual([
+			'daily_send',
+			'daily_reveal',
+			'mood_log',
+			'quiz_complete',
+			'bucket_complete',
+			'repair_complete',
+			'anniversary'
+		]);
+		expect(Object.keys(EARN_TABLE).sort()).toEqual([...EARN_SOURCES].sort());
+	});
+
+	it('matches the locked earning table in pet-system.md §1', () => {
+		expect(EARN_TABLE.daily_send).toEqual({ coinsFull: 2, xpFull: 1, mutualOnly: false });
+		expect(EARN_TABLE.daily_reveal).toEqual({ coinsFull: 8, xpFull: 4, mutualOnly: true });
+		expect(EARN_TABLE.mood_log).toEqual({ coinsFull: 1, xpFull: 1, mutualOnly: false });
+		expect(EARN_TABLE.quiz_complete).toEqual({ coinsFull: 12, xpFull: 8, mutualOnly: true });
+		expect(EARN_TABLE.bucket_complete).toEqual({ coinsFull: 6, xpFull: 3, mutualOnly: true });
+		expect(EARN_TABLE.repair_complete).toEqual({ coinsFull: 10, xpFull: 5, mutualOnly: true });
+		expect(EARN_TABLE.anniversary).toEqual({ coinsFull: 25, xpFull: 12, mutualOnly: true });
+	});
+
+	it('every grant has non-negative coins + xp (no penalty rewards)', () => {
+		for (const src of EARN_SOURCES) {
+			expect(EARN_TABLE[src].coinsFull).toBeGreaterThanOrEqual(0);
+			expect(EARN_TABLE[src].xpFull).toBeGreaterThanOrEqual(0);
+		}
+	});
+});
+
+describe('computePay — solo halving rule', () => {
+	it('mutual = true pays the full table values', () => {
+		for (const src of EARN_SOURCES) {
+			const row = EARN_TABLE[src];
+			expect(computePay(src, true)).toEqual({
+				coinsDelta: row.coinsFull,
+				xpDelta: row.xpFull
+			});
+		}
+	});
+
+	it('mutual = false pays Math.floor(full / 2) for both coins and xp', () => {
+		for (const src of EARN_SOURCES) {
+			const row = EARN_TABLE[src];
+			expect(computePay(src, false)).toEqual({
+				coinsDelta: Math.floor(row.coinsFull / 2),
+				xpDelta: Math.floor(row.xpFull / 2)
+			});
+		}
+	});
+
+	it('halved odd values round DOWN (no float drift, no over-credit)', () => {
+		// daily_send coinsFull=2 → solo=1; xpFull=1 → solo=0.
+		expect(computePay('daily_send', false)).toEqual({ coinsDelta: 1, xpDelta: 0 });
+		// repair_complete coinsFull=10 xp=5 → solo (5, 2). xp 5/2 floors to 2.
+		expect(computePay('repair_complete', false)).toEqual({ coinsDelta: 5, xpDelta: 2 });
+		// mood_log 1/1 → solo 0/0 (allowed; caller shouldn't hit solo here).
+		expect(computePay('mood_log', false)).toEqual({ coinsDelta: 0, xpDelta: 0 });
+	});
+});
+
+describe('TREAT_EFFECTS', () => {
+	it('covers every seeded treat from 0022_pet.sql', () => {
+		expect(Object.keys(TREAT_EFFECTS).sort()).toEqual([
+			'treat_cake',
+			'treat_dumpling',
+			'treat_strawberry'
+		]);
+	});
+	it('every treat is positive-mood + positive-hunger-reduction', () => {
+		for (const id of Object.keys(TREAT_EFFECTS)) {
+			expect(TREAT_EFFECTS[id].mood).toBeGreaterThan(0);
+			expect(TREAT_EFFECTS[id].hunger).toBeGreaterThan(0);
+		}
+	});
+	it('welcome-back treat is in the table (consistency)', () => {
+		expect(TREAT_EFFECTS[WELCOME_BACK_TREAT_ID]).toBeDefined();
+	});
 });

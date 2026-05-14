@@ -13,16 +13,20 @@ import { and, eq, gt, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { pet, petInventory, petLedger, petWallet } from '$lib/server/db/schema';
 import { broadcastToCouple } from '$lib/server/realtime';
+import { recordAudit } from '$lib/server/services/audit';
 import {
+	EARN_TABLE,
 	NAME_MAX,
 	NAME_MIN,
 	SPECIES,
 	WELCOME_BACK_DEDUPE_DAYS,
 	WELCOME_BACK_INACTIVE_DAYS,
 	WELCOME_BACK_TREAT_ID,
+	computePay,
 	projectDecay,
 	stageForXp,
 	todayKey,
+	type EarnSource,
 	type EquippedItem,
 	type PetPublic,
 	type PetSnapshot,
@@ -311,4 +315,241 @@ export async function broadcastPetState(
 	} catch (err) {
 		console.warn('[pet] broadcastPetState failed', err);
 	}
+}
+
+// ─── Earn pipeline (P2.1) ─────────────────────────────────────────────────
+//
+// Single funnel: every ritual that grants coins/XP calls `awardForEvent`
+// with a dedupeKey shaped per the table in pet-system.md §3 "Wiring
+// earn events". The unique partial index `pet_ledger_dedupe_uq`
+// guarantees double-fire produces one ledger row; the wallet/pet
+// updates run inside the SAME tx under an optimistic version check so
+// either everything commits or nothing does (B4).
+//
+// Hard rules:
+//   - MUST be awaited before the request returns (P1 — the AsyncLocalStorage
+//     DB bundle is closed by ctx.waitUntil).
+//   - Failure is non-fatal: any error short-circuits to `recordAudit(...)`
+//     and returns `{ granted:false, deduped:false, failed:true, ... }`
+//     so a flaky pet path can never break a relationship ritual.
+
+export type AwardResult = {
+	granted: boolean;
+	deduped: boolean;
+	failed: boolean;
+	coinsDelta: number;
+	xpDelta: number;
+};
+
+const AWARD_DEDUPED: AwardResult = {
+	granted: false,
+	deduped: true,
+	failed: false,
+	coinsDelta: 0,
+	xpDelta: 0
+};
+const AWARD_FAILED: AwardResult = {
+	granted: false,
+	deduped: false,
+	failed: true,
+	coinsDelta: 0,
+	xpDelta: 0
+};
+const MAX_AWARD_ATTEMPTS = 3;
+
+class VersionConflictError extends Error {
+	constructor(readonly target: 'wallet' | 'pet') {
+		super(`version conflict on ${target}`);
+		this.name = 'VersionConflictError';
+	}
+}
+
+/**
+ * Idempotently grant coins/XP for a ritual completion.
+ *
+ * `dedupeKey` shape is defined per source in pet-system.md §3
+ * (e.g. `daily_reveal:<questionId>:<YYYY-MM-DD>`). Passing the same
+ * key twice — even from concurrent isolates — is a guaranteed no-op
+ * after the first win.
+ *
+ * `mutual = false` halves both deltas (Math.floor); `mutual = true`
+ * pays the full table values. Sources with `EARN_TABLE[...].mutualOnly`
+ * defensively assert `mutual === true`; passing `false` returns
+ * AWARD_FAILED with an audit row (programmer error, not a runtime hazard).
+ */
+export async function awardForEvent(args: {
+	coupleId: string;
+	userId: string;
+	source: EarnSource;
+	dedupeKey: string;
+	mutual: boolean;
+}): Promise<AwardResult> {
+	const { coupleId, userId, source, dedupeKey, mutual } = args;
+
+	const row = EARN_TABLE[source];
+	if (!row) {
+		await recordAudit(userId, 'pet.award.failed', { coupleId, source, reason: 'unknown_source' });
+		return AWARD_FAILED;
+	}
+	if (row.mutualOnly && !mutual) {
+		await recordAudit(userId, 'pet.award.failed', {
+			coupleId,
+			source,
+			dedupeKey,
+			reason: 'mutual_required'
+		});
+		return AWARD_FAILED;
+	}
+
+	const { coinsDelta, xpDelta } = computePay(source, mutual);
+
+	// Lazy-provision wallet OUTSIDE the retry loop so retries don't
+	// race the INSERT … ON CONFLICT DO NOTHING repeatedly.
+	try {
+		await ensureWallet(coupleId);
+	} catch (err) {
+		console.warn('[pet] awardForEvent: ensureWallet failed', err);
+		await recordAudit(userId, 'pet.award.failed', {
+			coupleId,
+			source,
+			dedupeKey,
+			reason: 'wallet_provision_failed'
+		});
+		return AWARD_FAILED;
+	}
+
+	for (let attempt = 0; attempt < MAX_AWARD_ATTEMPTS; attempt++) {
+		try {
+			const result = await db.transaction(async (tx) => {
+				const [ledgerRow] = await tx
+					.insert(petLedger)
+					.values({
+						coupleId,
+						userId,
+						kind: 'earn',
+						source,
+						coinsDelta,
+						xpDelta,
+						dedupeKey
+					})
+					.onConflictDoNothing({
+						target: [petLedger.coupleId, petLedger.dedupeKey],
+						where: sql`${petLedger.dedupeKey} is not null`
+					})
+					.returning({ id: petLedger.id });
+
+				if (!ledgerRow) {
+					return { kind: 'deduped' as const };
+				}
+
+				await bumpWalletAtomic(tx, coupleId, coinsDelta);
+				await bumpPetAtomic(tx, coupleId, xpDelta);
+				return { kind: 'applied' as const };
+			});
+
+			if (result.kind === 'deduped') return AWARD_DEDUPED;
+			return {
+				granted: true,
+				deduped: false,
+				failed: false,
+				coinsDelta,
+				xpDelta
+			};
+		} catch (err) {
+			if (err instanceof VersionConflictError) {
+				continue;
+			}
+			console.warn('[pet] awardForEvent: tx failed', { source, dedupeKey, err });
+			await recordAudit(userId, 'pet.award.failed', {
+				coupleId,
+				source,
+				dedupeKey,
+				reason: 'tx_error',
+				error: String(err)
+			});
+			return AWARD_FAILED;
+		}
+	}
+
+	await recordAudit(userId, 'pet.award.failed', {
+		coupleId,
+		source,
+		dedupeKey,
+		reason: 'version_contention'
+	});
+	return AWARD_FAILED;
+}
+
+/**
+ * Optimistic-version coin/lifetime bump inside an awardForEvent tx.
+ * Read version → UPDATE WHERE version = read. Mismatch throws so the
+ * outer transaction (including the ledger insert) rolls back and the
+ * outer 3× loop retries cleanly.
+ */
+async function bumpWalletAtomic(
+	tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+	coupleId: string,
+	coinsDelta: number
+): Promise<void> {
+	const [existing] = await tx
+		.select({ version: petWallet.version })
+		.from(petWallet)
+		.where(eq(petWallet.coupleId, coupleId))
+		.limit(1);
+	if (!existing) throw new VersionConflictError('wallet');
+
+	const lifetimeAdd = coinsDelta > 0 ? coinsDelta : 0;
+	const updated = await tx
+		.update(petWallet)
+		.set({
+			coins: sql`${petWallet.coins} + ${coinsDelta}`,
+			lifetimeEarned: sql`${petWallet.lifetimeEarned} + ${lifetimeAdd}`,
+			version: existing.version + 1,
+			updatedAt: new Date()
+		})
+		.where(and(eq(petWallet.coupleId, coupleId), eq(petWallet.version, existing.version)))
+		.returning({ version: petWallet.version });
+	if (updated.length === 0) throw new VersionConflictError('wallet');
+}
+
+/**
+ * Optimistic-version XP bump for the pet, with mood/hunger
+ * re-anchoring. Skipped silently when no pet exists yet (couple has
+ * earned coins before hatching). Stage is recomputed from xp inline.
+ */
+async function bumpPetAtomic(
+	tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+	coupleId: string,
+	xpDelta: number
+): Promise<void> {
+	const [existing] = await tx.select().from(pet).where(eq(pet.coupleId, coupleId)).limit(1);
+	if (!existing) return; // No pet yet — coins still credited above.
+
+	const now = new Date();
+	const projected = projectDecay(
+		{
+			mood: existing.mood,
+			hunger: existing.hunger,
+			moodUpdatedAt: existing.moodUpdatedAt,
+			hungerUpdatedAt: existing.hungerUpdatedAt
+		},
+		now
+	);
+	const newXp = existing.xp + xpDelta;
+	const newStage = stageForXp(newXp);
+
+	const updated = await tx
+		.update(pet)
+		.set({
+			xp: newXp,
+			stage: newStage,
+			mood: projected.mood,
+			hunger: projected.hunger,
+			moodUpdatedAt: now,
+			hungerUpdatedAt: now,
+			version: existing.version + 1
+		})
+		.where(and(eq(pet.coupleId, coupleId), eq(pet.version, existing.version)))
+		.returning({ version: pet.version });
+	if (updated.length === 0) throw new VersionConflictError('pet');
 }
