@@ -604,6 +604,32 @@ export class PetShopError extends Error {
 	}
 }
 
+/**
+ * HTTP status mapping for PetShopError. Used by every shop endpoint
+ * so the wire shape is consistent: 4xx for user-correctable failures,
+ * 5xx only for invariant breaks (e.g. seed missing TREAT_EFFECTS).
+ */
+export function petShopErrorStatus(code: PetShopErrorCode): number {
+	switch (code) {
+		case 'item_not_found':
+		case 'pet_not_found':
+			return 404;
+		case 'item_disabled':
+		case 'item_locked':
+			return 403;
+		case 'insufficient_coins':
+			return 402;
+		case 'item_already_owned':
+		case 'inventory_empty':
+			return 409;
+		case 'item_not_treat':
+		case 'item_not_cosmetic':
+			return 400;
+		case 'treat_effect_missing':
+			return 500;
+	}
+}
+
 const SHOP_RETRY_LIMIT = 3;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -643,6 +669,11 @@ async function readInventory(coupleId: string): Promise<PetInventoryEntry[]> {
 		.from(petInventory)
 		.where(eq(petInventory.coupleId, coupleId));
 	return rows.map(inventoryRowToPublic);
+}
+
+/** Public read of a couple's inventory — used by GET /api/pet/inventory. */
+export async function getPetInventory(coupleId: string): Promise<PetInventoryEntry[]> {
+	return readInventory(coupleId);
 }
 
 async function buildMutationResult(coupleId: string, now?: Date): Promise<PetMutationResult> {
