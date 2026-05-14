@@ -43,6 +43,7 @@
 
 import { browser } from '$app/environment';
 import { getSupabaseClient } from '$lib/client/supabase';
+import type { PetSnapshot } from '$lib/pet.constants';
 import type { Presence, ServerEvent } from '$lib/realtime/protocol';
 import type { RealtimeChannel, Subscription } from '@supabase/supabase-js';
 
@@ -85,6 +86,12 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		createdAt: string;
 		ts: number;
 	} | null>(null);
+	let lastPetState = $state<PetSnapshot | null>(null);
+	// Bumps to Date.now() on every SUBSCRIBED transition. The /pet page
+	// uses this as a reseed signal — when the value increases AFTER the
+	// initial subscribe, refetch GET /api/pet to repair any state missed
+	// while the channel was down (offline / backgrounded tab).
+	let lastSubscribedAt = $state(0);
 	let presence = $state<Record<string, Presence>>({});
 
 	let channel: RealtimeChannel | null = null;
@@ -171,6 +178,42 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 			case 'chat_message':
 				lastChatMessage = { ...ev.p, ts: ev.ts };
 				return;
+			case 'pet_state':
+				ingestPetState(ev.p);
+				return;
+		}
+	}
+
+	// Pet snapshot RAF-coalesce + composite version-gate. The server
+	// broadcasts a full snapshot on every commit; bursts within a frame
+	// collapse to one DOM update via requestAnimationFrame, applying only
+	// the strictly-newest (pet.version, wallet.version) pair we've seen
+	// (across both pending and already-applied state). See pet-system.md
+	// §"Real-time sync" — receiver-side.
+	let pendingPetSnapshot: PetSnapshot | null = null;
+	let petRafId = 0;
+	function isStrictlyOlder(incoming: PetSnapshot, prev: PetSnapshot): boolean {
+		const incPetV = incoming.pet?.version ?? 0;
+		const prvPetV = prev.pet?.version ?? 0;
+		return incPetV <= prvPetV && incoming.wallet.version <= prev.wallet.version;
+	}
+	function ingestPetState(snap: PetSnapshot) {
+		const prev = pendingPetSnapshot ?? lastPetState;
+		if (prev && isStrictlyOlder(snap, prev)) return;
+		pendingPetSnapshot = snap;
+		if (typeof requestAnimationFrame !== 'function') {
+			// Fallback for non-browser environments (SSR/tests). Apply
+			// synchronously; no coalescing possible without RAF.
+			lastPetState = snap;
+			pendingPetSnapshot = null;
+			return;
+		}
+		if (!petRafId) {
+			petRafId = requestAnimationFrame(() => {
+				lastPetState = pendingPetSnapshot;
+				pendingPetSnapshot = null;
+				petRafId = 0;
+			});
 		}
 	}
 
@@ -255,6 +298,10 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				if (s === 'SUBSCRIBED') {
 					status = 'open';
 					reconnectAttempt = 0;
+					// Bump reseed signal AFTER status flips. /pet's effect
+					// skips the very first transition (initial subscribe)
+					// because the page already has fresh server-load data.
+					lastSubscribedAt = Date.now();
 					try {
 						await channel?.track({
 							presence: lastPresence,
@@ -323,6 +370,11 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 			clearInterval(staleTicker);
 			staleTicker = null;
 		}
+		if (petRafId && typeof cancelAnimationFrame === 'function') {
+			cancelAnimationFrame(petRafId);
+			petRafId = 0;
+		}
+		pendingPetSnapshot = null;
 		uninstallVisibilityHandler();
 		const c = channel;
 		channel = null;
@@ -374,6 +426,12 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		},
 		get lastChatMessage() {
 			return lastChatMessage;
+		},
+		get lastPetState() {
+			return lastPetState;
+		},
+		get lastSubscribedAt() {
+			return lastSubscribedAt;
 		},
 		get presence() {
 			return presence;

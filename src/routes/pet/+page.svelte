@@ -27,7 +27,7 @@
   pet_state_changed for partner mutations is tracked as future work.
 -->
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
@@ -52,6 +52,7 @@
 		type ShopItemView,
 		type Species
 	} from '$lib/pet.constants';
+	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -130,7 +131,10 @@
 				hatchError = body.message ?? 'Could not hatch right now.';
 				return;
 			}
-			snapshot = (await res.json()) as PetSnapshot;
+			// Hatch goes from pet=null → pet=non-null; the gate in
+			// applyPetSnapshot accepts because the cur.pet branch is null
+			// (no version to compare).
+			applyPetSnapshot((await res.json()) as PetSnapshot);
 		} catch {
 			hatchError = m.pet_action_error_network();
 		} finally {
@@ -164,7 +168,7 @@
 				renameError = body.message ?? 'Could not rename.';
 				return;
 			}
-			snapshot = (await res.json()) as PetSnapshot;
+			applyPetSnapshot((await res.json()) as PetSnapshot);
 			renaming = false;
 		} catch {
 			renameError = m.pet_action_error_network();
@@ -178,7 +182,68 @@
 	let actionError = $state<string | null>(null);
 	const pending = new SvelteSet<string>();
 	let treatPulse = $state(0);
+	let coinPulse = $state(0);
+	let coinBouncing = $state(false);
 	let treatAnnouncement = $state('');
+
+	// Restart-the-class trick so the same CSS animation can replay on
+	// every coinPulse bump. Same shape as MoodHungerBars treat-bounce.
+	$effect(() => {
+		const pulse = coinPulse;
+		if (pulse === 0) return;
+		coinBouncing = false;
+		queueMicrotask(() => {
+			coinBouncing = true;
+		});
+		const t = setTimeout(() => {
+			coinBouncing = false;
+		}, 700);
+		return () => clearTimeout(t);
+	});
+
+	// ── unified snapshot apply (monotonic gate) ─────────────────────────
+	// Every snapshot source — own mutation responses, realtime broadcast,
+	// reconnect reseed, hatch/rename — flows through this. The composite
+	// (pet.version, wallet.version) gate drops anything not strictly
+	// newer so out-of-order responses can never overwrite live state.
+	// Defensive: incoming `pet === null` while we already have a pet is
+	// treated as suspicious and ignored — pets aren't deleted in v1
+	// except via couple unlink (which switches the route to paused).
+	function applyPetSnapshot(next: PetSnapshot): boolean {
+		const cur = snapshot;
+		if (cur.pet && next.pet) {
+			if (next.pet.version <= cur.pet.version && next.wallet.version <= cur.wallet.version) {
+				return false;
+			}
+		} else if (cur.pet && !next.pet) {
+			// Don't let a stale snapshot un-hatch a live pet.
+			return false;
+		}
+		const coinsIncreased = next.wallet.coins > cur.wallet.coins;
+		snapshot = next;
+		if (coinsIncreased) {
+			coinPulse += 1;
+		}
+		return true;
+	}
+
+	// ── inventory fetch sequence ────────────────────────────────────────
+	// Realtime + reseed both refetch inventory; an earlier slow request
+	// must not overwrite a newer one. Each call captures a sequence
+	// number and only commits when it's still the latest.
+	let invFetchSeq = 0;
+	async function refetchInventory(): Promise<void> {
+		const my = ++invFetchSeq;
+		try {
+			const res = await fetch('/api/pet/inventory');
+			if (!res.ok) return;
+			const body = (await res.json()) as { inventory: PetInventoryEntry[] };
+			if (my !== invFetchSeq) return; // a newer fetch already won
+			inventory = body.inventory;
+		} catch {
+			/* silent — wardrobe will repair on next mutation or reconnect */
+		}
+	}
 
 	function mapErrorStatus(status: number, code?: string): string {
 		if (status === 402) return m.pet_action_error_402();
@@ -217,7 +282,11 @@
 				return null;
 			}
 			const result = (await res.json()) as PetMutationResult;
-			snapshot = result.snapshot;
+			// Both go through the gate — realtime echo or partner write
+			// can't be silently overwritten by a slow own-response.
+			applyPetSnapshot(result.snapshot);
+			// Inventory is non-versioned but is part of the same write
+			// txn; commit it unconditionally — fresh from our own write.
 			inventory = result.inventory;
 			return result;
 		} catch {
@@ -248,6 +317,67 @@
 		}
 	}
 
+	// ── realtime subscription (skipped when couple is paused) ───────────
+	// Server emits one `pet_state` snapshot per write on the private
+	// `couple:<id>` channel; the realtime client RAF-coalesces bursts
+	// and version-gates against the last applied snapshot. Locally we
+	// also gate via applyPetSnapshot, then refetch inventory because
+	// PetSnapshot doesn't carry inventory rows (only equipped slots).
+	const realtimePaused = untrack(() => data.realtimePaused);
+	const rt = realtimePaused
+		? null
+		: createRealtimeClient(untrack(() => ({ coupleId: data.coupleId, userId: data.userId })));
+
+	onMount(() => {
+		void rt?.start();
+	});
+	onDestroy(() => {
+		void rt?.stop();
+	});
+
+	// Apply incoming snapshots. The realtime client only ever assigns
+	// strictly-newer snapshots to its rune (RAF + composite version
+	// gate) — we still re-gate here because hatch/rename/buy responses
+	// race against this and applyPetSnapshot is the single source of
+	// truth.
+	$effect(() => {
+		if (!rt) return;
+		const next = rt.lastPetState;
+		if (!next) return;
+		if (applyPetSnapshot(next)) {
+			// Bump treat-bar bounce on partner mutations as a visible
+			// "something changed" signal. Cheap; reduced-motion gates
+			// the actual animation.
+			treatPulse += 1;
+			void refetchInventory();
+		}
+	});
+
+	// Reconnect reseed (pet-system.md §"Reconnect strategy"). Skip the
+	// very first SUBSCRIBED transition because the page already booted
+	// from fresh server-load data.
+	let firstSubscribeSeen = false;
+	$effect(() => {
+		if (!rt) return;
+		const ts = rt.lastSubscribedAt;
+		if (ts === 0) return;
+		if (!firstSubscribeSeen) {
+			firstSubscribeSeen = true;
+			return;
+		}
+		void (async () => {
+			try {
+				const res = await fetch('/api/pet');
+				if (!res.ok) return;
+				const reseed = (await res.json()) as PetSnapshot;
+				applyPetSnapshot(reseed);
+				await refetchInventory();
+			} catch {
+				/* silent — next mutation or visibility-change rejoin retries */
+			}
+		})();
+	});
+
 	// SvelteSet from svelte/reactivity is reactive; no shim needed.
 </script>
 
@@ -264,12 +394,17 @@
 			← {m.pulse_title()}
 		</a>
 		<div
-			class="inline-flex items-center gap-1 rounded-full bg-base-200 px-3 py-1 text-sm font-semibold tabular-nums"
+			class="coin-chip inline-flex items-center gap-1 rounded-full bg-base-200 px-3 py-1 text-sm font-semibold tabular-nums"
+			class:coin-chip-pulse={coinBouncing}
 		>
 			<CoinIcon size={14} />
 			<span>{snapshot.wallet.coins}</span>
 		</div>
 	</header>
+
+	{#if realtimePaused}
+		<Notice tone="info" class="mb-4">{m.pet_realtime_paused()}</Notice>
+	{/if}
 
 	{#if snapshot.welcomeBack}
 		<Notice tone="success" class="mb-4">{m.pet_welcome_back()}</Notice>
@@ -408,3 +543,33 @@
 		{/snippet}
 	{/if}
 </main>
+
+<style>
+	.coin-chip {
+		transition: transform 200ms ease-out;
+	}
+	.coin-chip-pulse {
+		animation: coin-bounce 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+	}
+	@keyframes coin-bounce {
+		0% {
+			transform: scale(1);
+		}
+		35% {
+			transform: scale(1.18);
+		}
+		70% {
+			transform: scale(0.96);
+		}
+		100% {
+			transform: scale(1);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.coin-chip,
+		.coin-chip-pulse {
+			animation: none;
+			transition: none;
+		}
+	}
+</style>

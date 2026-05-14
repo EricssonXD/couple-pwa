@@ -897,6 +897,17 @@ export async function equipCosmetic(
 				.update(petInventory)
 				.set({ equipped, slot: equipped ? slot : null })
 				.where(eq(petInventory.id, inv.id));
+
+			// Bump pet.version so realtime receivers can detect equip
+			// changes via the same monotonic version-gate they use for
+			// every other pet mutation. Equipped state is part of the
+			// pet's visible appearance — the version bump matches the
+			// "every visible mutation increments a version" invariant
+			// the snapshot broadcast contract relies on.
+			await tx
+				.update(pet)
+				.set({ version: sql`${pet.version} + 1` })
+				.where(eq(pet.coupleId, coupleId));
 		});
 	} catch (err) {
 		// Defensive: the auto-unequip above should make 23505 impossible,

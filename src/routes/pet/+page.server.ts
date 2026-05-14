@@ -23,5 +23,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 		getPetInventory(couple.id)
 	]);
 
-	return { snapshot, shopItems, inventory };
+	return {
+		snapshot,
+		shopItems,
+		inventory,
+		coupleId: couple.id,
+		userId: locals.user.id,
+		// Inactive couples (paused / broken) skip realtime entirely:
+		// the broadcast emitter no-ops on the server side AND the
+		// realtime RLS policy denies non-active members. The page
+		// renders a "Sync paused — refresh to update." notice and
+		// does not subscribe to the channel (avoids reconnect loops).
+		realtimePaused: couple.status !== 'active'
+	};
 };

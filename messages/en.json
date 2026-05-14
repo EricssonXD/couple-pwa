@@ -301,6 +301,7 @@
 	"pet_wallet_coins": "{n} coins",
 	"pet_xp_label": "XP {xp}",
 	"pet_welcome_back": "Welcome back — your companion missed you. Free treat added.",
+	"pet_realtime_paused": "Sync paused — refresh to update.",
 	"pet_shop_coming_soon": "Shop opens soon. Earn coins by checking in, snapping moments, and keeping streaks.",
 	"pet_tab_habitat": "Habitat",
 	"pet_tab_shop": "Shop",
