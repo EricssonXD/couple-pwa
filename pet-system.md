@@ -1141,10 +1141,11 @@ Bundle delta budget: `/pet` chunk < 80 KB gzipped (asserted in P6).
 
 ## 10. Done when
 
-- [ ] `GET /api/pet` returns a hatched pet for any couple that hit `/pet` once.
-- [ ] All 7 earn sources fire exactly once per dedupe-key under retry,
-      verified by an integration test that races 10 concurrent calls.
-- [ ] Wallet, inventory, equip, treat all work end-to-end through the UI.
+- [ ] `GET /api/pet` returns a hatched pet for any couple that hit `/pet` once, **regardless of `couple.status`** (active / paused / unlinked / pending_delete).
+- [ ] Every response from `/api/pet/*` and every `pet_state` broadcast carries `serverNow: ISO8601`; client-side `projectDecay()` runs against `Date.now() + clockOffset` and produces `Math.floor`'d integers identical to what the server persists (W1 — clock-skew handling).
+- [ ] All 7 earn sources fire exactly once per dedupe-key under retry, verified by an integration test that races 10 concurrent calls. **The 7 hooks are wired on write paths only** — a regression test asserts that 5× `loadDaily` GETs insert zero `pet_ledger` rows (W7 — no double-fire from navigation).
+- [ ] An atomic-tx integration test proves that 10 concurrent `awardForEvent` calls with **distinct** dedupeKeys against the same wallet produce 10 ledger rows AND `wallet.coins == sum(coins_delta)` — no under-credit (B4).
+- [ ] Wallet, inventory, equip, treat all work end-to-end through the UI. `buyItem` returns 200 or 402 only — never 409, never 423 (W4).
 - [ ] Pet visibly evolves egg → baby → grown as XP accrues; never regresses.
 - [ ] No emoji used anywhere in the new feature; everything is SVG or text.
 - [ ] No new daisyUI residue (raw `btn-*` classes); only the existing primitives.
@@ -1155,14 +1156,14 @@ Bundle delta budget: `/pet` chunk < 80 KB gzipped (asserted in P6).
 - [ ] Bundle delta on the `/pet` chunk is < 80 KB gzipped; `/pulse`
       delta < 2 KB gzipped (asserted).
 - [ ] Decay never produces values outside the documented 20 / 80 floors.
-- [ ] Pet writes succeed regardless of `couple.status` (no 423; pause
-      logic was rejected — see C1 / _Anti-coercion_).
-- [ ] Wallet-vs-ledger reconciliation tool reports zero drift after
-      the e2e suite.
-- [ ] Partner B's `/pet` updates within ≤ 2 s of partner A's write
-      (asserted in P4.5 e2e).
-- [ ] Long-absence return shows the welcome-back Notice + free treat
-      exactly once per quarter per partner.
+- [ ] Pet writes succeed regardless of `couple.status` (no 423 anywhere; pause logic was rejected — see C1 / B1 / _Anti-coercion_).
+- [ ] When `couple.status !== 'active'` the broadcast is skipped (verified by partner-browser test seeing no `pet_state` event) AND the inactive partner's `/pet` shows a "Sync paused — refresh to update." Notice (B1 fallback).
+- [ ] Wallet-vs-ledger reconciliation tool reports zero drift after the e2e suite (audit-only tool — drift implies a bug, not a routine repair).
+- [ ] Partner B's `/pet` updates within ≤ 1 s of partner A's write via broadcast-on-commit (asserted in P4.5 e2e). A 9-event burst within one frame triggers exactly one DOM render via RAF coalescing (B2).
+- [ ] Long-absence return shows the welcome-back Notice + free `treat_basic_snack` exactly once per ≥ 90-day gap per partner; rapid double-refresh does NOT re-grant (W2 dedupe key `welcome_back:<userId>:${todayKey(grantDay)}`).
+- [ ] `pet_inventory.equipped_slot_uq` partial unique index blocks two equipped cosmetics with the same slot at the DB level; `equipCosmetic` auto-unequips the previous slot occupant inside the same tx (W6 — slot denorm, no trigger).
+- [ ] `buff_*` shop items are invisible in P4 (`enabled = false` in seed); P5.1 migration flips them on in the same migration that ships the `petBuff` table (W3).
+- [ ] `audit_log` rows for `pet.award.failed`, `pet.broadcast.failed`, `pet.visit`, `pet.broadcast.sent`, `pet.broadcast.received` are visible in Settings → Diagnostics (W5 — extends the typed `AuditAction` union; no new table).
 
 ---
 
@@ -1183,10 +1184,29 @@ Bundle delta budget: `/pet` chunk < 80 KB gzipped (asserted in P6).
    a constants bump + a regression test on the new floor values.
 6. **For the human to decide before Phase 1** (P0): all five locked —
    see _Phase 0 — RESOLVED_ in §7.
-7. **New, surfaced by the second-pass review** (don't block Phase 1):
-   debounce window value (N0.1), welcome-back free-treat cadence
-   (N0.2), placeholder rect colour token (N0.3). Listed under §7
-   Phase 0.
+7. **Surfaced by the second-pass review** (don't block Phase 1):
+   debounce window value (N0.1 — superseded by broadcast-on-commit, B2),
+   welcome-back free-treat cadence (N0.2 — locked at ≥ 90-day gap with
+   `welcome_back:<userId>:${todayKey(grantDay)}` dedupe), placeholder
+   rect colour token (N0.3). Listed under §7 Phase 0.
+8. **Surfaced by the rubber-duck pass** (round 3 — don't block Phase 1):
+   - **N0.4** `loadCoupleAnyStatus(userId)` lives as a free function in
+     `src/lib/server/services/couple.ts` — _not_ a second `event.locals`
+     field, to prevent misuse from non-pet routes (B1).
+   - **N0.5** Drizzle `targetWhere` portability — confirmed supported
+     in this repo's `drizzle-orm@^0.45.1`. If a future bump ever breaks
+     it, fall back to raw `sql\`INSERT … ON CONFLICT … WHERE … DO
+     NOTHING\``; emitted SQL is identical (B3).
+   - **N0.6** Calibrate broadcast volume from `pet.broadcast.sent`
+     telemetry once we have real traffic. If a burst distribution
+     emerges, consider an external Durable-Object coalescer — but
+     **never** re-introduce in-isolate `setTimeout` (CF Worker
+     isolates die mid-sleep and lose updates, B2).
+   - **N0.7** `audit_log` retention — pet telemetry rows accumulate
+     with no TTL today. Track for a future cleanup pass; not v1.
+   - **N0.8** Final copy for the "Sync paused — refresh to update."
+     Notice (B1) and the welcome-back Notice (W2) — both need a
+     paraglide pass in en + zh-hant before Phase 3 ships.
 
 ---
 
