@@ -1040,26 +1040,33 @@ Listed here for traceability; no Phase-0 work remains.
 - [ ] **P1.3** Build `src/lib/server/services/pet.ts` with
       `getPetState`, `hatchPet`, `renamePet`, the shared
       `projectDecay()` helper (re-exported to client via
-      `pet.constants.ts`), and `broadcastPetState()` debounced helper
-      (see _Real-time sync_ §). Mirror the validation-class pattern
+      `pet.constants.ts`), `loadCoupleAnyStatus(userId)` helper, and
+      `broadcastPetState(coupleId)` that broadcasts on commit (await
+      end-of-tx, no in-isolate timers — B2). Mirror the validation-class pattern
       from `bucketList.ts` (`PetValidationError` with codes
       `species_invalid`, `name_empty`, `name_too_long`,
       `pet_already_exists`). **No `coupleStatusGuard`** — pet writes
-      succeed regardless of `couple.status`. - Verify: unit test `pet.spec.ts` proves `getPetState` projects
+      succeed regardless of `couple.status`; broadcast is what gates
+      on status (skip when ≠ active). - Verify: unit test `pet.spec.ts` proves `getPetState` projects
       decay client-side without writing AND that `broadcastPetState`
-      coalesces 5 calls within 2 s into 1 emission. - Failure mode: forgetting to `await` the broadcast promise
+      skips when couple status ≠ active. - Failure mode: forgetting to `await` the broadcast promise
       risks losing it across CF Worker isolate teardown.
 - [ ] **P1.4** Build SvelteKit route handlers
       `src/routes/api/pet/+server.ts` (GET + PATCH) and
       `src/routes/api/pet/hatch/+server.ts` (POST). Use
-      `event.locals.couple.id` for couple scope; `event.locals.user.id`
-      for `userId`. **No 423 Locked** — see §4. - Verify: `curl -X POST $BASE/api/pet/hatch -H 'Cookie: …' -d '{"species":"fox","name":"Mochi"}' | jq` then `curl $BASE/api/pet`. - Failure mode: deriving `coupleId` from the request body would
+      `loadCoupleAnyStatus(event.locals.user.id)` for couple scope
+      (NOT `event.locals.couple` — that loads only active couples,
+      B1); `event.locals.user.id` for `userId`. GET returns
+      `{ pet, wallet, equipped, serverNow, welcomeBack }` (W1, W2).
+      **No 423 Locked** — see §4. - Verify: `curl -X POST $BASE/api/pet/hatch -H 'Cookie: …' -d '{"species":"fox","name":"Mochi"}' | jq` then `curl $BASE/api/pet`. - Failure mode: deriving `coupleId` from the request body would
       be a tenancy bug — code review must reject.
 - [ ] **P1.5** Unit tests in `src/lib/server/services/pet.spec.ts`:
       decay clamp (mood ≥ 20, hunger ≤ 80, no negative days),
-      hatch idempotency (second call → `pet_already_exists`), name
-      validation (empty, 25 chars, newlines, NFKC), version column
-      starts at 0, broadcast helper coalesces. - Verify: `bun run test:unit -- --run --project server src/lib/server/services/pet.spec.ts`.
+      decay produces `Math.floor`'d integers (W1), hatch idempotency
+      (second call → `pet_already_exists`), name validation (empty,
+      25 chars, newlines, NFKC), version column starts at 0,
+      `loadCoupleAnyStatus` returns paused/unlinked couples (B1),
+      `broadcastPetState` skips when couple status ≠ active. - Verify: `bun run test:unit -- --run --project server src/lib/server/services/pet.spec.ts`.
 
 ### Phase 2 — Earn pipeline
 
