@@ -86,6 +86,7 @@
 	"calendar_title_tag": "Calendar · DuoSync",
 	"calendar_upcoming_heading": "Upcoming",
 	"chat_back_aria": "Back to pulse",
+	"page_header_back_aria": "Back",
 	"chat_empty": "No messages yet. Say hi.",
 	"chat_failed": "failed",
 	"chat_input_label": "Your message",

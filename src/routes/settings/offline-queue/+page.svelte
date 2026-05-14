@@ -19,7 +19,7 @@
 	import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 	import ArrowClockwiseIcon from 'phosphor-svelte/lib/ArrowClockwiseIcon';
 	import * as m from '$lib/paraglide/messages.js';
-
+	import { BackButton } from '$lib/components/duosync';
 	let size = $state(0);
 	let dead = $state<QueuedRequest[]>([]);
 	let flushing = $state(false);
@@ -52,6 +52,7 @@
 
 <div class="page">
 	<header>
+		<div class="back-row"><BackButton fallbackHref="/settings" /></div>
 		<h1>{m.offline_queue_title()}</h1>
 		<p class="lead">{m.offline_queue_lead()}</p>
 	</header>
@@ -105,6 +106,9 @@
 	header h1 {
 		margin: 0 0 4px;
 		font-size: 20px;
+	}
+	.back-row {
+		margin: 0 0 8px;
 	}
 	.lead {
 		color: var(--ds-color-muted, #6b7280);

@@ -7,6 +7,7 @@
 -->
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
+	import { BackButton } from '$lib/components/duosync';
 	import {
 		allMilestones,
 		pastMilestones,
@@ -45,6 +46,7 @@
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 py-8 pb-24">
+	<div class="mb-2"><BackButton fallbackHref="/moments" /></div>
 	<header class="mb-6">
 		<p class="text-xs tracking-[0.2em] text-base-content/60 uppercase">{m.timeline_heading()}</p>
 		{#if data.coupleNickname}

@@ -8,7 +8,6 @@
 	// reconciled when the POST returns the canonical row.
 
 	import { onMount, untrack } from 'svelte';
-	import { resolve } from '$app/paths';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import {
 		CHAT_BODY_MAX_LEN,
@@ -18,7 +17,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
-	import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
+	import { BackButton } from '$lib/components/duosync';
 	import PaperPlaneTiltIcon from 'phosphor-svelte/lib/PaperPlaneTiltIcon';
 	import type { PageData } from './$types';
 
@@ -194,13 +193,7 @@
 
 <section class="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col px-4 py-5 pb-24">
 	<header class="mb-3 flex items-center gap-3">
-		<a
-			href={resolve('/pulse')}
-			aria-label={m.chat_back_aria()}
-			class="inline-flex h-9 w-9 items-center justify-center rounded-full text-base-content/60 hover:bg-base-200 hover:text-base-content"
-		>
-			<Icon icon={ArrowLeftIcon} size={18} weight="bold" />
-		</a>
+		<BackButton fallbackHref="/daily" ariaLabel={m.chat_back_aria()} />
 		<div class="flex-1 space-y-0.5">
 			<h1 class="text-display text-2xl font-semibold tracking-wide">{m.chat_title()}</h1>
 			<p class="text-xs text-base-content/55">

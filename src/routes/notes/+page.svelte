@@ -5,6 +5,7 @@
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { BackButton } from '$lib/components/duosync';
 
 	const { data }: { data: PageData } = $props();
 
@@ -79,6 +80,7 @@
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 py-8 pb-24">
+	<div class="mb-2"><BackButton fallbackHref="/moments" /></div>
 	<header class="mb-6">
 		<p class="text-xs tracking-wider text-base-content/60 uppercase">{m.notes_settings_link()}</p>
 		<h1 class="text-display text-3xl font-semibold tracking-wide">

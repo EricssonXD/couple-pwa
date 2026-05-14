@@ -44,10 +44,35 @@
 		{ href: '/settings', label: m.nav_settings, icon: GearIcon }
 	];
 
+	// Secondary routes that aren't tabs themselves but should still
+	// keep a parent tab "lit" — answers the "no tab is active when
+	// I'm on /timeline / /chat / etc." UX issue. Mapping is by
+	// product affinity, not URL hierarchy:
+	//   - timeline / notes / calendar / bucket → /moments (memory/plans)
+	//   - chat / quiz / repair                  → /daily   (couple convo)
+	// Update PageHeader.fallbackHref alongside any change here so
+	// back-nav from a deep link goes to the same parent tab.
+	const SECONDARY_PARENT: Record<string, Tab['href']> = {
+		'/timeline': '/moments',
+		'/notes': '/moments',
+		'/calendar': '/moments',
+		'/bucket': '/moments',
+		'/chat': '/daily',
+		'/quiz': '/daily',
+		'/repair': '/daily'
+	};
+
 	const current = $derived(page.url.pathname);
 	function isActive(href: string) {
 		if (href === '/settings') return current.startsWith('/settings');
-		return current === href || current.startsWith(href + '/');
+		if (current === href || current.startsWith(href + '/')) return true;
+		// Light up the parent tab for any registered secondary route.
+		for (const [secondary, parent] of Object.entries(SECONDARY_PARENT)) {
+			if ((current === secondary || current.startsWith(secondary + '/')) && parent === href) {
+				return true;
+			}
+		}
+		return false;
 	}
 </script>
 

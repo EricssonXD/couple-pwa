@@ -10,6 +10,7 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { BackButton } from '$lib/components/duosync';
 	import GhostIcon from 'phosphor-svelte/lib/GhostIcon';
 	import EyeIcon from 'phosphor-svelte/lib/EyeIcon';
 	import HeartBreakIcon from 'phosphor-svelte/lib/HeartBreakIcon';
@@ -57,6 +58,7 @@
 
 <main class="min-h-screen bg-base-100 px-5 py-8">
 	<div class="mx-auto max-w-md">
+		<div class="mb-2"><BackButton fallbackHref="/settings" /></div>
 		<header class="mb-4">
 			<h1 class="text-display text-2xl font-semibold tracking-wide">{m.audit_title()}</h1>
 			<p class="mt-1 text-xs text-base-content/60">{m.audit_intro()}</p>

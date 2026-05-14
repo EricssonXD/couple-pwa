@@ -5,6 +5,7 @@
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { BackButton } from '$lib/components/duosync';
 	import CalendarBlankIcon from 'phosphor-svelte/lib/CalendarBlankIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
 
@@ -73,6 +74,7 @@
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 py-8 pb-24">
+	<div class="mb-2"><BackButton fallbackHref="/moments" /></div>
 	<header class="mb-6">
 		<p class="text-xs tracking-wider text-base-content/60 uppercase">
 			{m.bucket_settings_link()}

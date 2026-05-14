@@ -9,6 +9,7 @@
 	import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
 	import ArrowsClockwiseIcon from 'phosphor-svelte/lib/ArrowsClockwiseIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
+	import { BackButton } from '$lib/components/duosync';
 
 	const { data }: { data: PageData } = $props();
 
@@ -122,6 +123,7 @@
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md px-4 py-8 pb-24">
+	<div class="mb-2"><BackButton fallbackHref="/moments" /></div>
 	<header class="mb-6">
 		<p class="text-xs tracking-wider text-base-content/60 uppercase">
 			{m.calendar_settings_link()}

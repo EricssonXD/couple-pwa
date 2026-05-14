@@ -23,6 +23,7 @@
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import { BackButton } from '$lib/components/duosync';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
@@ -185,6 +186,7 @@
 </svelte:head>
 
 <main class="mx-auto min-h-screen max-w-md space-y-5 px-4 py-8 pb-24">
+	<BackButton fallbackHref="/daily" />
 	<header class="space-y-1">
 		<p class="text-xs tracking-wider text-base-content/60 uppercase">{m.repair_section_label()}</p>
 		<h1 class="text-display text-3xl font-semibold tracking-wide">{m.repair_title()}</h1>

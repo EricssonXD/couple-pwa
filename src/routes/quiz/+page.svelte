@@ -5,6 +5,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
+	import { BackButton } from '$lib/components/duosync';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -25,6 +26,7 @@
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-7 p-4">
+	<BackButton fallbackHref="/daily" />
 	<header class="space-y-2">
 		<h1 class="text-display text-3xl font-semibold tracking-wide">{m.quiz_heading()}</h1>
 		<p class="text-sm leading-relaxed text-base-content/70">{m.quiz_subtitle()}</p>

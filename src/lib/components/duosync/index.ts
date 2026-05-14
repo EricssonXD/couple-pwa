@@ -25,3 +25,4 @@ export { default as UpdatePromptBanner } from './UpdatePromptBanner.svelte';
 export { default as StreakBadge } from './StreakBadge.svelte';
 export { default as MoodPicker } from './MoodPicker.svelte';
 export { default as MoodTrendStrip } from './MoodTrendStrip.svelte';
+export { default as BackButton } from './BackButton.svelte';
