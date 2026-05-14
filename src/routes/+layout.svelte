@@ -5,8 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { locales, localizeHref } from '$lib/paraglide/runtime';
 	import { initInstallPrompt } from '$lib/pwa/install';
-	import { registerServiceWorker } from '$lib/pwa/register';
-	import UpdateBanner from '$lib/pwa/UpdateBanner.svelte';
+	import { registerServiceWorker, hasPendingUpdate, applyPendingUpdate } from '$lib/pwa/register';
 	import { BottomNav, QueueBadge } from '$lib/components/duosync';
 	import { setRouteTheme, initTheme, type DuoSyncTheme } from '$lib/theme/index.svelte';
 	import { hasAuthHint } from '$lib/client/auth-hint';
@@ -32,6 +31,22 @@
 
 	$effect(() => {
 		setRouteTheme(forcedTheme ?? null);
+	});
+
+	// Auto-update guard: if a new service-worker version finished
+	// installing in the background, swap to it on the next navigation
+	// boundary instead of mid-interaction. Internal navs only — external
+	// links bypass the SW handoff because the destination origin is
+	// unrelated. This must run BEFORE the offline /auth/* guard below so
+	// that an offline reroute also picks up the new SW.
+	beforeNavigate(({ to, cancel, type }) => {
+		if (!to) return;
+		if (!hasPendingUpdate()) return;
+		// `popstate` (back/forward) and `link`/`goto` are all safe to
+		// apply on. `leave` (closing tab) we skip — there's no target.
+		if (type === 'leave') return;
+		cancel();
+		void applyPendingUpdate(to.url.href);
 	});
 
 	// Offline guard: the SW intentionally never caches /auth/* (private
@@ -67,7 +82,6 @@
 	<BottomNav />
 {/if}
 <QueueBadge />
-<UpdateBanner />
 
 <div style="display:none">
 	{#each locales as locale (locale)}

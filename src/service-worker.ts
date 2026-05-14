@@ -29,22 +29,27 @@
 // Update-flow contract (do NOT change without updating
 // `$lib/pwa/register.ts`):
 //   - install does NOT call skipWaiting. New SW stays in 'installed'
-//     state until the user clicks the UpdateBanner.
+//     state until the page-side update logic posts SKIP_WAITING.
 //   - activate does NOT call clients.claim. We do NOT want every deploy
 //     to auto-reload every open tab.
-//   - UI posts 'SKIP_WAITING' on user gesture (string, matches the
-//     equality check below). The message handler then calls BOTH
-//     skipWaiting() AND clients.claim() — the latter is the user-opt-in
-//     handoff that makes the new SW the controller. clients.claim() is
-//     what causes `controllerchange` to fire on the page; register.ts
-//     listens for that and reloads exactly once.
-//   - Without claim() at SKIP_WAITING time, in installed-PWA / standalone
-//     contexts the page can reload while the OLD SW is still controller
-//     and observe the new SW as still "waiting" → banner re-emits in a
-//     loop. Empirically observed on iOS/Android home-screen installs.
-//   - SWR HTML strategy means the user might see one stale paint after
-//     a deploy before the UpdateBanner appears — acceptable trade for
-//     native-feel tab switches.
+//   - Page-side: $lib/pwa/register.ts polls reg.update() while the tab is
+//     visible; when a new SW reaches 'installed' (with a controller
+//     present, i.e. not the first install), it sets `pendingUpdate=true`
+//     instead of showing a banner. The +layout.svelte beforeNavigate hook
+//     cancels the next internal nav, posts SKIP_WAITING, awaits
+//     controllerchange, then hard-navigates to the original target — so
+//     the new SW serves the next page silently. Mid-form work is never
+//     interrupted because the swap only happens at navigation boundaries.
+//   - Posting SKIP_WAITING triggers the message handler below, which
+//     calls BOTH skipWaiting() AND clients.claim() — claim() is what
+//     causes `controllerchange` to fire on the page. Without claim() at
+//     SKIP_WAITING time, in installed-PWA / standalone contexts the page
+//     can hard-reload while the OLD SW is still controller and observe
+//     the new SW as still "waiting" → an apply-loop. Empirically observed
+//     on iOS/Android home-screen installs.
+//   - SWR HTML strategy means the user might see one stale paint before
+//     the next nav swaps in the new SW — acceptable trade for native-feel
+//     tab switches and zero-banner UX.
 
 import { build, files, version } from '$service-worker';
 
@@ -168,13 +173,12 @@ sw.addEventListener('install', (event) => {
 		})()
 	);
 	// Do NOT call sw.skipWaiting() here. We want the lifecycle's natural
-	// wait state so the UI can show an UpdateBanner before activating —
-	// otherwise every deploy auto-reloads the user's tab mid-interaction
-	// (combined with the controllerchange→reload handler in
-	// $lib/pwa/register.ts). First install has no previous SW so the
-	// browser activates immediately; subsequent installs wait for the
-	// user to click "Reload" which posts SKIP_WAITING (see message
-	// handler below).
+	// wait state so the page-side beforeNavigate hook can swap to it on
+	// the next navigation boundary (no auto-reload mid-interaction).
+	// First install has no previous SW so the browser activates
+	// immediately; subsequent installs wait for the page to post
+	// SKIP_WAITING (see message handler below), which the layout hook
+	// auto-fires during navigation.
 });
 
 sw.addEventListener('activate', (event) => {
@@ -195,27 +199,28 @@ sw.addEventListener('activate', (event) => {
 			await Promise.all(keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k)));
 
 			// Do NOT call sw.clients.claim(). That would trigger a
-			// controllerchange event on the page, which the registration
-			// helper turns into a forced location.reload(). The user has
-			// either just reloaded (after pressing the UpdateBanner
-			// button) or this is a first install with no prior controller
-			// — in both cases the natural lifecycle is correct without
-			// claim().
+			// controllerchange event on the page, which the page-side
+			// beforeNavigate hook expects to see ONLY in response to a
+			// SKIP_WAITING gesture (so it can complete the navigation).
+			// First install has no controller; subsequent installs wait
+			// for SKIP_WAITING, which the layout's beforeNavigate hook
+			// posts during the next navigation.
 		})()
 	);
 });
 
 sw.addEventListener('message', (event) => {
 	if (event.data === 'SKIP_WAITING') {
-		// User-gesture handoff. Two-step:
-		//   1) skipWaiting() → this SW transitions installed → activating → activated.
-		//   2) clients.claim() → this SW becomes the controller of all open clients,
-		//      which fires `controllerchange` on the page so register.ts can reload
-		//      from a known-good "new SW is in control" state.
-		// We deliberately gate claim() behind this user-gesture message rather than
-		// calling it in the activate handler — that would auto-reload every tab on
-		// every deploy (the loop we removed). Here it's safe: the page just asked
-		// for the update.
+		// Auto-update handoff (posted by the page's beforeNavigate hook
+		// when a new SW is waiting and the user navigates). Two-step:
+		//   1) skipWaiting() → this SW transitions installed → activated.
+		//   2) clients.claim() → this SW becomes the controller of all
+		//      open clients, which fires `controllerchange` on the page so
+		//      register.ts can complete the deferred navigation from a
+		//      known-good "new SW is in control" state.
+		// Gating claim() behind this gesture (vs calling it in activate)
+		// prevents the auto-reload-every-deploy loop. Here it's safe: the
+		// page just asked for the swap as part of an in-flight navigation.
 		event.waitUntil(
 			(async () => {
 				await sw.skipWaiting();
