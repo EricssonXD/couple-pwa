@@ -9,9 +9,7 @@ const ACCOUNTS = [
 
 export default async function globalSetup(config: FullConfig) {
 	const baseURL =
-		config.projects[0]?.use?.baseURL ??
-		process.env.PROD_URL ??
-		'https://couple-pwa.ericssonxd.workers.dev';
+		config.projects[0]?.use?.baseURL ?? process.env.PROD_URL ?? 'https://cozy.ericssoncodes.com';
 
 	const dir = path.resolve('e2e/.auth');
 	mkdirSync(dir, { recursive: true });
@@ -25,11 +23,14 @@ export default async function globalSetup(config: FullConfig) {
 				const ctx = await browser.newContext({ baseURL, serviceWorkers: 'block' });
 				const page = await ctx.newPage();
 				await page.goto('/auth/sign-in');
-				await page.getByLabel('Email').fill(acct.email);
-				await page.getByLabel('Password').fill(acct.password);
+				// Use input[name=...] selectors — robust to label/InputField
+				// refactors (the form was rebuilt with the InputField primitive
+				// which no longer associates <label for=...> with the input).
+				await page.locator('input[name="email"]').fill(acct.email);
+				await page.locator('input[name="password"]').fill(acct.password);
 				await Promise.all([
 					page.waitForURL(/\/(pulse|onboarding)/, { timeout: 30_000 }),
-					page.getByRole('button', { name: /^Sign in$/ }).click()
+					page.getByRole('button', { name: /^Sign in$|^Signing in/ }).click()
 				]);
 				// Wait for SSR to fully settle so the auth cookie chain is finalized.
 				await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
