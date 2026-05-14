@@ -26,7 +26,8 @@ export function resolveBaseDate(
 	return raw instanceof Date ? raw : new Date(raw);
 }
 
-export const DAY_MILESTONES = [100, 200, 365, 500, 1000, 2000, 3650] as const;
+// TODO: make these forever, like every 100 days and every year milestone instead of a fixed list. But for now, this is good enough and we can add more as needed.
+export const DAY_MILESTONES = [10, 50, 100, 200, 500, 1000, 2000] as const;
 export const YEAR_MILESTONES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 40, 50] as const;
 
 /**
