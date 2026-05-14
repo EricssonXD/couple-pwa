@@ -35,7 +35,7 @@ Live: <https://cozy.ericssoncodes.com>
 - **Tailwind v4** + **DaisyUI** themes (`duosync-light`, `duosync-dark`) + **bits-ui** primitives + **phosphor-svelte** icons. Inter + Fraunces type ramp.
 - **Paraglide** for i18n (`messages/en.json`, `messages/zh-hant.json`).
 - **Web Push (VAPID)** for notifications (iOS 16.4+ standalone PWA only).
-- **PWA shell**: hand-written service worker with stale-while-revalidate HTML, shell + image LRU caches, offline fallback, user-gated update flow (no surprise reloads).
+- **PWA shell**: `vite-plugin-pwa` (`injectManifest` strategy) wraps our SW source — workbox helpers (`precacheAndRoute`, `registerRoute`, `StaleWhileRevalidate`) on top of our hand-rolled HTML SWR, image LRU, offline fallback, and user-gated update flow (no surprise reloads). See `docs/pwa-update-flow.md`.
 - **IndexedDB-backed offline write queue** (`src/lib/client/offline-queue.svelte.ts`) for location pings + moments — survives subway/airport gaps with idempotency keys + dead-letter UI.
 
 ## Architecture invariants
@@ -46,7 +46,7 @@ These are the non-negotiables. Most have unit tests guarding them.
 2. **Drizzle is server-only** (`src/lib/server/**`). Mutations validate `locals.user` + `locals.couple` before any DB write.
 3. **Realtime is private + server-authoritative.** Server REST broadcasts `location_update` / `ghost_change` on the couple topic; clients can subscribe + presence-track but cannot INSERT broadcast. `heartbeat_tap` goes through `POST /api/realtime/tap`. RLS on `realtime.messages` blocks outsiders at the WS edge.
 4. **Pre-paint routing.** An inline `<script>` in `src/app.html` (CSP-hashed automatically by SvelteKit's `mode: 'hash'` CSP) runs synchronously in `<head>` and `location.replace()`s signed-in users away from `/` and `/welcome` based on a client-readable `ds_auth` cookie (no secrets) — eliminates the welcome-flash with zero fetch overhead, regardless of cache state.
-5. **Service worker never auto-reloads.** `skipWaiting()` + `clients.claim()` only fire on a user-gesture `SKIP_WAITING` message; banner reload is gated on `controllerchange` to survive iOS/Android home-screen installs.
+5. **Service worker never auto-reloads.** `skipWaiting()` + `clients.claim()` only fire on a user-gesture `SKIP_WAITING` message; the `UpdatePromptBanner` (driven by `vite-plugin-pwa`'s `onNeedRefresh` hook) is the only path that triggers it. Reload is gated on `controllerchange` to survive iOS/Android home-screen installs. Full lifecycle in `docs/pwa-update-flow.md`.
 6. **/auth/sign-in is offline-cached**, every other `/auth/*` route is private + never cached.
 
 See `docs/rls-model.md` for the full trust-boundary diagram.
@@ -93,8 +93,8 @@ src/
       db/                 # Drizzle client + schema
       services/           # business logic (location, daily, connection, audit, …)
     paraglide/            # GENERATED — never hand-edit; run `bun run check` to regen
-    pwa/                  # SW registration + update banner client glue
-  service-worker.ts       # hand-written SW (do NOT replace with workbox)
+    pwa/                  # SW registration (vite-pwa registerSW) + needRefresh store
+  service-worker.ts       # SW source — wrapped by vite-plugin-pwa injectManifest, uses workbox helpers
   app.html                # contains inline pre-paint redirect script (CSP-hashed)
 static/
   quizzes/                # F9 quiz packs (static JSON content)
