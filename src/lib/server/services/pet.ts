@@ -156,9 +156,14 @@ async function readEquipped(coupleId: string): Promise<EquippedItem[]> {
  */
 export async function getPetState(
 	coupleId: string,
-	welcomeBack: PetSnapshot['welcomeBack'] = null
+	welcomeBack: PetSnapshot['welcomeBack'] = null,
+	nowOverride?: Date
 ): Promise<PetSnapshot> {
-	const now = new Date();
+	// `nowOverride` lets mutators (buyItem/equipCosmetic/consumeTreat)
+	// reuse the same `now` they wrote with, so an immediate re-read
+	// doesn't see a few-millisecond fractional decay that Math.floor
+	// turns into a phantom -1 (e.g. mood 58 written, read back as 57).
+	const now = nowOverride ?? new Date();
 	const [petRow] = await db.select().from(pet).where(eq(pet.coupleId, coupleId)).limit(1);
 	const [wallet, equipped] = await Promise.all([ensureWallet(coupleId), readEquipped(coupleId)]);
 
@@ -640,8 +645,11 @@ async function readInventory(coupleId: string): Promise<PetInventoryEntry[]> {
 	return rows.map(inventoryRowToPublic);
 }
 
-async function buildMutationResult(coupleId: string): Promise<PetMutationResult> {
-	const [snapshot, inventory] = await Promise.all([getPetState(coupleId), readInventory(coupleId)]);
+async function buildMutationResult(coupleId: string, now?: Date): Promise<PetMutationResult> {
+	const [snapshot, inventory] = await Promise.all([
+		getPetState(coupleId, null, now),
+		readInventory(coupleId)
+	]);
 	return { snapshot, inventory };
 }
 
@@ -923,6 +931,7 @@ export async function consumeTreat(
 	}
 
 	for (let attempt = 0; attempt < SHOP_RETRY_LIMIT; attempt += 1) {
+		const now = new Date();
 		try {
 			await db.transaction(async (tx) => {
 				const [petRow] = await tx.select().from(pet).where(eq(pet.coupleId, coupleId)).limit(1);
@@ -935,7 +944,6 @@ export async function consumeTreat(
 					.limit(1);
 				if (!inv || inv.qty <= 0) throw new PetShopError('inventory_empty');
 
-				const now = new Date();
 				const projected = projectDecay(
 					{
 						mood: petRow.mood,
@@ -982,7 +990,7 @@ export async function consumeTreat(
 				});
 			});
 
-			return buildMutationResult(coupleId);
+			return buildMutationResult(coupleId, now);
 		} catch (err) {
 			if (err instanceof VersionConflictError) continue;
 			throw err;
