@@ -8,6 +8,20 @@ export type Species = (typeof SPECIES)[number];
 export const STAGES = ['egg', 'baby', 'grown'] as const;
 export type Stage = (typeof STAGES)[number];
 
+// Sprite mood buckets — derived from the continuous mood number that
+// the server stores. `mood` ranges MOOD_FLOOR..MOOD_CEIL (20..100).
+// Three buckets keep the sprite set small (3 frames per stage) and
+// match the placeholder art pipeline in pet-system.md §"SVG pipeline".
+export const MOOD_KEYS = ['happy', 'neutral', 'sad'] as const;
+export type MoodKey = (typeof MOOD_KEYS)[number];
+
+/** Map a numeric mood to its sprite bucket. */
+export function moodKeyFor(mood: number): MoodKey {
+	if (mood >= 70) return 'happy';
+	if (mood >= 45) return 'neutral';
+	return 'sad';
+}
+
 // XP thresholds: stage = highest threshold the xp meets.
 export const STAGE_THRESHOLDS: Record<Stage, number> = {
 	egg: 0,
