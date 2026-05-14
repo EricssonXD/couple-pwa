@@ -6,7 +6,7 @@
 	import { locales, localizeHref } from '$lib/paraglide/runtime';
 	import { initInstallPrompt } from '$lib/pwa/install';
 	import { registerServiceWorker, hasPendingUpdate, applyPendingUpdate } from '$lib/pwa/register';
-	import { BottomNav, QueueBadge } from '$lib/components/duosync';
+	import { BottomNav, QueueBadge, UpdatePromptBanner } from '$lib/components/duosync';
 	import { setRouteTheme, initTheme, type DuoSyncTheme } from '$lib/theme/index.svelte';
 	import { hasAuthHint } from '$lib/client/auth-hint';
 	import { installQueueRunner } from '$lib/client/offline-queue';
@@ -82,6 +82,7 @@
 	<BottomNav />
 {/if}
 <QueueBadge />
+<UpdatePromptBanner />
 
 <div style="display:none">
 	{#each locales as locale (locale)}

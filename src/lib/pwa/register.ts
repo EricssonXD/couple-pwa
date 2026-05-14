@@ -1,34 +1,41 @@
 // Registers the SvelteKit-generated service worker and silently rolls every
-// open client onto the newest deploy at the next navigation boundary.
+// open client onto the newest deploy at the next navigation boundary —
+// optionally surfacing a small UpdatePromptBanner for users who want to
+// trigger the apply manually.
 //
-// Update model (auto-update, no banner):
-//   1. registerServiceWorker() registers /service-worker.js with
-//      `updateViaCache: 'none'` and starts a lightweight update poller
-//      (visibility-aware: every 60s while the tab is visible, plus an
-//      immediate check whenever it returns to foreground).
-//   2. When the browser detects a new SW byte-diff and finishes installing
-//      it, we observe `state === 'installed' && navigator.serviceWorker
-//      .controller != null` and arm a module-level `pendingUpdate` flag.
-//      We do NOT show a banner and do NOT auto-reload — the user keeps
-//      whatever they're typing.
-//   3. The +layout.svelte beforeNavigate hook calls hasPendingUpdate(); if
-//      armed AND the navigation is internal, it cancels the navigation and
-//      hands control to applyPendingUpdate(targetUrl), which posts
-//      SKIP_WAITING (the SW message handler does both skipWaiting() AND
-//      clients.claim()), awaits controllerchange, then performs a hard
-//      navigation to the original URL so the new SW serves the page.
+// Update model (auto-update at navigation, plus optional prompt):
+//   1. registerServiceWorker() calls vite-plugin-pwa's `registerSW`
+//      (virtual:pwa-register). vite-pwa wires the registration with
+//      `updateViaCache: 'none'` semantics, observes `updatefound`, and
+//      invokes our `onNeedRefresh` callback once a new SW reaches
+//      'installed' state with a controller already present (i.e. not
+//      the first install).
+//   2. onNeedRefresh sets module-level `pendingUpdate=true` and pushes
+//      `true` into the `needRefresh` Svelte store. The page can:
+//        - Wait for the next navigation; the +layout.svelte
+//          beforeNavigate hook calls hasPendingUpdate() and silently
+//          swaps via applyPendingUpdate(targetUrl).
+//        - OR render UpdatePromptBanner.svelte, which subscribes to
+//          `needRefresh` and exposes a button to call
+//          applyPendingUpdate(location.href) immediately.
+//   3. applyPendingUpdate posts SKIP_WAITING (the SW handler does both
+//      skipWaiting() AND clients.claim()), awaits controllerchange,
+//      then performs a hard navigation to the target URL so the new
+//      SW serves the page.
 //
-// Why navigation-time and not arrival-time / timer-driven?
-//   - Mid-form auto-reload destroys user data (a moment being typed, an
-//     unsent chat, a partially-filled onboarding step).
-//   - Navigation is already a context switch — the user is leaving the
-//     current view, so a one-off hard load is invisible UX-wise.
-//   - The browser cache + SWR shell make the upgrade feel instant.
+// Why not use vite-pwa's returned `updateServiceWorker(reload)` helper?
+//   - It does the right thing for whole-page reloads (reload=true) or
+//     fully manual flows (reload=false). We need to navigate to a
+//     SPECIFIC URL captured by beforeNavigate, not just reload the
+//     current page. So we keep the SKIP_WAITING + controllerchange
+//     dance ourselves; vite-pwa just tells us *when* to start it.
 //
-// Vite-build-only: SvelteKit emits /service-worker.js automatically; in
-// dev we deliberately skip registration to avoid stale caches during HMR.
+// Vite-build-only: vite-plugin-pwa skips registration in dev (we have
+// devOptions.enabled=false in vite.config.ts).
 
 import { dev } from '$app/environment';
+import { writable, type Writable } from 'svelte/store';
+import { registerSW } from 'virtual:pwa-register';
 
 let registration: ServiceWorkerRegistration | null = null;
 let pendingUpdate = false;
@@ -42,28 +49,18 @@ const POLL_INTERVAL_MS = 60_000;
 // pick up the new SW; never strand the user mid-click.
 const APPLY_TIMEOUT_MS = 5_000;
 
+// UpdatePromptBanner.svelte subscribes to this. `true` once the SW
+// reports a waiting update; flipped back to `false` when the user (or
+// the navigation hook) applies it.
+export const needRefresh: Writable<boolean> = writable(false);
+
 export function hasPendingUpdate(): boolean {
 	return pendingUpdate;
 }
 
-// Same scriptURL guard used previously: protects against a flaky CDN
-// re-serving the same SW build under "updatefound" (we don't want to
-// trigger an apply→reload→apply loop in that case).
-function isSameAsController(worker: ServiceWorker | null): boolean {
-	const controllerScript = navigator.serviceWorker.controller?.scriptURL ?? null;
-	return !!worker && !!controllerScript && worker.scriptURL === controllerScript;
-}
-
-function trackInstall(worker: ServiceWorker | null): void {
-	if (!worker) return;
-	worker.addEventListener('statechange', () => {
-		if (worker.state !== 'installed') return;
-		// First-ever install (no controller yet): the browser activates
-		// immediately on its own; nothing to arm.
-		if (!navigator.serviceWorker.controller) return;
-		if (isSameAsController(worker)) return;
-		pendingUpdate = true;
-	});
+function armPending(): void {
+	pendingUpdate = true;
+	needRefresh.set(true);
 }
 
 /**
@@ -83,6 +80,7 @@ export async function applyPendingUpdate(targetUrl: string): Promise<void> {
 	if (applying) return;
 	applying = true;
 	pendingUpdate = false;
+	needRefresh.set(false);
 
 	const reg = registration ?? (await navigator.serviceWorker.getRegistration()) ?? null;
 	const worker = reg?.waiting ?? null;
@@ -126,30 +124,32 @@ export async function registerServiceWorker(): Promise<void> {
 	if (!('serviceWorker' in navigator)) return;
 
 	try {
-		const reg = await navigator.serviceWorker.register('/service-worker.js', {
-			type: 'module',
-			scope: '/',
-			// Bypass the HTTP cache when the browser checks /service-worker.js
-			// for updates. Default 'imports' would still allow the main SW
-			// script to be served from HTTP cache subject to its own headers.
-			// Belt-and-suspenders: a `Cache-Control: no-cache` on
-			// /service-worker.js in `_headers` guarantees every update check
-			// sees the canonical SW for the current deploy.
-			updateViaCache: 'none'
+		registerSW({
+			immediate: true,
+			onNeedRefresh() {
+				// vite-pwa fires this when a new SW has reached the
+				// 'installed' state with a controller already in place
+				// (i.e. it's an update, not the first install).
+				armPending();
+			},
+			onRegisteredSW(_swUrl, reg) {
+				if (!reg) return;
+				registration = reg;
+
+				// If we boot up and a SW is already waiting (user opened
+				// a stale tab after a deploy that finished while they
+				// were away), arm the flag so the next navigation
+				// auto-applies it AND the prompt banner can render.
+				if (reg.waiting && navigator.serviceWorker.controller) {
+					armPending();
+				}
+
+				startUpdatePolling(reg);
+			},
+			onRegisterError(err) {
+				console.warn('[duosync] SW registration failed', err);
+			}
 		});
-		registration = reg;
-
-		// If we boot up and a SW is already waiting (user opened a stale
-		// tab after a deploy that finished while they were away), arm the
-		// flag so the very next navigation auto-applies it.
-		if (reg.waiting && !isSameAsController(reg.waiting)) {
-			pendingUpdate = true;
-		}
-
-		trackInstall(reg.installing);
-		reg.addEventListener('updatefound', () => trackInstall(reg.installing));
-
-		startUpdatePolling(reg);
 	} catch (err) {
 		console.warn('[duosync] SW registration failed', err);
 	}
