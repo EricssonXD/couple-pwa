@@ -620,3 +620,130 @@ export const chatMessages = pgTable(
 		index('chat_messages_couple_created_idx').on(t.coupleId, t.createdAt.desc(), t.id.desc())
 	]
 );
+
+// ─── Pet system (Phase 1, migration 0022_pet.sql) ─────────────────────────
+// Shared virtual pet — see pet-system.md for the full design. Drizzle table
+// objects mirror the SQL exactly; the manual migration is the source of
+// truth for indexes/constraints/RLS.
+
+export const pet = pgTable(
+	'pet',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		species: text('species').notNull(),
+		name: text('name').notNull(),
+		stage: text('stage').notNull().default('egg'),
+		xp: integer('xp').notNull().default(0),
+		mood: integer('mood').notNull().default(80),
+		hunger: integer('hunger').notNull().default(20),
+		moodUpdatedAt: timestamp('mood_updated_at', { withTimezone: true }).notNull().defaultNow(),
+		hungerUpdatedAt: timestamp('hunger_updated_at', { withTimezone: true }).notNull().defaultNow(),
+		// I2: optimistic concurrency. Every write asserts version match
+		// and bumps it; mismatched writes retry up to 3× then fail soft.
+		version: integer('version').notNull().default(0),
+		hatchedAt: timestamp('hatched_at', { withTimezone: true }).notNull().defaultNow(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('pet_couple_uq').on(t.coupleId),
+		check('pet_species_chk', sql`${t.species} in ('fox','cat','bird','capybara')`),
+		check('pet_stage_chk', sql`${t.stage} in ('egg','baby','grown')`),
+		check('pet_xp_chk', sql`${t.xp} >= 0`),
+		check('pet_mood_chk', sql`${t.mood} between 0 and 100`),
+		check('pet_hunger_chk', sql`${t.hunger} between 0 and 100`),
+		check('pet_name_len_chk', sql`char_length(${t.name}) between 1 and 24`)
+	]
+);
+
+export const petWallet = pgTable(
+	'pet_wallet',
+	{
+		coupleId: uuid('couple_id')
+			.primaryKey()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		coins: integer('coins').notNull().default(0),
+		lifetimeEarned: integer('lifetime_earned').notNull().default(0),
+		version: integer('version').notNull().default(0),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [check('pet_wallet_coins_chk', sql`${t.coins} >= 0`)]
+);
+
+// Append-only ledger of every coin/XP grant + spend. Unique on
+// (couple_id, dedupe_key) WHERE dedupe_key IS NOT NULL — partial index
+// matched via Drizzle's `targetWhere` on ON CONFLICT (B3).
+export const petLedger = pgTable(
+	'pet_ledger',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id').references(() => authUsers.id, { onDelete: 'set null' }),
+		kind: text('kind').notNull(),
+		source: text('source').notNull(),
+		coinsDelta: integer('coins_delta').notNull(),
+		xpDelta: integer('xp_delta').notNull().default(0),
+		dedupeKey: text('dedupe_key'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('pet_ledger_dedupe_uq')
+			.on(t.coupleId, t.dedupeKey)
+			.where(sql`${t.dedupeKey} is not null`),
+		index('pet_ledger_couple_created_idx').on(t.coupleId, t.createdAt.desc()),
+		check('pet_ledger_kind_chk', sql`${t.kind} in ('earn','spend','adjust')`)
+	]
+);
+
+// Shop catalogue — seeded data, not user-managed.
+export const petShopItem = pgTable(
+	'pet_shop_item',
+	{
+		id: text('id').primaryKey(),
+		kind: text('kind').notNull(),
+		slot: text('slot'),
+		nameKey: text('name_key').notNull(),
+		descriptionKey: text('description_key').notNull(),
+		priceCoins: integer('price_coins').notNull(),
+		minStage: text('min_stage').notNull().default('egg'),
+		enabled: boolean('enabled').notNull().default(true),
+		sortOrder: integer('sort_order').notNull().default(0)
+	},
+	(t) => [
+		check('pet_shop_item_kind_chk', sql`${t.kind} in ('cosmetic','treat','furniture','buff')`),
+		check('pet_shop_item_min_stage_chk', sql`${t.minStage} in ('egg','baby','grown')`),
+		check('pet_shop_item_price_chk', sql`${t.priceCoins} >= 0`)
+	]
+);
+
+// Per-couple inventory. `slot` denormalized from petShopItem at insert
+// time so the partial unique index below can enforce "one equipped per
+// (couple, slot)" without a joined index Postgres can't express (W6).
+export const petInventory = pgTable(
+	'pet_inventory',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		itemId: text('item_id')
+			.notNull()
+			.references(() => petShopItem.id),
+		slot: text('slot'),
+		qty: integer('qty').notNull().default(1),
+		equipped: boolean('equipped').notNull().default(false),
+		acquiredAt: timestamp('acquired_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		index('pet_inventory_couple_idx').on(t.coupleId),
+		uniqueIndex('pet_inventory_couple_item_uq').on(t.coupleId, t.itemId),
+		uniqueIndex('pet_inventory_equipped_slot_uq')
+			.on(t.coupleId, t.slot)
+			.where(sql`${t.equipped} and ${t.slot} is not null`),
+		check('pet_inventory_qty_chk', sql`${t.qty} >= 0`)
+	]
+);
