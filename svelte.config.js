@@ -11,7 +11,9 @@ const config = {
 			mode: 'hash',
 			directives: {
 				'default-src': ['self'],
-				'script-src': ['self'],
+				// Cloudflare Web Analytics auto-injects beacon.min.js at the edge —
+				// must be allowlisted or every page console-errors on load.
+				'script-src': ['self', 'https://static.cloudflareinsights.com'],
 				'style-src': ['self', 'https://fonts.googleapis.com', 'unsafe-inline'],
 				'font-src': ['self', 'https://fonts.gstatic.com', 'data:'],
 				'img-src': [
