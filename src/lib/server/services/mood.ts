@@ -16,6 +16,7 @@
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { moodPulse } from '$lib/server/db/schema';
+import { awardForEvent } from '$lib/server/services/pet';
 
 export type Mood = 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset';
 
@@ -94,6 +95,18 @@ export async function setMood(args: {
 			setAt: now
 		})
 		.returning({ setAt: moodPulse.setAt });
+
+	// Pet earn (P2.2): one mood log per UTC hour per partner. The
+	// hour-bucketed dedupeKey caps spam at 24/day per partner; in
+	// practice a partner won't hit more than 2-3/day.
+	const hourBucket = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}T${String(now.getUTCHours()).padStart(2, '0')}`;
+	await awardForEvent({
+		coupleId: args.coupleId,
+		userId: args.userId,
+		source: 'mood_log',
+		dedupeKey: `mood_log:${args.userId}:${hourBucket}`,
+		mutual: false
+	});
 
 	return { mood: args.mood, setAt: inserted.setAt.toISOString() };
 }

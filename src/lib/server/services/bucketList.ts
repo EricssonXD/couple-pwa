@@ -12,6 +12,7 @@ import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { bucketItems } from '$lib/server/db/app.schema';
 import { MAX_TITLE_LEN, MAX_NOTES_LEN, MAX_ITEMS_PER_COUPLE } from '$lib/bucketList.constants';
+import { awardForEvent } from './pet';
 
 export { MAX_TITLE_LEN, MAX_NOTES_LEN, MAX_ITEMS_PER_COUPLE };
 
@@ -180,7 +181,20 @@ export async function markDone(input: {
 			)
 		)
 		.returning({ id: bucketItems.id });
-	return result.length > 0;
+	const flipped = result.length > 0;
+	if (flipped) {
+		// Pet earn (P2.2): mutual full pay, deduped per item so
+		// re-marking after un-mark doesn't re-award (intentional —
+		// items can only earn once over their lifetime).
+		await awardForEvent({
+			coupleId: input.coupleId,
+			userId: input.doneBy,
+			source: 'bucket_complete',
+			dedupeKey: `bucket_complete:${input.id}`,
+			mutual: true
+		});
+	}
+	return flipped;
 }
 
 export async function markUndone(input: { id: string; coupleId: string }): Promise<boolean> {

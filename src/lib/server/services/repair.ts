@@ -18,6 +18,7 @@ import {
 	type RepairStatus
 } from '$lib/repair.constants';
 import { recordAudit } from './audit';
+import { awardForEvent } from './pet';
 
 export {
 	REPAIR_NOTE_MAX_LEN,
@@ -254,6 +255,14 @@ export async function completeSession(input: CompleteRepairInput): Promise<Repai
 	await recordAudit(input.userId, 'repair.complete', {
 		sessionId: input.sessionId,
 		hadCommitmentNote: note !== null
+	});
+	// Pet earn (P2.2): mutual full pay, deduped per session.
+	await awardForEvent({
+		coupleId: input.coupleId,
+		userId: input.userId,
+		source: 'repair_complete',
+		dedupeKey: `repair_complete:${input.sessionId}`,
+		mutual: true
 	});
 	return rowToSession(row);
 }

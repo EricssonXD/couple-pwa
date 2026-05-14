@@ -19,6 +19,7 @@ import { db } from '$lib/server/db';
 import { quizRuns } from '$lib/server/db/app.schema';
 import { profile } from '$lib/server/db/app.schema';
 import { notifyQuizCompleted } from './notifications';
+import { awardForEvent } from './pet';
 import {
 	MAX_CHOICES_PER_QUESTION,
 	MAX_PROMPT_LEN,
@@ -431,6 +432,17 @@ export async function submitFinal(input: {
 	} catch (e) {
 		console.error('notifyQuizCompleted failed', e);
 	}
+
+	// Pet earn (P2.2): mutual full pay, dedupe per run so a re-fire
+	// (race re-entry already guarded above) is also a no-op at the
+	// pet ledger level.
+	await awardForEvent({
+		coupleId: input.coupleId,
+		userId: input.viewerId,
+		source: 'quiz_complete',
+		dedupeKey: `quiz_complete:${input.runId}`,
+		mutual: true
+	});
 
 	return { ok: true, bothComplete: true, justTransitioned, waitingPartnerId };
 }

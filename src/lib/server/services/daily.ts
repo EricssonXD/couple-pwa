@@ -13,6 +13,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { couple as coupleTable, dailyQuestion, dailyQuestionAnswer } from '$lib/server/db/schema';
+import { awardForEvent } from '$lib/server/services/pet';
 
 type Couple = typeof coupleTable.$inferSelect;
 
@@ -150,6 +151,37 @@ export async function submitDailyAnswer(
 		userId: viewerId,
 		body: trimmed
 	});
+
+	// Pet earn (P2.2): always grant daily_send to the answering partner
+	// (solo, ½ pay). If THIS insert was the second one, the question
+	// just flipped to revealed → also grant daily_reveal (mutual, full
+	// pay) under a question-scoped dedupe key. W7 — fired only from
+	// the write path; loadDaily stays read-only.
+	await awardForEvent({
+		coupleId: couple.id,
+		userId: viewerId,
+		source: 'daily_send',
+		dedupeKey: `daily_send:${viewerId}:${dateKey}`,
+		mutual: false
+	});
+	const answerCount = await db
+		.select({ id: dailyQuestionAnswer.id })
+		.from(dailyQuestionAnswer)
+		.where(
+			and(
+				eq(dailyQuestionAnswer.coupleId, couple.id),
+				eq(dailyQuestionAnswer.questionId, question.id)
+			)
+		);
+	if (answerCount.length >= 2) {
+		await awardForEvent({
+			coupleId: couple.id,
+			userId: viewerId,
+			source: 'daily_reveal',
+			dedupeKey: `daily_reveal:${question.id}:${dateKey}`,
+			mutual: true
+		});
+	}
 
 	return loadDaily(viewerId, couple, dateKey);
 }
