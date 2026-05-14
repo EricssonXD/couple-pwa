@@ -4,7 +4,7 @@
 > **Tamagotchi-lite** • **single species pet, picked at hatch, evolves through stages** •
 > **decay enabled but never lethal** • **only mutual / mostly-mutual actions feed it** •
 > **full-economy shop** (cosmetics + treats + room furniture + temporary buffs) •
-> phased build with the *whole* spec written down up front.
+> phased build with the _whole_ spec written down up front.
 
 ---
 
@@ -17,10 +17,10 @@ quiz packs, bucket items, repair completions, anniversaries), spends
 earned **Cozy Coins** in a small paper-sketched shop, and watches it grow
 through three life stages. The pet has a mood / hunger that gently
 decays — but it can never die, run away, or guilt either partner. It is
-a *companion*, not a homework assignment.
+a _companion_, not a homework assignment.
 
 This is the first DuoSync feature that is purely playful. Everything
-else is a relationship ritual; the pet is a *reward layer* that sits on
+else is a relationship ritual; the pet is a _reward layer_ that sits on
 top of those rituals and visualises "we showed up for each other".
 
 ---
@@ -30,24 +30,24 @@ top of those rituals and visualises "we showed up for each other".
 These were surfaced by reviewing post-mortems of Finch, Habitica,
 Tamagotchi-style apps, couple-app gamification literature, and the
 specific edge-runtime constraints of our stack. Each pitfall lists the
-mitigation that is *baked into this plan*.
+mitigation that is _baked into this plan_.
 
-| # | Pitfall (citation) | Mitigation in this plan |
-|---|---|---|
-| **G1** | **Punitive decay turns wellness into anxiety** — Finch and Habitica users report stress, shame, and avoidance when missed days visibly hurt the avatar. ([UX Design — Virtual pet apps and their emotional toll](https://uxdesign.cc/virtual-pet-apps-and-their-emotional-toll-8c06c5f9e1c), [r/habitica guilt thread](https://www.reddit.com/r/habitica/comments/8vu2c5/anyone_else_get_really_guilty_about/)) | Decay is **floored at mood ≥ 20, hunger ≤ 80**; never sick, never dead, no red badges, no shake animations, **no push notifications about pet state** (see N1). Empty/low-mood copy is warm ("a little sleepy") not punitive. |
-| **G2** | **Streak engines drive all-or-nothing thinking and churn** ([web.dev — habit streaks critique](https://web.dev/articles/habit-streaks)) | We grant **per-event coins**, never per-streak. The earning table has zero "consecutive day" bonuses. The `daily_send` cap is per-day, not per-streak. |
-| **C1** | **Asymmetric engagement: shared progress collapses when one partner drops out** ([Paired science blog](https://paired.com/articles), and general gamification-failure pattern). Score-keeping is also a *known* indicator of relationship distress (Gottman Institute — "scorekeeping" as a Four-Horsemen-adjacent contempt pattern). | (a) **Solo actions earn ½, never zero** — the present partner can keep the pet alive. (b) **No partner-vs-partner counters anywhere** in the UI; `pet_ledger.userId` is server-side audit only, never surfaced. (c) **Floors do the protective work, not pause logic** — decay continues regardless of `couple.status` because the 20-mood / 80-hunger floors *already* guarantee the pet never deteriorates beyond "a little sleepy" (see *Warm-decay copy matrix* under §1). Pausing decay would be detectable post-reconciliation and surface "your partner caused this" inferences — exactly the scorekeeping anti-pattern. |
-| **C2** | **Forcing both partners to act for any reward feels coercive** to the absent partner and frustrating for the present one | Every earn source has a **solo half-credit fallback** except the truly mutual ones (`daily_reveal`, `quiz_complete`, `repair_complete`, `anniversary` — all of which are *intrinsically* mutual: they cannot fire without both partners). |
-| **I1** | **At-least-once handlers + naive INSERT race-condition** under concurrent writes ([Cloudflare Workers + Postgres dedupe pattern](https://developers.cloudflare.com/workers/databases/), [Postgres ON CONFLICT idempotency](https://www.postgresql.org/docs/current/sql-insert.html#SQL-ON-CONFLICT)) | All earn paths funnel through **one** function (`awardForEvent`) that uses `INSERT ... ON CONFLICT (couple_id, dedupe_key) DO NOTHING RETURNING *`. The dedupe row IS the work proof; the wallet/XP update happens in the same transaction (see *Concurrency model*). |
-| **I2** | **Two CF Workers compute decay from the same row in parallel → lost update** ([CockroachDB — lost update anomaly](https://www.cockroachlabs.com/docs/stable/transactions.html), classic Tamagotchi-style stat race) | Add a `version int` column to `pet`; every write does `UPDATE pet SET … , version = version + 1 WHERE id = ? AND version = ?` and **retries up to 3× on miss**. Reads are still lazy & lock-free. |
-| **D1** | **Client clock drives decay → easy to cheat / inconsistent** | Decay is computed **server-side** using `now()` in Postgres. Client never submits timestamps. Lazy projection is read-only on `getPetState`; the next *write* (award/buy/treat) persists the decayed values. |
-| **D2** | **Lazy decay never persists if the user never visits** → stale-but-correct stays stale forever; harmless but means analytics on stored mood are misleading. | Acceptable. Document it. Never run a cron — that defeats the point of stateless edge compute. |
-| **P1** | **postgres-js `max: 1` per request × bursty earn-events → CF Worker pool exhaustion** at the Supabase pooler ([Supabase pgbouncer guidance](https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooling)) | Earn hooks **piggyback the request's existing AsyncLocalStorage bundle** — no new connection. We must **never** call `awardForEvent` from `event.waitUntil` because the bundle is closed by then; if we want fire-and-forget we run it before `resolve(event)` returns. Documented in P2.1. |
-| **P2** | **`db:generate` introspection on a manual-SQL repo will produce a phantom diff** — this repo's migrations live in `drizzle/manual/` and `drizzle.config.ts` only ignores PostGIS / auth schemas. | We **do not** run `bun run db:generate`. New tables are added via a hand-written `drizzle/manual/0022_pet.sql` migration applied with the existing `db:migrate` flow, and the Drizzle table objects are appended to `app.schema.ts` purely so the typed query builder works. (P1.1 rewritten accordingly.) |
-| **S1** | **Seed data drift** — if shop prices change in code, an existing prod row keeps the old price. Migrations re-running is also dangerous. | Seed via `INSERT … ON CONFLICT (id) DO UPDATE SET …` in a dedicated migration. New balance passes ship a *new* migration, never edit an old one. The `enabled` flag lets us retire items without deleting ledger references. |
-| **A1** | **36 inline SVGs (4 species × 3 stages × 3 moods) blow the bundle** — even at 800 B each that's ~28 KB raw / ~6 KB gzipped ([web.dev — SVG optimization](https://web.dev/articles/optimize-svg)). Acceptable but per-route. | Lazy-load species sprites **only on `/pet`** via dynamic `import()`; `/pulse` badge uses one tiny shared sprite (current species + current stage + current mood ≈ 1 SVG ~1 KB). Run all assets through SVGO in build (already done). |
-| **R1** | **Realtime sync between partners adds a channel-message per earn** — at scale that's non-trivial Supabase Realtime quota for cosmetic value. | **v1 ships a single `pet_state_changed` snapshot broadcast** debounced server-side at 2 s per couple. Bounded by earn rate (≤ 7 writes/day/couple typical). Two subscribers per couple → ≤ 14 messages/day/couple — three orders of magnitude under the Free tier 2 M/month quota even at 100 k couples ([Supabase Realtime pricing](https://supabase.com/docs/guides/realtime/pricing) — 2 M msg/mo Free, 5 M Pro, $2.50/M overage; counted as 1 send + 1 per receiver, so a broadcast to 2 partners = 3 messages). Decay is **never** broadcast — clients project it locally from `(stored_value, updated_at, now())` so partners always agree without traffic (see *Real-time sync* §). |
-| **N1** | **"Your pet is hungry" pushes are textbook obligation-engagement** — exactly the anti-pattern Finch is criticised for. | Explicit non-goal. The pet is never the subject of a push. Codified in the `pet_*` push-kind allow-list (none). |
+| #      | Pitfall (citation)                                                                                                                                                                                                                                                                                                                                                                                              | Mitigation in this plan                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **G1** | **Punitive decay turns wellness into anxiety** — Finch and Habitica users report stress, shame, and avoidance when missed days visibly hurt the avatar. ([UX Design — Virtual pet apps and their emotional toll](https://uxdesign.cc/virtual-pet-apps-and-their-emotional-toll-8c06c5f9e1c), [r/habitica guilt thread](https://www.reddit.com/r/habitica/comments/8vu2c5/anyone_else_get_really_guilty_about/)) | Decay is **floored at mood ≥ 20, hunger ≤ 80**; never sick, never dead, no red badges, no shake animations, **no push notifications about pet state** (see N1). Empty/low-mood copy is warm ("a little sleepy") not punitive.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **G2** | **Streak engines drive all-or-nothing thinking and churn** ([web.dev — habit streaks critique](https://web.dev/articles/habit-streaks))                                                                                                                                                                                                                                                                         | We grant **per-event coins**, never per-streak. The earning table has zero "consecutive day" bonuses. The `daily_send` cap is per-day, not per-streak.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **C1** | **Asymmetric engagement: shared progress collapses when one partner drops out** ([Paired science blog](https://paired.com/articles), and general gamification-failure pattern). Score-keeping is also a _known_ indicator of relationship distress (Gottman Institute — "scorekeeping" as a Four-Horsemen-adjacent contempt pattern).                                                                           | (a) **Solo actions earn ½, never zero** — the present partner can keep the pet alive. (b) **No partner-vs-partner counters anywhere** in the UI; `pet_ledger.userId` is server-side audit only, never surfaced. (c) **Floors do the protective work, not pause logic** — decay continues regardless of `couple.status` because the 20-mood / 80-hunger floors _already_ guarantee the pet never deteriorates beyond "a little sleepy" (see _Warm-decay copy matrix_ under §1). Pausing decay would be detectable post-reconciliation and surface "your partner caused this" inferences — exactly the scorekeeping anti-pattern.                                                            |
+| **C2** | **Forcing both partners to act for any reward feels coercive** to the absent partner and frustrating for the present one                                                                                                                                                                                                                                                                                        | Every earn source has a **solo half-credit fallback** except the truly mutual ones (`daily_reveal`, `quiz_complete`, `repair_complete`, `anniversary` — all of which are _intrinsically_ mutual: they cannot fire without both partners).                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **I1** | **At-least-once handlers + naive INSERT race-condition** under concurrent writes ([Cloudflare Workers + Postgres dedupe pattern](https://developers.cloudflare.com/workers/databases/), [Postgres ON CONFLICT idempotency](https://www.postgresql.org/docs/current/sql-insert.html#SQL-ON-CONFLICT))                                                                                                            | All earn paths funnel through **one** function (`awardForEvent`) that uses `INSERT ... ON CONFLICT (couple_id, dedupe_key) DO NOTHING RETURNING *`. The dedupe row IS the work proof; the wallet/XP update happens in the same transaction (see _Concurrency model_).                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **I2** | **Two CF Workers compute decay from the same row in parallel → lost update** ([CockroachDB — lost update anomaly](https://www.cockroachlabs.com/docs/stable/transactions.html), classic Tamagotchi-style stat race)                                                                                                                                                                                             | Add a `version int` column to `pet`; every write does `UPDATE pet SET … , version = version + 1 WHERE id = ? AND version = ?` and **retries up to 3× on miss**. Reads are still lazy & lock-free.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **D1** | **Client clock drives decay → easy to cheat / inconsistent**                                                                                                                                                                                                                                                                                                                                                    | Decay is computed **server-side** using `now()` in Postgres. Client never submits timestamps. Lazy projection is read-only on `getPetState`; the next _write_ (award/buy/treat) persists the decayed values.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **D2** | **Lazy decay never persists if the user never visits** → stale-but-correct stays stale forever; harmless but means analytics on stored mood are misleading.                                                                                                                                                                                                                                                     | Acceptable. Document it. Never run a cron — that defeats the point of stateless edge compute.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **P1** | **postgres-js `max: 1` per request × bursty earn-events → CF Worker pool exhaustion** at the Supabase pooler ([Supabase pgbouncer guidance](https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooling))                                                                                                                                                                               | Earn hooks **piggyback the request's existing AsyncLocalStorage bundle** — no new connection. We must **never** call `awardForEvent` from `event.waitUntil` because the bundle is closed by then; if we want fire-and-forget we run it before `resolve(event)` returns. Documented in P2.1.                                                                                                                                                                                                                                                                                                                                                                                                |
+| **P2** | **`db:generate` introspection on a manual-SQL repo will produce a phantom diff** — this repo's migrations live in `drizzle/manual/` and `drizzle.config.ts` only ignores PostGIS / auth schemas.                                                                                                                                                                                                                | We **do not** run `bun run db:generate`. New tables are added via a hand-written `drizzle/manual/0022_pet.sql` migration applied with the existing `db:migrate` flow, and the Drizzle table objects are appended to `app.schema.ts` purely so the typed query builder works. (P1.1 rewritten accordingly.)                                                                                                                                                                                                                                                                                                                                                                                 |
+| **S1** | **Seed data drift** — if shop prices change in code, an existing prod row keeps the old price. Migrations re-running is also dangerous.                                                                                                                                                                                                                                                                         | Seed via `INSERT … ON CONFLICT (id) DO UPDATE SET …` in a dedicated migration. New balance passes ship a _new_ migration, never edit an old one. The `enabled` flag lets us retire items without deleting ledger references.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **A1** | **36 inline SVGs (4 species × 3 stages × 3 moods) blow the bundle** — even at 800 B each that's ~28 KB raw / ~6 KB gzipped ([web.dev — SVG optimization](https://web.dev/articles/optimize-svg)). Acceptable but per-route.                                                                                                                                                                                     | Lazy-load species sprites **only on `/pet`** via dynamic `import()`; `/pulse` badge uses one tiny shared sprite (current species + current stage + current mood ≈ 1 SVG ~1 KB). Run all assets through SVGO in build (already done).                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **R1** | **Realtime sync between partners adds a channel-message per earn** — at scale that's non-trivial Supabase Realtime quota for cosmetic value.                                                                                                                                                                                                                                                                    | **v1 ships a single `pet_state_changed` snapshot broadcast** debounced server-side at 2 s per couple. Bounded by earn rate (≤ 7 writes/day/couple typical). Two subscribers per couple → ≤ 14 messages/day/couple — three orders of magnitude under the Free tier 2 M/month quota even at 100 k couples ([Supabase Realtime pricing](https://supabase.com/docs/guides/realtime/pricing) — 2 M msg/mo Free, 5 M Pro, $2.50/M overage; counted as 1 send + 1 per receiver, so a broadcast to 2 partners = 3 messages). Decay is **never** broadcast — clients project it locally from `(stored_value, updated_at, now())` so partners always agree without traffic (see _Real-time sync_ §). |
+| **N1** | **"Your pet is hungry" pushes are textbook obligation-engagement** — exactly the anti-pattern Finch is criticised for.                                                                                                                                                                                                                                                                                          | Explicit non-goal. The pet is never the subject of a push. Codified in the `pet_*` push-kind allow-list (none).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ---
 
@@ -72,41 +72,41 @@ copy. Ever.
 
 ## 1. Game-design pillars (skill: game-design)
 
-| Pillar | DuoSync expression |
-|---|---|
-| **Player motivation — Socializer** | Pet's growth is shared. Both partners' actions count; cosmetics live in a couple-shared wardrobe. There is no leaderboard. |
-| **Reward schedule — Fixed + small variable** | Fixed per-action coin payouts (predictable, never feels rigged). Tiny variable bonus on "double-mutual" days (both partners did the same ritual same day). |
-| **Progression — Power + Content** | XP toward life stages = power. New shop unlocks at each stage = content. |
-| **Flow — gentle slope** | Stage 1 reachable in days, Stage 2 in weeks, Stage 3 in months. Never grindy. |
-| **Anti-coercion (DuoSync rule)** | Decay is *capped*. Pet never gets sick, dies, or sends guilt copy. The /pet screen is opt-in; never the home screen. **Floors do the protective work** — decay continues regardless of `couple.status`, but the 20-mood / 80-hunger floors guarantee the worst visible state is "a little sleepy". Pause-on-paused was rejected (would leak partner-status as scorekeeping signal — see C1). |
+| Pillar                                       | DuoSync expression                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Player motivation — Socializer**           | Pet's growth is shared. Both partners' actions count; cosmetics live in a couple-shared wardrobe. There is no leaderboard.                                                                                                                                                                                                                                                                   |
+| **Reward schedule — Fixed + small variable** | Fixed per-action coin payouts (predictable, never feels rigged). Tiny variable bonus on "double-mutual" days (both partners did the same ritual same day).                                                                                                                                                                                                                                   |
+| **Progression — Power + Content**            | XP toward life stages = power. New shop unlocks at each stage = content.                                                                                                                                                                                                                                                                                                                     |
+| **Flow — gentle slope**                      | Stage 1 reachable in days, Stage 2 in weeks, Stage 3 in months. Never grindy.                                                                                                                                                                                                                                                                                                                |
+| **Anti-coercion (DuoSync rule)**             | Decay is _capped_. Pet never gets sick, dies, or sends guilt copy. The /pet screen is opt-in; never the home screen. **Floors do the protective work** — decay continues regardless of `couple.status`, but the 20-mood / 80-hunger floors guarantee the worst visible state is "a little sleepy". Pause-on-paused was rejected (would leak partner-status as scorekeeping signal — see C1). |
 
 ### Earning table (locked in this PR)
 
 Per-action coin + XP grants. All have a **once-per-day cap per couple**
 unless noted, so nothing is spammable. The "mutual?" column drives the
-*shared_action_required* rule: solo actions earn ½, mutual actions earn full.
+_shared_action_required_ rule: solo actions earn ½, mutual actions earn full.
 
-| Trigger | Coins (full) | XP | Mutual? | Cap |
-|---|---|---|---|---|
-| `daily_send` (you submitted today's daily) | 2 | 1 | ½ on solo | 1/day each partner |
-| `daily_reveal` (both partners revealed) | 8 | 4 | full | 1/day per couple |
-| `mood_log` (logged a mood on /pulse) | 1 | 1 | ½ on solo | 3/day per partner |
-| `quiz_complete` (both finalised a quiz pack) | 12 | 8 | full | 1 per pack ever |
-| `bucket_complete` (item marked done) | 6 | 3 | full | unlimited but de-duped per item |
-| `repair_complete` (session marked resolved) | 10 | 5 | full | 1/day per couple |
-| `anniversary` (relationship anniversary day) | 25 | 12 | full | 1/year |
+| Trigger                                      | Coins (full) | XP  | Mutual?   | Cap                             |
+| -------------------------------------------- | ------------ | --- | --------- | ------------------------------- |
+| `daily_send` (you submitted today's daily)   | 2            | 1   | ½ on solo | 1/day each partner              |
+| `daily_reveal` (both partners revealed)      | 8            | 4   | full      | 1/day per couple                |
+| `mood_log` (logged a mood on /pulse)         | 1            | 1   | ½ on solo | 3/day per partner               |
+| `quiz_complete` (both finalised a quiz pack) | 12           | 8   | full      | 1 per pack ever                 |
+| `bucket_complete` (item marked done)         | 6            | 3   | full      | unlimited but de-duped per item |
+| `repair_complete` (session marked resolved)  | 10           | 5   | full      | 1/day per couple                |
+| `anniversary` (relationship anniversary day) | 25           | 12  | full      | 1/year                          |
 
-> All numbers are *initial guesses*. They are constants in
+> All numbers are _initial guesses_. They are constants in
 > `src/lib/pet.constants.ts` so a balance pass can tweak them without
 > touching server logic. Tests assert the constants, not literals.
 
 ### Life stages
 
-| Stage | XP threshold | Visual change |
-|---|---|---|
-| **Egg** | 0 | Speckled paper-textured egg with a small heartbeat anim. |
-| **Baby** | 50 XP | Hatchling form of chosen species. Slightly clumsy idle. |
-| **Grown** | 250 XP | Full form. Unlocks "expression" slot in the wardrobe. |
+| Stage     | XP threshold | Visual change                                            |
+| --------- | ------------ | -------------------------------------------------------- |
+| **Egg**   | 0            | Speckled paper-textured egg with a small heartbeat anim. |
+| **Baby**  | 50 XP        | Hatchling form of chosen species. Slightly clumsy idle.  |
+| **Grown** | 250 XP       | Full form. Unlocks "expression" slot in the wardrobe.    |
 
 Stages are one-way; once Grown, the pet stays Grown. No prestige reset.
 
@@ -128,25 +128,25 @@ bundle cost (A1).
 ### Mood / hunger decay (Tamagotchi-lite, never lethal)
 
 - Two stats, each `int 0..100`, stored on `pet`:
-  - `mood` — drops when neither partner does *any* feeding action for a day
+  - `mood` — drops when neither partner does _any_ feeding action for a day
   - `hunger` — inverse of fullness; rises slowly between treats
 - Decay rate: **−5 mood/day, +5 hunger/day** of inactivity.
 - **Floor: 20 mood, ceiling: 80 hunger.** The pet can look a bit
   glum/peckish but never "ill". No red badges, no shake animations, no
   "your pet misses you" push notifications. (G1, N1)
-- A mutual reveal *or* a treat from the shop **resets hunger to 0 and
+- A mutual reveal _or_ a treat from the shop **resets hunger to 0 and
   bumps mood +20** (capped at 100).
 - Decay is computed **lazily, server-side** using Postgres `now()`. We
   store `mood_updated_at` + `hunger_updated_at` and project forward
-  when the API is hit. **Reads do not write back**; the next *write*
+  when the API is hit. **Reads do not write back**; the next _write_
   path (`awardForEvent`, `buyItem`, `consumeTreat`) persists the
   projected values along with its own change. (D1, D2)
 - **Decay continues regardless of `couple.status`.** Pausing decay on
   paused/broken couples was rejected: the floors already cap the worst
   visible state at "sleepy", and any pause logic would surface as a
   detectable "your partner caused this" inference (C1 scorekeeping
-  anti-pattern). Long-absence wording lives in the *Warm-decay copy
-  matrix* below.
+  anti-pattern). Long-absence wording lives in the _Warm-decay copy
+  matrix_ below.
 
 ### Warm-decay copy matrix (4 states)
 
@@ -155,12 +155,12 @@ adjective + one habitat hint. **No state ever blames the user or the
 partner.** ([Finch UX critique](https://uxdesign.cc/virtual-pet-apps-and-their-emotional-toll-8c06c5f9e1c) —
 guilt-tone copy is the #1 driver of churn in wellness pets.)
 
-| State | Trigger | Sprite frame | Copy (en) | NEVER show |
-|---|---|---|---|---|
-| **fine** | mood ≥ 70 ∧ hunger ≤ 30 | `*-happy.svg` | `pet_state_fine` → "{name} is pottering about." | — |
-| **peckish** | hunger 30–60 | `*-neutral.svg` | `pet_state_peckish` → "{name} fancies a snack." | "hungry", "starving", "needs food" |
-| **sleepy** | mood 30–60 ∧ hunger ≤ 60 | `*-neutral.svg` | `pet_state_sleepy` → "{name} is feeling a bit quiet today." | "sad", "lonely", "misses you", "missed you" |
-| **floor** | mood ≤ 30 ∨ hunger ≥ 60 (clamped at 20/80) | `*-resting.svg` | `pet_state_resting` → "{name} is having a slow day. Say hi when you're around." | "ill", "sick", "dying", "neglected", any guilt phrasing |
+| State       | Trigger                                    | Sprite frame    | Copy (en)                                                                       | NEVER show                                              |
+| ----------- | ------------------------------------------ | --------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **fine**    | mood ≥ 70 ∧ hunger ≤ 30                    | `*-happy.svg`   | `pet_state_fine` → "{name} is pottering about."                                 | —                                                       |
+| **peckish** | hunger 30–60                               | `*-neutral.svg` | `pet_state_peckish` → "{name} fancies a snack."                                 | "hungry", "starving", "needs food"                      |
+| **sleepy**  | mood 30–60 ∧ hunger ≤ 60                   | `*-neutral.svg` | `pet_state_sleepy` → "{name} is feeling a bit quiet today."                     | "sad", "lonely", "misses you", "missed you"             |
+| **floor**   | mood ≤ 30 ∨ hunger ≥ 60 (clamped at 20/80) | `*-resting.svg` | `pet_state_resting` → "{name} is having a slow day. Say hi when you're around." | "ill", "sick", "dying", "neglected", any guilt phrasing |
 
 **Long-absence return (90+ days):** when `now() - max(mood_updated_at, hunger_updated_at) > 90 days`,
 the **first** `/pet` view after return shows a one-time `Notice` (not a
@@ -192,13 +192,13 @@ repair_complete  ~0.3/ day  (≈ once / 30 days)
 
 Shop seed (12 items, prices 30–400, total 1 950 coins):
 
-| Milestone | Days | Coins |
-|---|---|---|
-| First cosmetic (`hat_paper_crown`, 30 c) | ~2.2 days | 30 |
-| Median item (~140 c) | ~10 days | 140 |
-| Whole shop cleared | ~143 days (≈ 5 months) | 1 950 |
-| Week-1 budget | 7 days | ~95 c (covers 4/12 items) |
-| Month-1 budget | 30 days | ~408 c (covers 12/12 *individually*) |
+| Milestone                                | Days                   | Coins                                |
+| ---------------------------------------- | ---------------------- | ------------------------------------ |
+| First cosmetic (`hat_paper_crown`, 30 c) | ~2.2 days              | 30                                   |
+| Median item (~140 c)                     | ~10 days               | 140                                  |
+| Whole shop cleared                       | ~143 days (≈ 5 months) | 1 950                                |
+| Week-1 budget                            | 7 days                 | ~95 c (covers 4/12 items)            |
+| Month-1 budget                           | 30 days                | ~408 c (covers 12/12 _individually_) |
 
 This shape matches the cosmetic-economy heuristics from F2P post-mortems
 (Pocket Camp / Hay Day): first cosmetic in <1 week (immediate proof of
@@ -213,7 +213,7 @@ has zero monetisation in v1.
   cannot deteriorate visually below "a little sleepy".
 - The UI **never** shows "your partner hasn't…" copy or per-partner
   coin attribution. The ledger keeps `userId` for audit, but the
-  in-app `/pet` activity strip renders only the *source* (e.g. "daily
+  in-app `/pet` activity strip renders only the _source_ (e.g. "daily
   reveal · +8") and never which partner triggered the row.
 - `couple.status == 'broken'` does **not** lock pet writes — both
   partners can still hatch / feed / equip alone. The solo-half-credit
@@ -242,131 +242,129 @@ introspection would clobber). The next migration number is **0022**.
 // src/lib/server/db/app.schema.ts — appended near the bottom.
 
 export const pet = pgTable(
-  'pet',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    coupleId: uuid('couple_id')
-      .notNull()
-      .references(() => couple.id, { onDelete: 'cascade' }),
-    species: text('species').notNull(),       // 'fox' | 'cat' | 'bird' | 'capybara'
-    name: text('name').notNull(),             // 24-char cap
-    stage: text('stage').notNull().default('egg'), // 'egg' | 'baby' | 'grown'
-    xp: integer('xp').notNull().default(0),
-    mood: integer('mood').notNull().default(80),
-    hunger: integer('hunger').notNull().default(20),
-    moodUpdatedAt: timestamp('mood_updated_at', { withTimezone: true })
-      .notNull().defaultNow(),
-    hungerUpdatedAt: timestamp('hunger_updated_at', { withTimezone: true })
-      .notNull().defaultNow(),
-    // I2: optimistic concurrency. Every write asserts version match
-    // and bumps it; mismatched writes retry up to 3× then fail soft.
-    version: integer('version').notNull().default(0),
-    hatchedAt: timestamp('hatched_at', { withTimezone: true }).notNull().defaultNow(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex('pet_couple_uq').on(t.coupleId), // one pet per couple
-    check('pet_species_chk', sql`${t.species} in ('fox','cat','bird','capybara')`),
-    check('pet_stage_chk', sql`${t.stage} in ('egg','baby','grown')`),
-    check('pet_xp_chk', sql`${t.xp} >= 0`),
-    check('pet_mood_chk', sql`${t.mood} between 0 and 100`),
-    check('pet_hunger_chk', sql`${t.hunger} between 0 and 100`),
-    check('pet_name_len_chk', sql`char_length(${t.name}) between 1 and 24`),
-  ]
+	'pet',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		species: text('species').notNull(), // 'fox' | 'cat' | 'bird' | 'capybara'
+		name: text('name').notNull(), // 24-char cap
+		stage: text('stage').notNull().default('egg'), // 'egg' | 'baby' | 'grown'
+		xp: integer('xp').notNull().default(0),
+		mood: integer('mood').notNull().default(80),
+		hunger: integer('hunger').notNull().default(20),
+		moodUpdatedAt: timestamp('mood_updated_at', { withTimezone: true }).notNull().defaultNow(),
+		hungerUpdatedAt: timestamp('hunger_updated_at', { withTimezone: true }).notNull().defaultNow(),
+		// I2: optimistic concurrency. Every write asserts version match
+		// and bumps it; mismatched writes retry up to 3× then fail soft.
+		version: integer('version').notNull().default(0),
+		hatchedAt: timestamp('hatched_at', { withTimezone: true }).notNull().defaultNow(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('pet_couple_uq').on(t.coupleId), // one pet per couple
+		check('pet_species_chk', sql`${t.species} in ('fox','cat','bird','capybara')`),
+		check('pet_stage_chk', sql`${t.stage} in ('egg','baby','grown')`),
+		check('pet_xp_chk', sql`${t.xp} >= 0`),
+		check('pet_mood_chk', sql`${t.mood} between 0 and 100`),
+		check('pet_hunger_chk', sql`${t.hunger} between 0 and 100`),
+		check('pet_name_len_chk', sql`char_length(${t.name}) between 1 and 24`)
+	]
 );
 
 export const petWallet = pgTable(
-  'pet_wallet',
-  {
-    coupleId: uuid('couple_id')
-      .primaryKey()
-      .references(() => couple.id, { onDelete: 'cascade' }),
-    coins: integer('coins').notNull().default(0),
-    lifetimeEarned: integer('lifetime_earned').notNull().default(0),
-    // I2: same optimistic-concurrency dance as pet.
-    version: integer('version').notNull().default(0),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [check('pet_wallet_coins_chk', sql`${t.coins} >= 0`)]
+	'pet_wallet',
+	{
+		coupleId: uuid('couple_id')
+			.primaryKey()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		coins: integer('coins').notNull().default(0),
+		lifetimeEarned: integer('lifetime_earned').notNull().default(0),
+		// I2: same optimistic-concurrency dance as pet.
+		version: integer('version').notNull().default(0),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [check('pet_wallet_coins_chk', sql`${t.coins} >= 0`)]
 );
 
 // Append-only ledger of every coin/XP grant + spend.
 // Used to (a) de-dupe per-action grants, (b) power the /pet activity
 // feed, (c) make balance audits trivial.
 export const petLedger = pgTable(
-  'pet_ledger',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    coupleId: uuid('couple_id')
-      .notNull()
-      .references(() => couple.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id').references(() => authUsers.id, { onDelete: 'set null' }),
-    kind: text('kind').notNull(), // 'earn' | 'spend' | 'adjust'
-    source: text('source').notNull(), // e.g. 'daily_reveal' / 'shop:hat_paper' / 'admin_grant'
-    coinsDelta: integer('coins_delta').notNull(),
-    xpDelta: integer('xp_delta').notNull().default(0),
-    // Dedup key, eg 'daily_reveal:2024-11-04' or 'bucket:<itemId>' — UNIQUE per couple.
-    // NULL means "intentionally not deduped" (admin grants, retries with new id).
-    dedupeKey: text('dedupe_key'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    // Partial unique — NULL dedupeKey rows skip the constraint.
-    uniqueIndex('pet_ledger_dedupe_uq')
-      .on(t.coupleId, t.dedupeKey)
-      .where(sql`${t.dedupeKey} is not null`),
-    index('pet_ledger_couple_created_idx').on(t.coupleId, t.createdAt.desc()),
-    check('pet_ledger_kind_chk', sql`${t.kind} in ('earn','spend','adjust')`),
-  ]
+	'pet_ledger',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id').references(() => authUsers.id, { onDelete: 'set null' }),
+		kind: text('kind').notNull(), // 'earn' | 'spend' | 'adjust'
+		source: text('source').notNull(), // e.g. 'daily_reveal' / 'shop:hat_paper' / 'admin_grant'
+		coinsDelta: integer('coins_delta').notNull(),
+		xpDelta: integer('xp_delta').notNull().default(0),
+		// Dedup key, eg 'daily_reveal:2024-11-04' or 'bucket:<itemId>' — UNIQUE per couple.
+		// NULL means "intentionally not deduped" (admin grants, retries with new id).
+		dedupeKey: text('dedupe_key'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		// Partial unique — NULL dedupeKey rows skip the constraint.
+		uniqueIndex('pet_ledger_dedupe_uq')
+			.on(t.coupleId, t.dedupeKey)
+			.where(sql`${t.dedupeKey} is not null`),
+		index('pet_ledger_couple_created_idx').on(t.coupleId, t.createdAt.desc()),
+		check('pet_ledger_kind_chk', sql`${t.kind} in ('earn','spend','adjust')`)
+	]
 );
 
 // Shop catalogue — seeded data, not user-managed. Versioned via
 // migrations so prices can be re-balanced without code edits. (S1)
 export const petShopItem = pgTable(
-  'pet_shop_item',
-  {
-    id: text('id').primaryKey(),    // slug, eg 'hat_paper_crown'
-    kind: text('kind').notNull(),   // 'cosmetic' | 'treat' | 'furniture' | 'buff'
-    slot: text('slot'),             // cosmetic slot: 'hat' | 'scarf' | 'expression' | null
-    nameKey: text('name_key').notNull(),         // i18n key, eg 'shop_item_hat_paper_crown_name'
-    descriptionKey: text('description_key').notNull(), // i18n key
-    priceCoins: integer('price_coins').notNull(),
-    minStage: text('min_stage').notNull().default('egg'), // 'egg' | 'baby' | 'grown'
-    enabled: boolean('enabled').notNull().default(true),
-    sortOrder: integer('sort_order').notNull().default(0),
-  },
-  (t) => [
-    check('pet_shop_item_kind_chk',
-      sql`${t.kind} in ('cosmetic','treat','furniture','buff')`),
-    check('pet_shop_item_min_stage_chk',
-      sql`${t.minStage} in ('egg','baby','grown')`),
-    check('pet_shop_item_price_chk', sql`${t.priceCoins} >= 0`),
-  ]
+	'pet_shop_item',
+	{
+		id: text('id').primaryKey(), // slug, eg 'hat_paper_crown'
+		kind: text('kind').notNull(), // 'cosmetic' | 'treat' | 'furniture' | 'buff'
+		slot: text('slot'), // cosmetic slot: 'hat' | 'scarf' | 'expression' | null
+		nameKey: text('name_key').notNull(), // i18n key, eg 'shop_item_hat_paper_crown_name'
+		descriptionKey: text('description_key').notNull(), // i18n key
+		priceCoins: integer('price_coins').notNull(),
+		minStage: text('min_stage').notNull().default('egg'), // 'egg' | 'baby' | 'grown'
+		enabled: boolean('enabled').notNull().default(true),
+		sortOrder: integer('sort_order').notNull().default(0)
+	},
+	(t) => [
+		check('pet_shop_item_kind_chk', sql`${t.kind} in ('cosmetic','treat','furniture','buff')`),
+		check('pet_shop_item_min_stage_chk', sql`${t.minStage} in ('egg','baby','grown')`),
+		check('pet_shop_item_price_chk', sql`${t.priceCoins} >= 0`)
+	]
 );
 
 // Per-couple inventory. Cosmetics + furniture are persistent; treats
 // + buffs are consumable (qty decremented on use, row kept at qty=0
 // so we retain ownership history).
 export const petInventory = pgTable(
-  'pet_inventory',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    coupleId: uuid('couple_id')
-      .notNull()
-      .references(() => couple.id, { onDelete: 'cascade' }),
-    itemId: text('item_id').notNull().references(() => petShopItem.id),
-    qty: integer('qty').notNull().default(1),
-    equipped: boolean('equipped').notNull().default(false),
-    acquiredAt: timestamp('acquired_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    index('pet_inventory_couple_idx').on(t.coupleId),
-    uniqueIndex('pet_inventory_couple_item_uq').on(t.coupleId, t.itemId),
-    // Partial: at most ONE equipped row per (couple, slot). Enforced via
-    // a partial unique index joined to pet_shop_item at migration time
-    // using a generated column or a trigger — see 0022_pet.sql.
-    check('pet_inventory_qty_chk', sql`${t.qty} >= 0`),
-  ]
+	'pet_inventory',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		itemId: text('item_id')
+			.notNull()
+			.references(() => petShopItem.id),
+		qty: integer('qty').notNull().default(1),
+		equipped: boolean('equipped').notNull().default(false),
+		acquiredAt: timestamp('acquired_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		index('pet_inventory_couple_idx').on(t.coupleId),
+		uniqueIndex('pet_inventory_couple_item_uq').on(t.coupleId, t.itemId),
+		// Partial: at most ONE equipped row per (couple, slot). Enforced via
+		// a partial unique index joined to pet_shop_item at migration time
+		// using a generated column or a trigger — see 0022_pet.sql.
+		check('pet_inventory_qty_chk', sql`${t.qty} >= 0`)
+	]
 );
 
 // Phase 5 only — buffs with active windows. Punted from v1 schema.
@@ -376,7 +374,7 @@ export const petInventory = pgTable(
 
 ### Why a ledger + dedupe key?
 
-1. **Idempotency.** All earn paths funnel through `awardForEvent(coupleId, source, dedupeKey)`. The unique index on `(coupleId, dedupeKey)` makes double-fire (eg a retried POST) a no-op at the DB level — see *Concurrency model* below for the exact transaction shape (I1).
+1. **Idempotency.** All earn paths funnel through `awardForEvent(coupleId, source, dedupeKey)`. The unique index on `(coupleId, dedupeKey)` makes double-fire (eg a retried POST) a no-op at the DB level — see _Concurrency model_ below for the exact transaction shape (I1).
 2. **Auditability.** The /pet activity strip and any future debugging just `SELECT * FROM pet_ledger WHERE couple_id = ? ORDER BY created_at DESC LIMIT 20`. No reconstruction from event tables.
 
 ---
@@ -396,15 +394,15 @@ the partial unique index `pet_ledger_dedupe_uq`.
 ```ts
 // All inside one Postgres transaction (BEGIN ... COMMIT):
 const [inserted] = await tx
-  .insert(petLedger)
-  .values({ coupleId, userId, kind: 'earn', source, coinsDelta, xpDelta, dedupeKey })
-  .onConflictDoNothing({ target: [petLedger.coupleId, petLedger.dedupeKey] })
-  .returning();
+	.insert(petLedger)
+	.values({ coupleId, userId, kind: 'earn', source, coinsDelta, xpDelta, dedupeKey })
+	.onConflictDoNothing({ target: [petLedger.coupleId, petLedger.dedupeKey] })
+	.returning();
 
 if (!inserted) {
-  // Loser of the race. Read the winning row so the caller has the
-  // canonical answer, but apply NO further effect.
-  return readWinningLedger(tx, coupleId, dedupeKey);
+	// Loser of the race. Read the winning row so the caller has the
+	// canonical answer, but apply NO further effect.
+	return readWinningLedger(tx, coupleId, dedupeKey);
 }
 
 // Winner of the race. Bump wallet + pet stats with optimistic
@@ -462,7 +460,11 @@ they always agree without traffic.
   (`topicForCouple`). Pet adds **one** new event type to the
   `ServerEvent` union in `src/lib/realtime/protocol.ts`:
   ```ts
-  { t: 'pet_state'; ts: number; p: PetSnapshot }
+  {
+  	t: 'pet_state';
+  	ts: number;
+  	p: PetSnapshot;
+  }
   ```
   where `PetSnapshot` = `{ pet, wallet, equipped, version }` — i.e.
   the exact response of `GET /api/pet`. Snapshots, not deltas, because
@@ -505,11 +507,14 @@ shape in `src/lib/server/services/pet.ts`:
 ```ts
 const pendingPetBroadcast = new Map<string, ReturnType<typeof setTimeout>>();
 function scheduleBroadcast(coupleId: string, snap: PetSnapshot) {
-  clearTimeout(pendingPetBroadcast.get(coupleId));
-  pendingPetBroadcast.set(coupleId, setTimeout(() => {
-    pendingPetBroadcast.delete(coupleId);
-    void broadcastToCouple(coupleId, { t: 'pet_state', ts: Date.now(), p: snap });
-  }, 2000));
+	clearTimeout(pendingPetBroadcast.get(coupleId));
+	pendingPetBroadcast.set(
+		coupleId,
+		setTimeout(() => {
+			pendingPetBroadcast.delete(coupleId);
+			void broadcastToCouple(coupleId, { t: 'pet_state', ts: Date.now(), p: snap });
+		}, 2000)
+	);
 }
 ```
 
@@ -525,7 +530,7 @@ duplicate snapshots are idempotent at the receiver.
 
 - On `pet_state` arrival: replace local snapshot, run the **coin-earn
   +N float** animation only if `wallet.version` increased and the
-  receiver tab is the *other* partner (we know this because
+  receiver tab is the _other_ partner (we know this because
   `presence.userId` is tracked on the same channel). No animation on
   own writes (those animate from the optimistic local update). All
   animations respect `prefers-reduced-motion`.
@@ -570,17 +575,29 @@ export async function renamePet(coupleId: string, name: string): Promise<PetStat
 // Idempotent: same (coupleId, dedupeKey) → no-op + returns the original.
 // Caller decides solo vs mutual.
 export async function awardForEvent(args: {
-  coupleId: string;
-  userId: string | null;
-  source: EarnSource;          // 'daily_reveal' | 'mood_log' | …
-  dedupeKey: string;
-  mutual: boolean;
+	coupleId: string;
+	userId: string | null;
+	source: EarnSource; // 'daily_reveal' | 'mood_log' | …
+	dedupeKey: string;
+	mutual: boolean;
 }): Promise<{ coinsDelta: number; xpDelta: number; ledgerId: string; deduped: boolean }>;
 
 export async function listShopItems(coupleId: string): Promise<PetShopItem[]>;
-export async function buyItem(coupleId: string, userId: string, itemId: string): Promise<PetInventoryEntry>;
-export async function equipCosmetic(coupleId: string, itemId: string, equipped: boolean): Promise<void>;
-export async function consumeTreat(coupleId: string, userId: string, itemId: string): Promise<PetState>;
+export async function buyItem(
+	coupleId: string,
+	userId: string,
+	itemId: string
+): Promise<PetInventoryEntry>;
+export async function equipCosmetic(
+	coupleId: string,
+	itemId: string,
+	equipped: boolean
+): Promise<void>;
+export async function consumeTreat(
+	coupleId: string,
+	userId: string,
+	itemId: string
+): Promise<PetState>;
 
 // Phase 5
 export async function listLedger(coupleId: string, limit?: number): Promise<PetLedgerEntry[]>;
@@ -592,14 +609,16 @@ agree without broadcasting tick events:
 
 ```ts
 // Server (pet.ts) and client (pet.constants.ts) share this pure fn:
-export function projectDecay(stored: { mood: number; hunger: number;
-  moodUpdatedAt: Date; hungerUpdatedAt: Date }, now = new Date()) {
-  const moodDays   = (now.getTime() - stored.moodUpdatedAt.getTime())   / 86_400_000;
-  const hungerDays = (now.getTime() - stored.hungerUpdatedAt.getTime()) / 86_400_000;
-  return {
-    mood:   clamp(stored.mood   - 5 * moodDays,   20, 100),
-    hunger: clamp(stored.hunger + 5 * hungerDays,  0,  80),
-  };
+export function projectDecay(
+	stored: { mood: number; hunger: number; moodUpdatedAt: Date; hungerUpdatedAt: Date },
+	now = new Date()
+) {
+	const moodDays = (now.getTime() - stored.moodUpdatedAt.getTime()) / 86_400_000;
+	const hungerDays = (now.getTime() - stored.hungerUpdatedAt.getTime()) / 86_400_000;
+	return {
+		mood: clamp(stored.mood - 5 * moodDays, 20, 100),
+		hunger: clamp(stored.hunger + 5 * hungerDays, 0, 80)
+	};
 }
 // Server: persist projected values on the next WRITE path; reads stay read-only (D1).
 // Client: re-call projectDecay() every 30 s (rune effect) so the bars
@@ -622,15 +641,15 @@ Each existing service gets one additional line — a fire-and-forget
 service contracts change. **`awardForEvent` is awaited before the
 response returns** (P1) so we never lose grants to closed DB bundles.
 
-| Service | Actual function name (verified) | dedupeKey shape | Mutual? |
-|---|---|---|---|
-| `daily.ts` — `submitDailyAnswer` | line 120 | `daily_send:<userId>:<YYYY-MM-DD>` | `mutual = false` (always solo) |
-| `daily.ts` — inside `loadDaily` when `revealed && !alreadyAwarded` | line 75 | `daily_reveal:<questionId>:<YYYY-MM-DD>` | `mutual = true` |
-| `mood.ts` — `setMood` | line 62 | `mood_log:<userId>:<YYYY-MM-DDTHH>` (hour-bucket → 3/day max) | `mutual = false` |
-| `quiz.ts` — `submitFinal` (NOT `finaliseRun`) | line 340 | `quiz_complete:<runId>` | `mutual = true` (only fires when both partners final) |
-| `bucketList.ts` — `markDone` | line 167 | `bucket_complete:<itemId>` | `mutual = true` |
-| `repair.ts` — `completeSession` (NOT `markResolved`) | line 234 | `repair_complete:<sessionId>` | `mutual = true` |
-| anniversary | a layout-load check in `+layout.server.ts` | `anniversary:<YYYY>` | `mutual = true` |
+| Service                                                            | Actual function name (verified)            | dedupeKey shape                                               | Mutual?                                               |
+| ------------------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------- |
+| `daily.ts` — `submitDailyAnswer`                                   | line 120                                   | `daily_send:<userId>:<YYYY-MM-DD>`                            | `mutual = false` (always solo)                        |
+| `daily.ts` — inside `loadDaily` when `revealed && !alreadyAwarded` | line 75                                    | `daily_reveal:<questionId>:<YYYY-MM-DD>`                      | `mutual = true`                                       |
+| `mood.ts` — `setMood`                                              | line 62                                    | `mood_log:<userId>:<YYYY-MM-DDTHH>` (hour-bucket → 3/day max) | `mutual = false`                                      |
+| `quiz.ts` — `submitFinal` (NOT `finaliseRun`)                      | line 340                                   | `quiz_complete:<runId>`                                       | `mutual = true` (only fires when both partners final) |
+| `bucketList.ts` — `markDone`                                       | line 167                                   | `bucket_complete:<itemId>`                                    | `mutual = true`                                       |
+| `repair.ts` — `completeSession` (NOT `markResolved`)               | line 234                                   | `repair_complete:<sessionId>`                                 | `mutual = true`                                       |
+| anniversary                                                        | a layout-load check in `+layout.server.ts` | `anniversary:<YYYY>`                                          | `mutual = true`                                       |
 
 > **Plan correction:** the original plan named `revealDaily` /
 > `finaliseRun` / `markResolved` — none exist. The verified names are
@@ -655,36 +674,37 @@ is always safe.
 ## 4. API routes
 
 All under `src/routes/api/pet/`. JSON in/out, auth via `event.locals.user`
-+ `event.locals.couple` (same hooks as the rest of the app). All
-`href` strings inside server redirects must use `resolve()` from
-`$app/paths` per the eslint-plugin-svelte rule (project convention).
 
-| Method · path | Body | Returns |
-|---|---|---|
-| `GET    /api/pet` | — | `{ pet: PetState \| null, wallet, equipped: PetInventoryEntry[] }` |
-| `POST   /api/pet/hatch` | `{ species, name }` | `PetState` (only valid when no pet exists) |
-| `PATCH  /api/pet` | `{ name }` | `PetState` |
-| `GET    /api/pet/shop` | — | list of `PetShopItem` filtered by current stage + `enabled` |
-| `GET    /api/pet/inventory` | — | list of owned items (qty > 0) |
-| `POST   /api/pet/buy` | `{ itemId }` | `{ wallet, inventoryEntry }` |
-| `POST   /api/pet/equip` | `{ itemId, equipped }` | `PetState` (cosmetic only) |
-| `POST   /api/pet/treat` | `{ itemId }` | `PetState` (decrements qty) |
-| `GET    /api/pet/ledger?limit=20` | — | last N ledger rows for /pet activity strip |
+- `event.locals.couple` (same hooks as the rest of the app). All
+  `href` strings inside server redirects must use `resolve()` from
+  `$app/paths` per the eslint-plugin-svelte rule (project convention).
+
+| Method · path                     | Body                   | Returns                                                            |
+| --------------------------------- | ---------------------- | ------------------------------------------------------------------ |
+| `GET    /api/pet`                 | —                      | `{ pet: PetState \| null, wallet, equipped: PetInventoryEntry[] }` |
+| `POST   /api/pet/hatch`           | `{ species, name }`    | `PetState` (only valid when no pet exists)                         |
+| `PATCH  /api/pet`                 | `{ name }`             | `PetState`                                                         |
+| `GET    /api/pet/shop`            | —                      | list of `PetShopItem` filtered by current stage + `enabled`        |
+| `GET    /api/pet/inventory`       | —                      | list of owned items (qty > 0)                                      |
+| `POST   /api/pet/buy`             | `{ itemId }`           | `{ wallet, inventoryEntry }`                                       |
+| `POST   /api/pet/equip`           | `{ itemId, equipped }` | `PetState` (cosmetic only)                                         |
+| `POST   /api/pet/treat`           | `{ itemId }`           | `PetState` (decrements qty)                                        |
+| `GET    /api/pet/ledger?limit=20` | —                      | last N ledger rows for /pet activity strip                         |
 
 Validation rules:
 
 - `species` ∈ {fox,cat,bird,capybara}; `name` 1–24 chars, no newlines, NFKC-normalised.
 - `buy` returns **402 Payment Required** if coins < price.
 - `equip` returns **409 Conflict** if another item is already in that slot
-  (server auto-unequips on the *next* equip; explicit unequip via
+  (server auto-unequips on the _next_ equip; explicit unequip via
   `equipped: false`).
 - `treat` returns **404** if qty = 0.
 - Write endpoints succeed **regardless** of `couple.status` (no 423
-  Locked — pause logic was rejected, see C1 / *Anti-coercion when one
-  partner stops*). The only thing `couple.status == 'broken'` changes
+  Locked — pause logic was rejected, see C1 / _Anti-coercion when one
+  partner stops_). The only thing `couple.status == 'broken'` changes
   is that the partner-presence avatar in `/pet` is suppressed.
 - Every successful write ends with `await broadcastPetState(coupleId)`
-  (debounced; see *Real-time sync*). Broadcast failures are logged
+  (debounced; see _Real-time sync_). Broadcast failures are logged
   but never fail the write.
 
 ---
@@ -708,20 +728,20 @@ Validation rules:
 ### Cross-route surfacings
 
 - `/pulse` — small pet badge in the header strip, next to the partner avatars. Tappable, links to `/pet` (via `resolve('/pet')`). Shows current mood frame. **Not** a notification dot — it's just present.
-- After any qualifying event (`daily_reveal`, `quiz_complete`, etc.) the existing success toast/route gets a *single* extra line:
+- After any qualifying event (`daily_reveal`, `quiz_complete`, etc.) the existing success toast/route gets a _single_ extra line:
   `+8 coins · {petName} is happy.` (Notice primitive, tone="success".)
 - Settings → Diagnostics: new link "Pet ledger" → read-only view of all ledger rows for the couple (transparency + debugging).
 
 ### Components / primitives to add
 
-| Component | Purpose | Lives at |
-|---|---|---|
-| `PetSprite.svelte` | Renders the right species+stage+mood SVG with breathing anim. Lazy-imports the species sprite map. | `src/lib/components/pet/PetSprite.svelte` |
-| `CoinIcon.svelte` | Hand-drawn coin SVG (single source of truth, never emoji). | `src/lib/components/pet/CoinIcon.svelte` |
-| `MoodHungerBars.svelte` | Two sketchy bars with subtle wiggle (respects `prefers-reduced-motion`). Props: `{ mood: number; hunger: number }`. | `src/lib/components/pet/MoodHungerBars.svelte` |
-| `ShopCard.svelte` | One shop tile (icon + name + price + locked overlay). Props: `{ item: PetShopItem; ownedQty: number; affordable: boolean; onBuy: () => void }`. | `src/lib/components/pet/ShopCard.svelte` |
-| `HatchFlow.svelte` | Species + name + hatch CTA wizard. | `src/lib/components/pet/HatchFlow.svelte` |
-| `PetBadge.svelte` | Tiny header badge for `/pulse`. ONE shared SVG, ~1 KB gzipped. | `src/lib/components/pet/PetBadge.svelte` |
+| Component               | Purpose                                                                                                                                         | Lives at                                       |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `PetSprite.svelte`      | Renders the right species+stage+mood SVG with breathing anim. Lazy-imports the species sprite map.                                              | `src/lib/components/pet/PetSprite.svelte`      |
+| `CoinIcon.svelte`       | Hand-drawn coin SVG (single source of truth, never emoji).                                                                                      | `src/lib/components/pet/CoinIcon.svelte`       |
+| `MoodHungerBars.svelte` | Two sketchy bars with subtle wiggle (respects `prefers-reduced-motion`). Props: `{ mood: number; hunger: number }`.                             | `src/lib/components/pet/MoodHungerBars.svelte` |
+| `ShopCard.svelte`       | One shop tile (icon + name + price + locked overlay). Props: `{ item: PetShopItem; ownedQty: number; affordable: boolean; onBuy: () => void }`. | `src/lib/components/pet/ShopCard.svelte`       |
+| `HatchFlow.svelte`      | Species + name + hatch CTA wizard.                                                                                                              | `src/lib/components/pet/HatchFlow.svelte`      |
+| `PetBadge.svelte`       | Tiny header badge for `/pulse`. ONE shared SVG, ~1 KB gzipped.                                                                                  | `src/lib/components/pet/PetBadge.svelte`       |
 
 All re-use existing primitives (`Card`, `PillButton`, `Notice`,
 `Spinner`, `ChoiceChip`, `InputField`, `Tabs`). No new daisyUI classes.
@@ -741,7 +761,7 @@ Pipeline once style is locked:
 2. **Optimise**: each export piped through **SVGO** (already wired in
    the build via `vite-plugin-svgo` / equivalent). Per-file budget
    ≤ 1.2 KB raw / ≤ ~400 B gzipped. CI assertion in P6.
-3. **Bundle layout**: 
+3. **Bundle layout**:
    - **`/pet`** lazy-imports the active species' 9 frames (3 stages × 3
      moods) via `import('$lib/assets/pet/${species}/${stage}-${mood}.svg?raw')`.
      Other species never enter the chunk.
@@ -789,23 +809,23 @@ sources).
 12 items, balanced so the first cosmetic is reachable after ~one week
 of casual play and the most expensive furniture takes ~a month.
 
-| Slug | Kind | Slot | Stage | Price | Notes |
-|---|---|---|---|---|---|
-| `hat_paper_crown` | cosmetic | hat | baby | 30 | Starter cosmetic |
-| `hat_beanie` | cosmetic | hat | baby | 60 | |
-| `scarf_red` | cosmetic | scarf | baby | 50 | |
-| `scarf_dotted` | cosmetic | scarf | grown | 90 | |
-| `expr_sleepy` | cosmetic | expression | grown | 80 | Eyelid overlay |
-| `treat_strawberry` | treat | — | egg | 10 | +20 mood, −20 hunger |
-| `treat_dumpling` | treat | — | baby | 20 | +30 mood, −30 hunger |
-| `treat_cake` | treat | — | grown | 35 | +50 mood, −40 hunger |
-| `furn_rug` | furniture | — | baby | 80 | Background tile |
-| `furn_window` | furniture | — | grown | 140 | Background tile |
-| `buff_doublecoin` | buff | — | baby | 50 | Next 24 h: ×1.5 coin earns |
-| `buff_xpboost` | buff | — | grown | 70 | Next 24 h: ×1.5 XP earns |
+| Slug               | Kind      | Slot       | Stage | Price | Notes                      |
+| ------------------ | --------- | ---------- | ----- | ----- | -------------------------- |
+| `hat_paper_crown`  | cosmetic  | hat        | baby  | 30    | Starter cosmetic           |
+| `hat_beanie`       | cosmetic  | hat        | baby  | 60    |                            |
+| `scarf_red`        | cosmetic  | scarf      | baby  | 50    |                            |
+| `scarf_dotted`     | cosmetic  | scarf      | grown | 90    |                            |
+| `expr_sleepy`      | cosmetic  | expression | grown | 80    | Eyelid overlay             |
+| `treat_strawberry` | treat     | —          | egg   | 10    | +20 mood, −20 hunger       |
+| `treat_dumpling`   | treat     | —          | baby  | 20    | +30 mood, −30 hunger       |
+| `treat_cake`       | treat     | —          | grown | 35    | +50 mood, −40 hunger       |
+| `furn_rug`         | furniture | —          | baby  | 80    | Background tile            |
+| `furn_window`      | furniture | —          | grown | 140   | Background tile            |
+| `buff_doublecoin`  | buff      | —          | baby  | 50    | Next 24 h: ×1.5 coin earns |
+| `buff_xpboost`     | buff      | —          | grown | 70    | Next 24 h: ×1.5 XP earns   |
 
 Buffs are stored on `petInventory` with `qty` and a separate
-`active_until` timestamp on a *future* `petBuff` table — punted to
+`active_until` timestamp on a _future_ `petBuff` table — punted to
 Phase 5 because v1 ships without buffs active (they're sellable but
 the multiplier is wired in Phase 5).
 
@@ -829,12 +849,12 @@ Listed here for traceability; no Phase-0 work remains.
       `couple:<id>` channel after every write, 2 s trailing-edge
       debounce per couple, snapshot payload (not delta), receivers
       version-gate. Decay never broadcast (clients project locally).
-      See *Real-time sync* §.
+      See _Real-time sync_ §.
 - [x] **P0.2 Decay paused on broken/paused couple?** → **NO, continues
       always.** The 20-mood / 80-hunger floors already cap visible
       damage at "sleepy". Pausing logic would surface scorekeeping
-      inferences (C1). See *Mood / hunger decay* and *Warm-decay copy
-      matrix*.
+      inferences (C1). See _Mood / hunger decay_ and _Warm-decay copy
+      matrix_.
 - [x] **P0.3 Daily-reveal dedupe key?** → **YES, includes both:**
       `daily_reveal:<questionId>:<YYYY-MM-DD>`. Locked in §3 wiring
       table.
@@ -842,7 +862,7 @@ Listed here for traceability; no Phase-0 work remains.
       Last shipped is `0021_chat_messages_purge_cron.sql`.
 - [x] **P0.5 SVG style guide?** → **Deferred to Phase 3.** Phases 1–2
       ship with placeholder paper-coloured rounded-rect sprites
-      labelled with the species name. See *SVG pipeline* §5.
+      labelled with the species name. See _SVG pipeline_ §5.
 
 **New open decisions surfaced by this pass** (none block Phase 1):
 
@@ -867,98 +887,77 @@ Listed here for traceability; no Phase-0 work remains.
       `pet_ledger_dedupe_uq`, and a slot-uniqueness trigger on
       `pet_inventory` (only one row per (couple, slot) may have
       `equipped = true`). Re-export the new tables from
-      `src/lib/server/db/schema.ts`.
-      - Verify: `psql "$DATABASE_URL" -f drizzle/manual/0022_pet.sql`
-        on a scratch DB, then `bun run check` passes.
-      - Failure mode: `db:generate` would attempt to introspect the
-        existing manual schema and emit a phantom diff — guard by NOT
-        running it (hard rule).
+      `src/lib/server/db/schema.ts`. - Verify: `psql "$DATABASE_URL" -f drizzle/manual/0022_pet.sql`
+      on a scratch DB, then `bun run check` passes. - Failure mode: `db:generate` would attempt to introspect the
+      existing manual schema and emit a phantom diff — guard by NOT
+      running it (hard rule).
 - [ ] **P1.2** Seed `pet_shop_item` rows in the same migration with
       `INSERT … ON CONFLICT (id) DO UPDATE SET kind=EXCLUDED.kind,
-      slot=EXCLUDED.slot, name_key=EXCLUDED.name_key,
-      description_key=EXCLUDED.description_key,
-      price_coins=EXCLUDED.price_coins, min_stage=EXCLUDED.min_stage,
-      enabled=EXCLUDED.enabled, sort_order=EXCLUDED.sort_order;`.
-      All 12 v1 items.
-      - Verify: `SELECT id, price_coins FROM pet_shop_item ORDER BY sort_order;` returns 12 rows.
-      - Failure mode: re-running the migration on a DB where prices
-        were hand-edited will reset them — that's *intended* (S1).
+  slot=EXCLUDED.slot, name_key=EXCLUDED.name_key,
+  description_key=EXCLUDED.description_key,
+  price_coins=EXCLUDED.price_coins, min_stage=EXCLUDED.min_stage,
+  enabled=EXCLUDED.enabled, sort_order=EXCLUDED.sort_order;`.
+      All 12 v1 items. - Verify: `SELECT id, price_coins FROM pet_shop_item ORDER BY sort_order;` returns 12 rows. - Failure mode: re-running the migration on a DB where prices
+      were hand-edited will reset them — that's _intended_ (S1).
 - [ ] **P1.3** Build `src/lib/server/services/pet.ts` with
       `getPetState`, `hatchPet`, `renamePet`, the shared
       `projectDecay()` helper (re-exported to client via
       `pet.constants.ts`), and `broadcastPetState()` debounced helper
-      (see *Real-time sync* §). Mirror the validation-class pattern
+      (see _Real-time sync_ §). Mirror the validation-class pattern
       from `bucketList.ts` (`PetValidationError` with codes
       `species_invalid`, `name_empty`, `name_too_long`,
       `pet_already_exists`). **No `coupleStatusGuard`** — pet writes
-      succeed regardless of `couple.status`.
-      - Verify: unit test `pet.spec.ts` proves `getPetState` projects
-        decay client-side without writing AND that `broadcastPetState`
-        coalesces 5 calls within 2 s into 1 emission.
-      - Failure mode: forgetting to `await` the broadcast promise
-        risks losing it across CF Worker isolate teardown.
+      succeed regardless of `couple.status`. - Verify: unit test `pet.spec.ts` proves `getPetState` projects
+      decay client-side without writing AND that `broadcastPetState`
+      coalesces 5 calls within 2 s into 1 emission. - Failure mode: forgetting to `await` the broadcast promise
+      risks losing it across CF Worker isolate teardown.
 - [ ] **P1.4** Build SvelteKit route handlers
       `src/routes/api/pet/+server.ts` (GET + PATCH) and
       `src/routes/api/pet/hatch/+server.ts` (POST). Use
       `event.locals.couple.id` for couple scope; `event.locals.user.id`
-      for `userId`. **No 423 Locked** — see §4.
-      - Verify: `curl -X POST $BASE/api/pet/hatch -H 'Cookie: …' -d '{"species":"fox","name":"Mochi"}' | jq` then `curl $BASE/api/pet`.
-      - Failure mode: deriving `coupleId` from the request body would
-        be a tenancy bug — code review must reject.
+      for `userId`. **No 423 Locked** — see §4. - Verify: `curl -X POST $BASE/api/pet/hatch -H 'Cookie: …' -d '{"species":"fox","name":"Mochi"}' | jq` then `curl $BASE/api/pet`. - Failure mode: deriving `coupleId` from the request body would
+      be a tenancy bug — code review must reject.
 - [ ] **P1.5** Unit tests in `src/lib/server/services/pet.spec.ts`:
       decay clamp (mood ≥ 20, hunger ≤ 80, no negative days),
       hatch idempotency (second call → `pet_already_exists`), name
       validation (empty, 25 chars, newlines, NFKC), version column
-      starts at 0, broadcast helper coalesces.
-      - Verify: `bun run test:unit -- --run --project server src/lib/server/services/pet.spec.ts`.
+      starts at 0, broadcast helper coalesces. - Verify: `bun run test:unit -- --run --project server src/lib/server/services/pet.spec.ts`.
 
 ### Phase 2 — Earn pipeline
 
 - [ ] **P2.1** Implement `awardForEvent` in `pet.ts` exactly as
-      specified in *Concurrency model* above:
+      specified in _Concurrency model_ above:
       single-statement `INSERT ... ON CONFLICT DO NOTHING RETURNING`,
       then optimistic-`version`-checked wallet/pet update wrapped in a
       transaction. Retry up to 3× on version-mismatch; on persistent
       failure write `audit_log{ action: 'pet.award.failed' }` and
       return `{ deduped: false, … 0 effects }`. **Must be awaited
       inside the request, never deferred to `event.waitUntil`** — the
-      AsyncLocalStorage DB bundle is closed by then (P1).
-      - Verify: integration spec races 10 concurrent `awardForEvent`
-        calls with the same dedupeKey, asserts exactly one ledger row
-        and one wallet credit.
-      - Failure mode: forgetting the transaction means a crash between
-        ledger insert and wallet update under-credits the wallet.
-        Phase 5 reconciliation row will fix it; still surface as a
-        warning in tests.
+      AsyncLocalStorage DB bundle is closed by then (P1). - Verify: integration spec races 10 concurrent `awardForEvent`
+      calls with the same dedupeKey, asserts exactly one ledger row
+      and one wallet credit. - Failure mode: forgetting the transaction means a crash between
+      ledger insert and wallet update under-credits the wallet.
+      Phase 5 reconciliation row will fix it; still surface as a
+      warning in tests.
 - [ ] **P2.2** Wire all 7 earn hooks at the EXACT call sites verified
-      against the codebase:
-      - `src/lib/server/services/daily.ts` after the insert in
-        `submitDailyAnswer` (line 120) → `daily_send:<userId>:<YYYY-MM-DD>`, mutual=false.
-      - `src/lib/server/services/daily.ts` inside `loadDaily` (line 75)
-        when `revealed && !alreadyAwarded` (check via the dedupe key,
-        not a flag) → `daily_reveal:<questionId>:<YYYY-MM-DD>`, mutual=true.
-      - `src/lib/server/services/mood.ts` after the insert in
-        `setMood` (line 62) → `mood_log:<userId>:<YYYY-MM-DDTHH>`, mutual=false.
-      - `src/lib/server/services/quiz.ts` end of `submitFinal` (line 340)
-        when *both* partners now final → `quiz_complete:<runId>`, mutual=true.
-      - `src/lib/server/services/bucketList.ts` after `markDone`
-        (line 167) returns true → `bucket_complete:<itemId>`, mutual=true.
-      - `src/lib/server/services/repair.ts` end of `completeSession`
-        (line 234) → `repair_complete:<sessionId>`, mutual=true.
-      - `src/routes/+layout.server.ts` (or new `src/lib/server/services/anniversary.ts`)
-        on each load when today === couple.anniversary →
-        `anniversary:<YYYY>`, mutual=true. Cap by year via dedupeKey.
-      - Verify: end-to-end Vitest server spec for each hook fires the
-        award and the second call is a no-op.
-      - Failure mode: forgetting `await` would re-introduce P1
-        (orphaned DB op). ESLint `@typescript-eslint/no-floating-promises`
-        is already enabled in this repo and will catch it.
+      against the codebase: - `src/lib/server/services/daily.ts` after the insert in
+      `submitDailyAnswer` (line 120) → `daily_send:<userId>:<YYYY-MM-DD>`, mutual=false. - `src/lib/server/services/daily.ts` inside `loadDaily` (line 75)
+      when `revealed && !alreadyAwarded` (check via the dedupe key,
+      not a flag) → `daily_reveal:<questionId>:<YYYY-MM-DD>`, mutual=true. - `src/lib/server/services/mood.ts` after the insert in
+      `setMood` (line 62) → `mood_log:<userId>:<YYYY-MM-DDTHH>`, mutual=false. - `src/lib/server/services/quiz.ts` end of `submitFinal` (line 340)
+      when _both_ partners now final → `quiz_complete:<runId>`, mutual=true. - `src/lib/server/services/bucketList.ts` after `markDone`
+      (line 167) returns true → `bucket_complete:<itemId>`, mutual=true. - `src/lib/server/services/repair.ts` end of `completeSession`
+      (line 234) → `repair_complete:<sessionId>`, mutual=true. - `src/routes/+layout.server.ts` (or new `src/lib/server/services/anniversary.ts`)
+      on each load when today === couple.anniversary →
+      `anniversary:<YYYY>`, mutual=true. Cap by year via dedupeKey. - Verify: end-to-end Vitest server spec for each hook fires the
+      award and the second call is a no-op. - Failure mode: forgetting `await` would re-introduce P1
+      (orphaned DB op). ESLint `@typescript-eslint/no-floating-promises`
+      is already enabled in this repo and will catch it.
 - [ ] **P2.3** Define `src/lib/pet.constants.ts` exporting:
       `EARN_TABLE: Record<EarnSource, { coinsFull: number; xpFull: number; mutualOnly: boolean }>`,
       `STAGE_THRESHOLDS = { egg: 0, baby: 50, grown: 250 } as const`,
       `MOOD_FLOOR = 20`, `HUNGER_CEIL = 80`, `DECAY_PER_DAY = 5`,
-      `NAME_MAX = 24`, `TREAT_EFFECTS: Record<string, { mood: number; hunger: number }>`.
-      - Verify: tests import this file rather than literal numbers.
+      `NAME_MAX = 24`, `TREAT_EFFECTS: Record<string, { mood: number; hunger: number }>`. - Verify: tests import this file rather than literal numbers.
 - [ ] **P2.4** Tests: idempotency (same dedupeKey twice → 1 ledger
       row, 1 grant), mutual/solo halving (solo gets `floor(coinsFull/2)`),
       daily cap (`mood_log` 4× in same hour → 1 ledger row), audit_log
@@ -973,23 +972,20 @@ Listed here for traceability; no Phase-0 work remains.
       96×96, with the species name centred. 36 files at
       `src/lib/assets/pet/<species>/<stage>-<mood>.svg`. Each ≤ 300 B
       raw / ~150 B gzipped. Final art lands in a follow-up PR per the
-      *SVG pipeline* §; this PR proves the lazy-import wiring works.
-      - Failure mode: skipping the placeholders means `/pet` ships
-        broken until the artist delivers — unacceptable. Placeholders
-        unblock everyone.
+      _SVG pipeline_ §; this PR proves the lazy-import wiring works. - Failure mode: skipping the placeholders means `/pet` ships
+      broken until the artist delivers — unacceptable. Placeholders
+      unblock everyone.
 - [ ] **P3.2** Build the 6 components listed in §5. `PetSprite.svelte`
       uses `await import('$lib/assets/pet/${species}/${stage}-${mood}.svg?raw')`
       so only the active species is in the `/pet` chunk; `PetBadge.svelte`
       imports its single sprite eagerly because it ships with `/pulse`.
-      Both subscribe to the new `petSnapshot` rune (see *Real-time sync*).
-      - Verify: Storybook stories render each at three moods.
+      Both subscribe to the new `petSnapshot` rune (see _Real-time sync_). - Verify: Storybook stories render each at three moods.
 - [ ] **P3.3** `src/routes/pet/+page.svelte` + `src/routes/pet/+page.server.ts`.
       `+page.server.ts` calls `getPetState` + `listShopItems` +
       inventory in parallel. Mounts a `$effect` that re-runs
       `projectDecay()` every 30 s against the current snapshot so the
       mood/hunger bars drift without server traffic. All client-side
-      `<a href>` use `resolve('/pet')` from `$app/paths`.
-      - Verify: `/pet` SSRs in <100 ms on local; Lighthouse PWA score unchanged.
+      `<a href>` use `resolve('/pet')` from `$app/paths`. - Verify: `/pet` SSRs in <100 ms on local; Lighthouse PWA score unchanged.
 - [ ] **P3.4** `src/routes/pulse/+page.svelte` header gets the
       `<PetBadge />` next to existing partner avatars. Tappable link
       to `resolve('/pet')`. Subscribes to the same `petSnapshot` rune
@@ -1009,9 +1005,8 @@ Listed here for traceability; no Phase-0 work remains.
       not deduped at the row level; the user can re-buy a consumable).
       **Each of `buyItem`, `consumeTreat`, `equipCosmetic` ends with
       `scheduleBroadcast(coupleId, snapshot)`** (debounce coalesces
-      bursts; partner sees one snapshot per 2 s window).
-      - Failure mode: forgetting the spend-ledger row breaks audit;
-        Phase 5 reconciliation will detect the wallet-vs-ledger drift.
+      bursts; partner sees one snapshot per 2 s window). - Failure mode: forgetting the spend-ledger row breaks audit;
+      Phase 5 reconciliation will detect the wallet-vs-ledger drift.
 - [ ] **P4.2** Endpoints at `src/routes/api/pet/shop/+server.ts`,
       `src/routes/api/pet/inventory/+server.ts`,
       `src/routes/api/pet/buy/+server.ts`,
@@ -1072,7 +1067,7 @@ Listed here for traceability; no Phase-0 work remains.
       `/pet` mount per session (`action = 'pet.visit'`) AND a counter
       on every successful `pet_state` broadcast send +
       `pet_state_received_seen` on the client (presence-tracked, so
-      we know if the *other* partner had `/pet` mounted at receive
+      we know if the _other_ partner had `/pet` mounted at receive
       time). Powers debounce-window calibration (N0.1) and validates
       whether the broadcast is moving the needle (not a gate — the
       decision is locked).
@@ -1115,15 +1110,15 @@ Expected p95 added latency on existing endpoints from the
 `awardForEvent` hook. All numbers are estimates against current
 Supabase pooler RTT (~5 ms us-east → us-east).
 
-| Endpoint | Extra DB ops | Estimated p95 added |
-|---|---|---|
-| `submitDailyAnswer` | 1 INSERT (ledger) + 1 UPDATE (wallet) + 1 UPDATE (pet) | ~12 ms |
-| `loadDaily` (when reveal hits) | same | ~12 ms (only on first reveal of the day) |
-| `setMood` | same, but skipped on within-hour dedupe (no DB write) | ~12 ms cold, ~3 ms when deduped |
-| `submitFinal` (quiz) | same; once per pack ever | ~12 ms |
-| `markDone` (bucket) | same; once per item | ~12 ms |
-| `completeSession` (repair) | same; once per session | ~12 ms |
-| anniversary check in layout | dedupe-hit on every load except the year's first | ~3 ms (mostly the `INSERT ... ON CONFLICT DO NOTHING` returning 0 rows) |
+| Endpoint                       | Extra DB ops                                           | Estimated p95 added                                                     |
+| ------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `submitDailyAnswer`            | 1 INSERT (ledger) + 1 UPDATE (wallet) + 1 UPDATE (pet) | ~12 ms                                                                  |
+| `loadDaily` (when reveal hits) | same                                                   | ~12 ms (only on first reveal of the day)                                |
+| `setMood`                      | same, but skipped on within-hour dedupe (no DB write)  | ~12 ms cold, ~3 ms when deduped                                         |
+| `submitFinal` (quiz)           | same; once per pack ever                               | ~12 ms                                                                  |
+| `markDone` (bucket)            | same; once per item                                    | ~12 ms                                                                  |
+| `completeSession` (repair)     | same; once per session                                 | ~12 ms                                                                  |
+| anniversary check in layout    | dedupe-hit on every load except the year's first       | ~3 ms (mostly the `INSERT ... ON CONFLICT DO NOTHING` returning 0 rows) |
 
 Connection pool: each request still uses the existing per-request
 postgres-js bundle (`max: 1`), so no new connections are opened. The
@@ -1161,7 +1156,7 @@ Bundle delta budget: `/pet` chunk < 80 KB gzipped (asserted in P6).
       delta < 2 KB gzipped (asserted).
 - [ ] Decay never produces values outside the documented 20 / 80 floors.
 - [ ] Pet writes succeed regardless of `couple.status` (no 423; pause
-      logic was rejected — see C1 / *Anti-coercion*).
+      logic was rejected — see C1 / _Anti-coercion_).
 - [ ] Wallet-vs-ledger reconciliation tool reports zero drift after
       the e2e suite.
 - [ ] Partner B's `/pet` updates within ≤ 2 s of partner A's write
@@ -1179,7 +1174,7 @@ Bundle delta budget: `/pet` chunk < 80 KB gzipped (asserted in P6).
    choice said "decay yes, never lethal". Pushing "your pet is hungry"
    violates the anti-coercion rule (N1).
 3. **Pet death / rebirth?** Explicit non-goal. Confirmed by the
-   *decay capped at 20 mood / 80 hunger* spec.
+   _decay capped at 20 mood / 80 hunger_ spec.
 4. **Cross-couple visibility?** None. The pet is private to one couple,
    exactly like every other DuoSync data type.
 5. **Re-balancing strategy?** Constants live in
@@ -1187,7 +1182,7 @@ Bundle delta budget: `/pet` chunk < 80 KB gzipped (asserted in P6).
    A balance pass = a new migration (S1 — never edit an old one) +
    a constants bump + a regression test on the new floor values.
 6. **For the human to decide before Phase 1** (P0): all five locked —
-   see *Phase 0 — RESOLVED* in §7.
+   see _Phase 0 — RESOLVED_ in §7.
 7. **New, surfaced by the second-pass review** (don't block Phase 1):
    debounce window value (N0.1), welcome-back free-treat cadence
    (N0.2), placeholder rect colour token (N0.3). Listed under §7
@@ -1208,16 +1203,16 @@ Skills:
 
 External research (cited inline above):
 
-- UX Design — *Virtual pet apps and their emotional toll* — https://uxdesign.cc/virtual-pet-apps-and-their-emotional-toll-8c06c5f9e1c (G1)
-- r/habitica — *Anyone else get really guilty about…* — https://www.reddit.com/r/habitica/comments/8vu2c5/anyone_else_get_really_guilty_about/ (G1)
-- web.dev — *Habit streaks critique / habit-forming UX* — https://web.dev/articles/habit-streaks (G2)
-- Gottman Institute — *The Four Horsemen and scorekeeping* — https://www.gottman.com/blog/the-four-horsemen-recognizing-criticism-contempt-defensiveness-and-stonewalling/ (C1)
+- UX Design — _Virtual pet apps and their emotional toll_ — https://uxdesign.cc/virtual-pet-apps-and-their-emotional-toll-8c06c5f9e1c (G1)
+- r/habitica — _Anyone else get really guilty about…_ — https://www.reddit.com/r/habitica/comments/8vu2c5/anyone_else_get_really_guilty_about/ (G1)
+- web.dev — _Habit streaks critique / habit-forming UX_ — https://web.dev/articles/habit-streaks (G2)
+- Gottman Institute — _The Four Horsemen and scorekeeping_ — https://www.gottman.com/blog/the-four-horsemen-recognizing-criticism-contempt-defensiveness-and-stonewalling/ (C1)
 - Paired science — https://paired.com/articles (C1)
-- Postgres docs — *INSERT ON CONFLICT* — https://www.postgresql.org/docs/current/sql-insert.html#SQL-ON-CONFLICT (I1, S1)
-- Postgres docs — *Advisory locks* — https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS (I1, why we don't use them)
-- Cloudflare — *Workers + databases* — https://developers.cloudflare.com/workers/databases/ (I1, P1)
-- Supabase docs — *Connecting via pgbouncer* — https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooling (P1)
+- Postgres docs — _INSERT ON CONFLICT_ — https://www.postgresql.org/docs/current/sql-insert.html#SQL-ON-CONFLICT (I1, S1)
+- Postgres docs — _Advisory locks_ — https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS (I1, why we don't use them)
+- Cloudflare — _Workers + databases_ — https://developers.cloudflare.com/workers/databases/ (I1, P1)
+- Supabase docs — _Connecting via pgbouncer_ — https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooling (P1)
 - Supabase pricing — Realtime — https://supabase.com/pricing (R1)
-- web.dev — *Optimize SVG* — https://web.dev/articles/optimize-svg (A1)
-- MDN — *prefers-reduced-motion* — https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion (A1)
-- CockroachDB — *Lost update anomaly / optimistic concurrency* — https://www.cockroachlabs.com/docs/stable/transactions.html (I2)
+- web.dev — _Optimize SVG_ — https://web.dev/articles/optimize-svg (A1)
+- MDN — _prefers-reduced-motion_ — https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion (A1)
+- CockroachDB — _Lost update anomaly / optimistic concurrency_ — https://www.cockroachlabs.com/docs/stable/transactions.html (I2)

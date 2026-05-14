@@ -11,3 +11,6 @@ bun.lockb
 /supabase/functions/
 /supabase/.temp/
 /.agent/
+
+# Auto-generated / unstable formatting
+pet-system.md
