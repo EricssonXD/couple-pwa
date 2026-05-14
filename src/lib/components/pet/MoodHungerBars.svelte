@@ -18,18 +18,48 @@
 	interface Props {
 		mood: number;
 		hunger: number;
+		/**
+		 * Treat-bounce trigger. Bumping this number (e.g. with the
+		 * snapshot.pet.version after a treat consume) plays the bounce
+		 * animation on both bars exactly once. Bumps that arrive while a
+		 * previous bounce is still playing reset the timer so the latest
+		 * action always wins. Honours prefers-reduced-motion via the
+		 * `.bouncing` styles below.
+		 */
+		pulse?: number;
 		class?: string;
 	}
 
-	let { mood, hunger, class: className = '' }: Props = $props();
+	let { mood, hunger, pulse = 0, class: className = '' }: Props = $props();
 
 	const moodPct = $derived(Math.round(((mood - MOOD_FLOOR) / (MOOD_CEIL - MOOD_FLOOR)) * 100));
 	const fullnessPct = $derived(
 		Math.round(((HUNGER_CEIL - hunger) / (HUNGER_CEIL - HUNGER_FLOOR)) * 100)
 	);
+
+	let bouncing = $state(false);
+	let bounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		// Watch pulse — every change restarts the bounce. The conditional
+		// guards against the initial render (pulse===0) so first paint is
+		// quiet.
+		if (pulse <= 0) return;
+		bouncing = false;
+		// Force a tick so the class flip restarts the CSS animation
+		// even when the previous run has not completed yet.
+		queueMicrotask(() => {
+			bouncing = true;
+			if (bounceTimer) clearTimeout(bounceTimer);
+			bounceTimer = setTimeout(() => {
+				bouncing = false;
+				bounceTimer = null;
+			}, 650);
+		});
+	});
 </script>
 
-<div class="space-y-3 {className}">
+<div class="space-y-3 {className}" class:bouncing>
 	<div>
 		<div
 			class="mb-1 flex items-center justify-between text-[11px] font-semibold tracking-wider text-base-content/60 uppercase"
@@ -93,6 +123,11 @@
 		.bar__fill {
 			animation: bar-shimmer 2.4s ease-in-out infinite;
 		}
+		.bouncing .bar__fill {
+			animation:
+				bar-shimmer 2.4s ease-in-out infinite,
+				treat-bounce 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+		}
 	}
 	@keyframes bar-shimmer {
 		0%,
@@ -101,6 +136,20 @@
 		}
 		50% {
 			opacity: 0.85;
+		}
+	}
+	@keyframes treat-bounce {
+		0% {
+			transform: scaleY(1);
+		}
+		35% {
+			transform: scaleY(1.45);
+		}
+		70% {
+			transform: scaleY(0.92);
+		}
+		100% {
+			transform: scaleY(1);
 		}
 	}
 </style>

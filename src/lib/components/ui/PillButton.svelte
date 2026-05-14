@@ -43,6 +43,7 @@
 		disabled?: boolean;
 		onclick?: (event: MouseEvent) => void;
 		ariaLabel?: string;
+		ariaPressed?: boolean;
 		class?: string;
 		children: Snippet;
 	}
@@ -56,6 +57,7 @@
 		disabled = false,
 		onclick,
 		ariaLabel,
+		ariaPressed,
 		class: className = '',
 		children
 	}: Props = $props();
@@ -100,6 +102,7 @@
 		{onclick}
 		class="{base} {variantClass} {sizeClass} {widthClass} {className}"
 		aria-label={ariaLabel}
+		aria-pressed={ariaPressed}
 	>
 		{@render children()}
 	</button>
