@@ -52,27 +52,43 @@
 //     tab switches and zero-banner UX.
 
 import { build, files, version } from '$service-worker';
+import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { StaleWhileRevalidate } from 'workbox-strategies';
+import { ExpirationPlugin } from 'workbox-expiration';
+import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
 // vite-plugin-pwa injectManifest entry point. The literal token
 // `self.__WB_MANIFEST` below is replaced at build time by workbox-build
-// with the precache manifest (hashed asset URLs + revision hashes). We
-// currently fold it into SHELL_ASSETS so the existing install handler
-// precaches it; full workbox `precacheAndRoute` adoption lands in P2.
-const WB_MANIFEST: Array<string | { url: string; revision?: string | null }> = (
-	self as unknown as { __WB_MANIFEST: Array<string | { url: string }> }
-).__WB_MANIFEST;
-const WB_URLS = (WB_MANIFEST ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.url));
+// with the precache manifest (hashed asset URLs + revision hashes).
+// `precacheAndRoute` registers a cache-first fetch handler for every
+// entry, keyed on the revision hash so old hashed assets get GC'd
+// automatically. `cleanupOutdatedCaches` removes leftover precaches from
+// previous workbox versions so they don't pile up across deploys.
+precacheAndRoute(
+	(self as unknown as { __WB_MANIFEST: Array<string | { url: string; revision?: string | null }> })
+		.__WB_MANIFEST
+);
+cleanupOutdatedCaches();
 
 const SHELL_CACHE = `duosync-shell-v${version}`;
 const HTML_CACHE = `duosync-html-v${version}`;
 const IMG_CACHE = `duosync-img-v${version}`;
+// Caches owned by THIS service worker. Anything not in this set OR
+// owned by workbox (prefix `workbox-`) is wiped at activation so old
+// `duosync-*-v<oldversion>` caches don't pile up.
 const RUNTIME_CACHES = new Set([SHELL_CACHE, HTML_CACHE, IMG_CACHE]);
+const WORKBOX_CACHE_PREFIX = 'workbox-';
 
 const OFFLINE_URL = '/offline';
-const SHELL_ASSETS = Array.from(new Set([...build, ...files, ...WB_URLS, OFFLINE_URL]));
-const SHELL_SET = new Set(SHELL_ASSETS);
+// SHELL_ASSETS is now narrowly scoped to assets the install handler
+// must guarantee are cached BEFORE first paint can complete: the offline
+// fallback page + SvelteKit-emitted build/files (which workbox already
+// precaches via __WB_MANIFEST, but addAll() here makes the contract
+// explicit and lets us keep the offline-fallback test green).
+const SHELL_ASSETS = Array.from(new Set([...build, ...files, OFFLINE_URL]));
 
 // Routes warmed at install so the home-screen launch paints from cache
 // even on a cold network. These must be public (no auth wall) OR be
@@ -206,7 +222,11 @@ sw.addEventListener('activate', (event) => {
 			}
 
 			const keys = await caches.keys();
-			await Promise.all(keys.filter((k) => !RUNTIME_CACHES.has(k)).map((k) => caches.delete(k)));
+			await Promise.all(
+				keys
+					.filter((k) => !RUNTIME_CACHES.has(k) && !k.startsWith(WORKBOX_CACHE_PREFIX))
+					.map((k) => caches.delete(k))
+			);
 
 			// Do NOT call sw.clients.claim(). That would trigger a
 			// controllerchange event on the page, which the page-side
@@ -308,100 +328,95 @@ sw.addEventListener('fetch', (event) => {
 	if (url.origin !== sw.location.origin) return;
 	if (isPrivatePath(url.pathname)) return;
 
-	// 1) Hashed build + static files → cache-first.
-	if (SHELL_SET.has(url.pathname)) {
-		event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)));
-		return;
-	}
-
-	// 2) HTML navigations + SvelteKit __data.json → stale-while-revalidate.
-	//    Cached page paints instantly; network refreshes in the background
-	//    so the next visit sees fresh content. First-ever visit waits on
-	//    the network (which is what the user would have done anyway).
+	// Hashed build + static files are precached by workbox
+	// (`precacheAndRoute` above). Same-origin images and generic GETs
+	// are served by the workbox routes registered below the install/
+	// activate block. The custom branch we still need to own is HTML
+	// navigations + SvelteKit __data.json, because:
+	//   - We use Navigation Preload (workbox NetworkFirst doesn't
+	//     consume `event.preloadResponse`).
+	//   - We need a custom fallback to the cached /offline page on a
+	//     navigation miss, distinct from a generic catch-handler.
+	// Everything else returns without calling event.respondWith() and
+	// falls through to the workbox-registered route handlers.
 	const isHtml =
 		request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html');
 	const isData = isDataRequest(url.pathname);
-	if (isHtml || isData) {
-		event.respondWith(
-			(async () => {
-				const cache = await caches.open(HTML_CACHE);
-				const cached = await cache.match(request);
+	if (!isHtml && !isData) return;
 
-				const network = (async () => {
-					try {
-						// Use the navigation-preload response if available — it
-						// began before this fetch handler ran.
-						const preload =
-							isHtml && 'preloadResponse' in event
-								? await (event as FetchEvent).preloadResponse
-								: undefined;
-						const response = preload ?? (await fetch(request));
-						if (response.ok && response.type === 'basic') {
-							const copy = response.clone();
-							await cache.put(request, copy);
-							trimCache(HTML_CACHE, HTML_CACHE_MAX);
-						}
-						return response;
-					} catch {
-						if (cached) return cached;
-						if (isHtml) {
-							const offline = await caches.match(OFFLINE_URL);
-							if (offline) return offline;
-						}
-						return Response.error();
-					}
-				})();
-
-				// SWR: serve cache instantly when present; let the network
-				// fetch settle (and update the cache) in the background.
-				if (cached) {
-					event.waitUntil(network.catch(() => {}));
-					return cached;
-				}
-				return network;
-			})()
-		);
-		return;
-	}
-
-	// 3) Images → stale-while-revalidate.
-	if (request.destination === 'image') {
-		event.respondWith(
-			(async () => {
-				const cache = await caches.open(IMG_CACHE);
-				const cached = await cache.match(request);
-				const network = fetch(request)
-					.then((response) => {
-						if (response.ok) {
-							cache.put(request, response.clone());
-							trimCache(IMG_CACHE, IMG_CACHE_MAX);
-						}
-						return response;
-					})
-					.catch(() => cached);
-				return cached ?? network;
-			})()
-		);
-		return;
-	}
-
-	// 4) Everything else (scripts/styles/json from this origin) → SWR.
 	event.respondWith(
 		(async () => {
-			const cache = await caches.open(SHELL_CACHE);
+			const cache = await caches.open(HTML_CACHE);
 			const cached = await cache.match(request);
-			const network = fetch(request)
-				.then((response) => {
+
+			const network = (async () => {
+				try {
+					// Use the navigation-preload response if available — it
+					// began before this fetch handler ran.
+					const preload =
+						isHtml && 'preloadResponse' in event
+							? await (event as FetchEvent).preloadResponse
+							: undefined;
+					const response = preload ?? (await fetch(request));
 					if (response.ok && response.type === 'basic') {
-						cache.put(request, response.clone());
+						const copy = response.clone();
+						await cache.put(request, copy);
+						trimCache(HTML_CACHE, HTML_CACHE_MAX);
 					}
 					return response;
-				})
-				.catch(() => cached);
-			return cached ?? network;
+				} catch {
+					if (cached) return cached;
+					if (isHtml) {
+						const offline = await caches.match(OFFLINE_URL);
+						if (offline) return offline;
+					}
+					return Response.error();
+				}
+			})();
+
+			// SWR: serve cache instantly when present; let the network
+			// fetch settle (and update the cache) in the background.
+			if (cached) {
+				event.waitUntil(network.catch(() => {}));
+				return cached;
+			}
+			return network;
 		})()
 	);
 });
+
+// Workbox runtime routes for everything OTHER than navigations / data.
+// Registered AFTER the navigation handler above so they only see
+// requests we explicitly let fall through.
+
+// Same-origin images → SWR with an LRU-bounded cache.
+registerRoute(
+	({ url, request }) => url.origin === sw.location.origin && request.destination === 'image',
+	new StaleWhileRevalidate({
+		cacheName: IMG_CACHE,
+		plugins: [
+			new CacheableResponsePlugin({ statuses: [0, 200] }),
+			new ExpirationPlugin({ maxEntries: IMG_CACHE_MAX, purgeOnQuotaError: true })
+		]
+	})
+);
+
+// Same-origin scripts/styles/json that workbox's precache didn't claim
+// (e.g. dynamic /quizzes/*.json, /widgets/*.template.json fetched at
+// runtime). SWR keeps them snappy and alive offline.
+registerRoute(
+	({ url, request }) =>
+		url.origin === sw.location.origin &&
+		!isPrivatePath(url.pathname) &&
+		(request.destination === 'script' ||
+			request.destination === 'style' ||
+			request.destination === 'font' ||
+			request.destination === '') /* fetch() with no destination */,
+	new StaleWhileRevalidate({
+		cacheName: SHELL_CACHE,
+		plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })]
+	})
+);
 
 // R1: Background Sync — drain the offline write queue when the OS
 // reports connectivity restored, even if the tab is closed. Mirrors
