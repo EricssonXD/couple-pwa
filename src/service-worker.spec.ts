@@ -19,7 +19,12 @@ describe('service-worker offline precache contract', () => {
 
 	it('includes OFFLINE_URL in SHELL_ASSETS', () => {
 		const src = readFileSync(swPath, 'utf8');
-		expect(src).toMatch(/SHELL_ASSETS\s*=\s*\[[^\]]*OFFLINE_URL[^\]]*\]/);
+		// SHELL_ASSETS now folds in the workbox precache manifest via
+		// `Set([...build, ...files, ...WB_URLS, OFFLINE_URL])`. The
+		// regex tolerates either the legacy literal array form or the
+		// new Set-wrapped form — what we care about is OFFLINE_URL still
+		// appearing in the assignment expression.
+		expect(src).toMatch(/SHELL_ASSETS\s*=[\s\S]*?OFFLINE_URL[\s\S]*?\)/);
 	});
 
 	it('caches SHELL_ASSETS during install', () => {

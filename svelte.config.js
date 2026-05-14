@@ -5,6 +5,14 @@ import adapter from '@sveltejs/adapter-cloudflare';
 const config = {
 	kit: {
 		adapter: adapter(),
+		// vite-plugin-pwa (configured in vite.config.ts) owns the service
+		// worker lifecycle — registration, update detection, prompt API.
+		// Disable SvelteKit's built-in registration so the two don't fight.
+		// `src/service-worker.ts` is still the SW source; vite-pwa builds
+		// it via `injectManifest` strategy.
+		serviceWorker: {
+			register: false
+		},
 		csp: {
 			// 'hash' works for both prerendered and dynamic responses
 			// (nonce mode breaks prerender because nonces are per-request).

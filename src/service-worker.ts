@@ -55,13 +55,23 @@ import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
+// vite-plugin-pwa injectManifest entry point. The literal token
+// `self.__WB_MANIFEST` below is replaced at build time by workbox-build
+// with the precache manifest (hashed asset URLs + revision hashes). We
+// currently fold it into SHELL_ASSETS so the existing install handler
+// precaches it; full workbox `precacheAndRoute` adoption lands in P2.
+const WB_MANIFEST: Array<string | { url: string; revision?: string | null }> = (
+	self as unknown as { __WB_MANIFEST: Array<string | { url: string }> }
+).__WB_MANIFEST;
+const WB_URLS = (WB_MANIFEST ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.url));
+
 const SHELL_CACHE = `duosync-shell-v${version}`;
 const HTML_CACHE = `duosync-html-v${version}`;
 const IMG_CACHE = `duosync-img-v${version}`;
 const RUNTIME_CACHES = new Set([SHELL_CACHE, HTML_CACHE, IMG_CACHE]);
 
 const OFFLINE_URL = '/offline';
-const SHELL_ASSETS = [...build, ...files, OFFLINE_URL];
+const SHELL_ASSETS = Array.from(new Set([...build, ...files, ...WB_URLS, OFFLINE_URL]));
 const SHELL_SET = new Set(SHELL_ASSETS);
 
 // Routes warmed at install so the home-screen launch paints from cache

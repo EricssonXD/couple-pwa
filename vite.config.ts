@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
@@ -15,6 +16,54 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit(),
+		// Service worker delivery: vite-plugin-pwa (via @vite-pwa/sveltekit)
+		// owns SW lifecycle. SvelteKit's built-in SW registration is disabled
+		// in svelte.config.js (kit.serviceWorker.register = false) so the
+		// runtime doesn't auto-register `src/service-worker.ts` — vite-pwa
+		// builds and registers its own bundle from the same source file.
+		//
+		// Strategy: `injectManifest` keeps our hand-written SW (PURGE_USER_CACHES
+		// handler, R1 IDB queue drain, push, widget refresh, custom auth
+		// carve-out) and injects the precache manifest (`self.__WB_MANIFEST`)
+		// at build time. We progressively migrate the runtime caching inside
+		// `service-worker.ts` to workbox helpers in P2.
+		//
+		// `registerType: 'prompt'` exposes `onNeedRefresh` to the page so we
+		// can keep the auto-apply-at-navigation hook AND surface a small
+		// banner for power users who want to update immediately.
+		SvelteKitPWA({
+			strategies: 'injectManifest',
+			srcDir: 'src',
+			filename: 'service-worker.ts',
+			registerType: 'prompt',
+			// We register the SW ourselves in `src/lib/pwa/register.ts` and
+			// orchestrate the auto-apply-at-navigation flow from
+			// `+layout.svelte`. P3 of the migration replaces register.ts
+			// with vite-pwa's `registerSW`; until then we keep both
+			// out of each other's way.
+			injectRegister: false,
+			// Manifest is hand-maintained at static/manifest.webmanifest;
+			// vite-pwa would happily generate one but we already have a
+			// curated version with shortcuts, screenshots, widgets etc.
+			manifest: false,
+			injectManifest: {
+				// SvelteKit emits hashed assets under `_app/immutable/`; vite-pwa's
+				// default glob already covers js/css/svg/png — this just bumps the
+				// per-file size cap because the leaflet chunk is ~150KB.
+				maximumFileSizeToCacheInBytes: 3 * 1024 * 1024
+			},
+			devOptions: {
+				// Don't register the SW in `vite dev` — it caches stale dev
+				// builds across HMR and creates "why is my edit not showing"
+				// confusion. Production-only behavior matches the previous
+				// hand-rolled register.ts.
+				enabled: false,
+				type: 'module'
+			},
+			kit: {
+				includeVersionFile: false
+			}
+		}),
 		devtoolsJson(),
 		paraglideVitePlugin({
 			project: './project.inlang',

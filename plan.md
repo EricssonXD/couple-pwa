@@ -6,6 +6,55 @@
 
 ---
 
+## ⏳ ACTIVE: Migrate to vite-plugin-pwa (Option B + prompt+auto UX)
+
+User mandate (this session): replace SvelteKit-built `src/service-worker.ts`
+with vite-plugin-pwa. Workbox-managed runtime caching. Keep ALL current
+behavior. Ship a small prompt banner ALONGSIDE the existing auto-apply at
+navigation boundary.
+
+### Phasing (one commit per phase)
+
+- **P1a** Install `@vite-pwa/sveltekit` + workbox deps. Wire into
+  `vite.config.ts` with `strategies: 'injectManifest'`, `srcDir: 'src'`,
+  `filename: 'service-worker.ts'`. Set SvelteKit `kit.serviceWorker.register
+= false` so vite-pwa owns registration. SW behavior unchanged in this
+  step — purely transport swap.
+- **P1b** Validate: `bun run build`, `bun run check`, all e2e offline
+  suites still green.
+- **P2** Replace our hand-rolled fetch handler with workbox helpers
+  (`precacheAndRoute(self.__WB_MANIFEST)`, `registerRoute` + `StaleWhileRevalidate`
+  - `ExpirationPlugin`). Keep `injectManifest` so we can still embed the
+    custom message handlers (PURGE_USER_CACHES, SKIP_WAITING) and the
+    R1 background-sync queue drain — workbox's BackgroundSyncPlugin has
+    different replay semantics than our IDB queue and would force a behavior
+    diff with the foreground installQueueRunner mirror.
+- **P3** Replace `src/lib/pwa/register.ts` poll loop with vite-pwa's
+  `registerSW({ onNeedRefresh, onOfflineReady })`. Keep our beforeNavigate
+  auto-apply hook on top. Re-introduce `UpdatePromptBanner.svelte` (small
+  bottom-right pill) that shows on `onNeedRefresh` so power users can
+  click to update immediately rather than wait for the next nav.
+- **P4** CSP audit: confirm `worker-src 'self'` covers workbox's
+  `importScripts` chunks; confirm no new `script-src` entries needed.
+- **P5** Tests: rewrite `src/service-worker.spec.ts` for the new
+  structure; add Playwright e2e for "old SW → deploy → banner appears →
+  click reload → new SW serving". Re-run all offline e2e.
+- **P6** Docs: add `docs/pwa-update-flow.md`. Prune deprecated bits in
+  CLAUDE.md, AGENTS.md. Fix `pet-system.md` prettier debt while we're in
+  the area. Mark this section ✅ in Roadmap when done.
+
+### Trade-offs accepted
+
+- ~50KB dev-deps (workbox-build).
+- ~15-20KB gzipped runtime addition for workbox in the SW. Acceptable
+  for declarative caching + maintained-by-Google semantics.
+- Pure `generateSW` mode is rejected: it cannot embed our PURGE handler,
+  widget refresh, push handler, or our IDB-backed R1 queue — porting
+  R1 to workbox's BackgroundSyncPlugin would force a behavior diff.
+  We use `injectManifest` with workbox helpers internally — best of both.
+
+---
+
 ## Routing & offline flow (current, do not regress)
 
 The "logged-in user briefly sees /welcome" and "/auth bounce strands
