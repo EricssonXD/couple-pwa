@@ -192,3 +192,61 @@ export type PetSnapshot = {
 	serverNow: string;
 	welcomeBack: { granted: true; treatId: string } | null;
 };
+
+// ─── Shop & inventory (P4) ────────────────────────────────────────────────
+
+export const SHOP_ITEM_KINDS = ['cosmetic', 'treat', 'furniture', 'buff'] as const;
+export type ShopItemKind = (typeof SHOP_ITEM_KINDS)[number];
+
+export type PetShopItemPublic = {
+	id: string;
+	kind: ShopItemKind;
+	slot: string | null;
+	nameKey: string;
+	descriptionKey: string;
+	priceCoins: number;
+	minStage: Stage;
+	sortOrder: number;
+};
+
+export type PetInventoryEntry = {
+	itemId: string;
+	qty: number;
+	equipped: boolean;
+	slot: string | null;
+};
+
+/**
+ * Shop catalogue row joined with this couple's ownership state. The UI
+ * renders the shop grid and Wardrobe tab from the same array, filtering
+ * by `kind` and `ownedQty`.
+ */
+export type ShopItemView = PetShopItemPublic & {
+	ownedQty: number;
+	equipped: boolean;
+	unlocked: boolean;
+};
+
+/**
+ * Returned by every Phase 4 mutator (`buyItem`, `equipCosmetic`,
+ * `consumeTreat`). Bundles the fresh PetSnapshot with the post-write
+ * inventory so the client can replace both in one round-trip and drop
+ * any "/api/pet/inventory" follow-up call.
+ */
+export type PetMutationResult = {
+	snapshot: PetSnapshot;
+	inventory: PetInventoryEntry[];
+};
+
+/**
+ * Stage gating: an item is unlocked when the pet's current stage is at
+ * or above `minStage`. Egg < baby < grown. Used by both `buyItem`
+ * (server) and the Shop tab (client) so the buy button reflects the
+ * same eligibility the route enforces.
+ */
+export function stageUnlocks(petStage: Stage | null, minStage: Stage): boolean {
+	if (!petStage) return minStage === 'egg';
+	const order = STAGES.indexOf(petStage);
+	const need = STAGES.indexOf(minStage);
+	return order >= need;
+}

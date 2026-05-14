@@ -11,7 +11,7 @@
 
 import { and, eq, gt, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { pet, petInventory, petLedger, petWallet } from '$lib/server/db/schema';
+import { pet, petInventory, petLedger, petShopItem, petWallet } from '$lib/server/db/schema';
 import { broadcastToCouple } from '$lib/server/realtime';
 import { recordAudit } from '$lib/server/services/audit';
 import {
@@ -19,18 +19,29 @@ import {
 	NAME_MAX,
 	NAME_MIN,
 	SPECIES,
+	TREAT_EFFECTS,
+	HUNGER_CEIL,
+	HUNGER_FLOOR,
+	MOOD_CEIL,
+	MOOD_FLOOR,
 	WELCOME_BACK_DEDUPE_DAYS,
 	WELCOME_BACK_INACTIVE_DAYS,
 	WELCOME_BACK_TREAT_ID,
 	computePay,
 	projectDecay,
 	stageForXp,
+	stageUnlocks,
 	todayKey,
 	type EarnSource,
 	type EquippedItem,
+	type PetInventoryEntry,
+	type PetMutationResult,
 	type PetPublic,
 	type PetSnapshot,
+	type ShopItemKind,
+	type ShopItemView,
 	type Species,
+	type Stage,
 	type WalletPublic
 } from '$lib/pet.constants';
 
@@ -552,4 +563,434 @@ async function bumpPetAtomic(
 		.where(and(eq(pet.coupleId, coupleId), eq(pet.version, existing.version)))
 		.returning({ version: pet.version });
 	if (updated.length === 0) throw new VersionConflictError('pet');
+}
+
+// ─── Phase 4 — Shop, inventory, treats, equip ─────────────────────────────
+//
+// Mutators (`buyItem`, `equipCosmetic`, `consumeTreat`) follow the same
+// optimistic-version pattern as `awardForEvent`: a 3× retry loop wraps a
+// single tx that reads version → writes WHERE version=read → throws
+// `VersionConflictError` on mismatch. Spend ledger rows have
+// `dedupeKey=null` (replays are user-initiated, not automatic).
+//
+// Service is pure: the route layer calls `broadcastPetState` after a
+// successful mutation so service tests don't need the realtime mock to
+// fire-and-forget. (B5 — broadcast is best-effort, never blocks the
+// write path.)
+
+export type PetShopErrorCode =
+	| 'item_not_found'
+	| 'item_locked'
+	| 'item_disabled'
+	| 'item_already_owned'
+	| 'item_not_treat'
+	| 'item_not_cosmetic'
+	| 'inventory_empty'
+	| 'insufficient_coins'
+	| 'pet_not_found'
+	| 'treat_effect_missing';
+
+export class PetShopError extends Error {
+	readonly code: PetShopErrorCode;
+	constructor(code: PetShopErrorCode, message?: string) {
+		super(message ?? code);
+		this.name = 'PetShopError';
+		this.code = code;
+	}
+}
+
+const SHOP_RETRY_LIMIT = 3;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+function shopItemRowToPublic(row: typeof petShopItem.$inferSelect) {
+	return {
+		id: row.id,
+		kind: row.kind as ShopItemKind,
+		slot: row.slot,
+		nameKey: row.nameKey,
+		descriptionKey: row.descriptionKey,
+		priceCoins: row.priceCoins,
+		minStage: row.minStage as Stage,
+		sortOrder: row.sortOrder
+	};
+}
+
+function inventoryRowToPublic(
+	row: Pick<typeof petInventory.$inferSelect, 'itemId' | 'qty' | 'equipped' | 'slot'>
+): PetInventoryEntry {
+	return {
+		itemId: row.itemId,
+		qty: row.qty,
+		equipped: row.equipped,
+		slot: row.slot
+	};
+}
+
+async function readInventory(coupleId: string): Promise<PetInventoryEntry[]> {
+	const rows = await db
+		.select({
+			itemId: petInventory.itemId,
+			qty: petInventory.qty,
+			equipped: petInventory.equipped,
+			slot: petInventory.slot
+		})
+		.from(petInventory)
+		.where(eq(petInventory.coupleId, coupleId));
+	return rows.map(inventoryRowToPublic);
+}
+
+async function buildMutationResult(coupleId: string): Promise<PetMutationResult> {
+	const [snapshot, inventory] = await Promise.all([getPetState(coupleId), readInventory(coupleId)]);
+	return { snapshot, inventory };
+}
+
+/** Current pet stage from xp, or null when no pet exists. */
+async function readPetStage(coupleId: string): Promise<Stage | null> {
+	const [row] = await db
+		.select({ xp: pet.xp })
+		.from(pet)
+		.where(eq(pet.coupleId, coupleId))
+		.limit(1);
+	if (!row) return null;
+	return stageForXp(row.xp);
+}
+
+// ─── listShopItems ───────────────────────────────────────────────────────
+
+/**
+ * Public catalogue + per-couple ownership state. Disabled items
+ * (`enabled=false`, e.g. Phase 5 buffs) are filtered out — the route
+ * never exposes them and `buyItem` rejects them too. Sorted by
+ * `sort_order` so the UI renders cosmetics, treats, furniture in a
+ * stable, designer-controlled order.
+ */
+export async function listShopItems(coupleId: string): Promise<ShopItemView[]> {
+	const [items, inventory, stage] = await Promise.all([
+		db
+			.select()
+			.from(petShopItem)
+			.where(eq(petShopItem.enabled, true))
+			.orderBy(petShopItem.sortOrder),
+		readInventory(coupleId),
+		readPetStage(coupleId)
+	]);
+
+	const ownedById = new Map<string, PetInventoryEntry>();
+	for (const inv of inventory) ownedById.set(inv.itemId, inv);
+
+	return items.map((row) => {
+		const pub = shopItemRowToPublic(row);
+		const owned = ownedById.get(pub.id);
+		return {
+			...pub,
+			ownedQty: owned?.qty ?? 0,
+			equipped: owned?.equipped ?? false,
+			unlocked: stageUnlocks(stage, pub.minStage)
+		};
+	});
+}
+
+// ─── buyItem ─────────────────────────────────────────────────────────────
+
+/**
+ * Spend coins for a shop item.
+ *
+ * Errors → HTTP mapping in route:
+ *   - item_not_found / item_disabled → 404
+ *   - item_locked                    → 403  (pet stage < minStage)
+ *   - item_already_owned             → 409  (cosmetic/furniture only)
+ *   - insufficient_coins             → 402
+ *
+ * Concurrency: two parallel buys on the same wallet — one wins, the
+ * other re-reads after retry. If the loser now over-spends, it returns
+ * `insufficient_coins` (402). We deliberately do NOT return 409 for
+ * lost version races; the user-facing answer is always "did you have
+ * the coins or not", checked at write time.
+ */
+export async function buyItem(
+	coupleId: string,
+	userId: string | null,
+	itemId: string
+): Promise<PetMutationResult> {
+	const [item] = await db.select().from(petShopItem).where(eq(petShopItem.id, itemId)).limit(1);
+	if (!item) throw new PetShopError('item_not_found');
+	if (!item.enabled) throw new PetShopError('item_disabled');
+
+	const stage = await readPetStage(coupleId);
+	if (!stageUnlocks(stage, item.minStage as Stage)) {
+		throw new PetShopError('item_locked');
+	}
+
+	const isStackable = item.kind === 'treat';
+	const price = item.priceCoins;
+	const itemKind = item.kind as ShopItemKind;
+	const itemSlot = item.slot;
+
+	// Provision the wallet outside the retry loop so we never race
+	// against the wallet creation itself.
+	await ensureWallet(coupleId);
+
+	for (let attempt = 0; attempt < SHOP_RETRY_LIMIT; attempt += 1) {
+		try {
+			await db.transaction(async (tx) => {
+				const [wallet] = await tx
+					.select({ coins: petWallet.coins, version: petWallet.version })
+					.from(petWallet)
+					.where(eq(petWallet.coupleId, coupleId))
+					.limit(1);
+				if (!wallet) throw new VersionConflictError('wallet');
+				if (wallet.coins < price) throw new PetShopError('insufficient_coins');
+
+				const [existingInv] = await tx
+					.select({ id: petInventory.id, qty: petInventory.qty })
+					.from(petInventory)
+					.where(and(eq(petInventory.coupleId, coupleId), eq(petInventory.itemId, itemId)))
+					.limit(1);
+
+				if (existingInv && !isStackable) {
+					throw new PetShopError('item_already_owned');
+				}
+
+				const updated = await tx
+					.update(petWallet)
+					.set({
+						coins: sql`${petWallet.coins} - ${price}`,
+						version: wallet.version + 1,
+						updatedAt: new Date()
+					})
+					.where(and(eq(petWallet.coupleId, coupleId), eq(petWallet.version, wallet.version)))
+					.returning({ version: petWallet.version });
+				if (updated.length === 0) throw new VersionConflictError('wallet');
+
+				await tx.insert(petLedger).values({
+					coupleId,
+					userId,
+					kind: 'spend',
+					source: `shop:${itemId}`,
+					coinsDelta: -price,
+					xpDelta: 0,
+					dedupeKey: null
+				});
+
+				if (existingInv) {
+					await tx
+						.update(petInventory)
+						.set({ qty: existingInv.qty + 1 })
+						.where(eq(petInventory.id, existingInv.id));
+				} else {
+					await tx.insert(petInventory).values({
+						coupleId,
+						itemId,
+						slot: itemKind === 'cosmetic' ? itemSlot : null,
+						qty: 1,
+						equipped: false
+					});
+				}
+			});
+
+			return buildMutationResult(coupleId);
+		} catch (err) {
+			if (err instanceof VersionConflictError) continue;
+			throw err;
+		}
+	}
+
+	// Exhausted retries — treat the same as a balance failure so the
+	// user sees a deterministic error rather than a 5xx. This matches
+	// the rubber-duck guidance: the user-facing answer is "did you have
+	// the coins?", and after 3 attempts we say no.
+	throw new PetShopError('insufficient_coins');
+}
+
+// ─── equipCosmetic ───────────────────────────────────────────────────────
+
+/**
+ * Toggle a cosmetic on/off. Equipping auto-unequips any other item in
+ * the same slot in the SAME tx, so the partial unique index
+ * `pet_inventory_equipped_slot_uq` is a backstop, not the primary
+ * mechanism. Only cosmetics support equip — treats/furniture/buffs
+ * raise `item_not_cosmetic`.
+ *
+ * Idempotent in both directions: equipping an already-equipped item
+ * returns success without writing.
+ */
+export async function equipCosmetic(
+	coupleId: string,
+	itemId: string,
+	equipped: boolean
+): Promise<PetMutationResult> {
+	const [item] = await db
+		.select({ kind: petShopItem.kind, slot: petShopItem.slot })
+		.from(petShopItem)
+		.where(eq(petShopItem.id, itemId))
+		.limit(1);
+	if (!item) throw new PetShopError('item_not_found');
+	if (item.kind !== 'cosmetic') throw new PetShopError('item_not_cosmetic');
+	const slot = item.slot;
+	if (!slot) throw new PetShopError('item_not_cosmetic');
+
+	try {
+		await db.transaction(async (tx) => {
+			const [inv] = await tx
+				.select({ id: petInventory.id, qty: petInventory.qty, equipped: petInventory.equipped })
+				.from(petInventory)
+				.where(and(eq(petInventory.coupleId, coupleId), eq(petInventory.itemId, itemId)))
+				.limit(1);
+			if (!inv || inv.qty <= 0) throw new PetShopError('inventory_empty');
+			if (inv.equipped === equipped) return; // already in target state
+
+			if (equipped) {
+				// Drop any other item already occupying this slot.
+				await tx
+					.update(petInventory)
+					.set({ equipped: false })
+					.where(
+						and(
+							eq(petInventory.coupleId, coupleId),
+							eq(petInventory.slot, slot),
+							eq(petInventory.equipped, true)
+						)
+					);
+			}
+
+			await tx
+				.update(petInventory)
+				.set({ equipped, slot: equipped ? slot : null })
+				.where(eq(petInventory.id, inv.id));
+		});
+	} catch (err) {
+		// Defensive: the auto-unequip above should make 23505 impossible,
+		// but a parallel equip on the same slot could still race. Treat
+		// it as a soft conflict — caller can retry from fresh state.
+		if (
+			err &&
+			typeof err === 'object' &&
+			'code' in err &&
+			(err as { code: string }).code === '23505'
+		) {
+			throw new PetShopError('inventory_empty', 'equip slot conflict');
+		}
+		throw err;
+	}
+
+	return buildMutationResult(coupleId);
+}
+
+// ─── consumeTreat ────────────────────────────────────────────────────────
+
+/**
+ * Eat one treat: bump mood, drop hunger, decrement qty (row stays at
+ * qty=0, never deleted, so the wardrobe can show "out of stock"). The
+ * pet write is the same projectDecay→update pattern `bumpPetAtomic`
+ * uses, so mood/hunger always flow forward in time.
+ *
+ * Treat effects come from `TREAT_EFFECTS` in pet.constants — that is
+ * the source of truth, not the price column or the spec text.
+ *
+ * Errors:
+ *   - item_not_found / item_disabled / item_not_treat → 4xx
+ *   - inventory_empty                                 → 409
+ *   - pet_not_found                                   → 409
+ *   - item_locked                                     → 403  (stage gated)
+ *   - treat_effect_missing                            → 500-ish (data bug)
+ */
+export async function consumeTreat(
+	coupleId: string,
+	userId: string | null,
+	itemId: string
+): Promise<PetMutationResult> {
+	const [item] = await db
+		.select({
+			kind: petShopItem.kind,
+			enabled: petShopItem.enabled,
+			minStage: petShopItem.minStage
+		})
+		.from(petShopItem)
+		.where(eq(petShopItem.id, itemId))
+		.limit(1);
+	if (!item) throw new PetShopError('item_not_found');
+	if (!item.enabled) throw new PetShopError('item_disabled');
+	if (item.kind !== 'treat') throw new PetShopError('item_not_treat');
+
+	const effect = TREAT_EFFECTS[itemId];
+	if (!effect) throw new PetShopError('treat_effect_missing');
+
+	const stage = await readPetStage(coupleId);
+	if (!stage) throw new PetShopError('pet_not_found');
+	if (!stageUnlocks(stage, item.minStage as Stage)) {
+		throw new PetShopError('item_locked');
+	}
+
+	for (let attempt = 0; attempt < SHOP_RETRY_LIMIT; attempt += 1) {
+		try {
+			await db.transaction(async (tx) => {
+				const [petRow] = await tx.select().from(pet).where(eq(pet.coupleId, coupleId)).limit(1);
+				if (!petRow) throw new PetShopError('pet_not_found');
+
+				const [inv] = await tx
+					.select({ id: petInventory.id, qty: petInventory.qty })
+					.from(petInventory)
+					.where(and(eq(petInventory.coupleId, coupleId), eq(petInventory.itemId, itemId)))
+					.limit(1);
+				if (!inv || inv.qty <= 0) throw new PetShopError('inventory_empty');
+
+				const now = new Date();
+				const projected = projectDecay(
+					{
+						mood: petRow.mood,
+						hunger: petRow.hunger,
+						moodUpdatedAt: petRow.moodUpdatedAt,
+						hungerUpdatedAt: petRow.hungerUpdatedAt
+					},
+					now
+				);
+				const newMood = Math.min(MOOD_CEIL, Math.max(MOOD_FLOOR, projected.mood + effect.mood));
+				const newHunger = Math.min(
+					HUNGER_CEIL,
+					Math.max(HUNGER_FLOOR, projected.hunger - effect.hunger)
+				);
+
+				const updated = await tx
+					.update(pet)
+					.set({
+						mood: newMood,
+						hunger: newHunger,
+						moodUpdatedAt: now,
+						hungerUpdatedAt: now,
+						version: petRow.version + 1
+					})
+					.where(and(eq(pet.coupleId, coupleId), eq(pet.version, petRow.version)))
+					.returning({ version: pet.version });
+				if (updated.length === 0) throw new VersionConflictError('pet');
+
+				const decremented = await tx
+					.update(petInventory)
+					.set({ qty: inv.qty - 1, equipped: false })
+					.where(and(eq(petInventory.id, inv.id), gt(petInventory.qty, 0)))
+					.returning({ id: petInventory.id });
+				if (decremented.length === 0) throw new PetShopError('inventory_empty');
+
+				await tx.insert(petLedger).values({
+					coupleId,
+					userId,
+					kind: 'spend',
+					source: `treat:${itemId}`,
+					coinsDelta: 0,
+					xpDelta: 0,
+					dedupeKey: null
+				});
+			});
+
+			return buildMutationResult(coupleId);
+		} catch (err) {
+			if (err instanceof VersionConflictError) continue;
+			throw err;
+		}
+	}
+
+	// Pet version contended out — surface as inventory_empty so the
+	// caller retries from a fresh GET. This is exceptionally rare since
+	// only the partner's earn pipeline writes to pet too.
+	throw new PetShopError('inventory_empty', 'pet version contention');
 }
