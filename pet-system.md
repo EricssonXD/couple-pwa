@@ -46,7 +46,7 @@ mitigation that is _baked into this plan_.
 | **P2** | **`db:generate` introspection on a manual-SQL repo will produce a phantom diff** — this repo's migrations live in `drizzle/manual/` and `drizzle.config.ts` only ignores PostGIS / auth schemas.                                                                                                                                                                                                                | We **do not** run `bun run db:generate`. New tables are added via a hand-written `drizzle/manual/0022_pet.sql` migration applied with the existing `db:migrate` flow, and the Drizzle table objects are appended to `app.schema.ts` purely so the typed query builder works. (P1.1 rewritten accordingly.)                                                                                                                                                                                                                                                                                                                                                                                 |
 | **S1** | **Seed data drift** — if shop prices change in code, an existing prod row keeps the old price. Migrations re-running is also dangerous.                                                                                                                                                                                                                                                                         | Seed via `INSERT … ON CONFLICT (id) DO UPDATE SET …` in a dedicated migration. New balance passes ship a _new_ migration, never edit an old one. The `enabled` flag lets us retire items without deleting ledger references.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **A1** | **36 inline SVGs (4 species × 3 stages × 3 moods) blow the bundle** — even at 800 B each that's ~28 KB raw / ~6 KB gzipped ([web.dev — SVG optimization](https://web.dev/articles/optimize-svg)). Acceptable but per-route.                                                                                                                                                                                     | Lazy-load species sprites **only on `/pet`** via dynamic `import()`; `/pulse` badge uses one tiny shared sprite (current species + current stage + current mood ≈ 1 SVG ~1 KB). Run all assets through SVGO in build (already done).                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **R1** | **Realtime sync between partners adds a channel-message per earn** — at scale that's non-trivial Supabase Realtime quota for cosmetic value.                                                                                                                                                                                                                                                                    | **v1 ships a single `pet_state_changed` snapshot broadcast** debounced server-side at 2 s per couple. Bounded by earn rate (≤ 7 writes/day/couple typical). Two subscribers per couple → ≤ 14 messages/day/couple — three orders of magnitude under the Free tier 2 M/month quota even at 100 k couples ([Supabase Realtime pricing](https://supabase.com/docs/guides/realtime/pricing) — 2 M msg/mo Free, 5 M Pro, $2.50/M overage; counted as 1 send + 1 per receiver, so a broadcast to 2 partners = 3 messages). Decay is **never** broadcast — clients project it locally from `(stored_value, updated_at, now())` so partners always agree without traffic (see _Real-time sync_ §). |
+| **R1** | **Realtime sync between partners adds a channel-message per earn** — at scale that's non-trivial Supabase Realtime quota for cosmetic value.                                                                                                                                                                                                                                                                    | **v1 ships a single `pet_state_changed` snapshot broadcast per write — broadcast-on-commit, no in-isolate timers (B2 fix).** RAF-coalesced on the receiver. Bounded by earn rate (≤ 7 writes/day/couple typical). Two subscribers per couple → ≤ 21 messages/day/couple — three orders of magnitude under the Free tier 2 M/month quota even at 100 k couples ([Supabase Realtime pricing](https://supabase.com/docs/guides/realtime/pricing) — 2 M msg/mo Free, 5 M Pro, $2.50/M overage; counted as 1 send + 1 per receiver, so a broadcast to 2 partners = 3 messages). Decay is **never** broadcast — clients project it locally from `(stored_value, updated_at, serverNow + clockOffset)` so partners always agree without traffic (see _Real-time sync_ §). |
 | **N1** | **"Your pet is hungry" pushes are textbook obligation-engagement** — exactly the anti-pattern Finch is criticised for.                                                                                                                                                                                                                                                                                          | Explicit non-goal. The pet is never the subject of a push. Codified in the `pet_*` push-kind allow-list (none).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ---
@@ -360,12 +360,21 @@ export const petInventory = pgTable(
 	(t) => [
 		index('pet_inventory_couple_idx').on(t.coupleId),
 		uniqueIndex('pet_inventory_couple_item_uq').on(t.coupleId, t.itemId),
-		// Partial: at most ONE equipped row per (couple, slot). Enforced via
-		// a partial unique index joined to pet_shop_item at migration time
-		// using a generated column or a trigger — see 0022_pet.sql.
+		// W6 fix — slot is DENORMALIZED onto pet_inventory at insert time
+		// (copied from pet_shop_item.slot). Postgres cannot enforce the
+		// "one equipped per slot" constraint via a joined partial index,
+		// so we put `slot text` on this row and use the partial unique
+		// index below. `equipCosmetic` MUST also unequip the previous
+		// occupant inside the same transaction (no DB trigger; explicit
+		// service-layer unset → set, both inside one tx).
+		uniqueIndex('pet_inventory_equipped_slot_uq')
+			.on(t.coupleId, t.slot)
+			.where(sql`${t.equipped} and ${t.slot} is not null`),
 		check('pet_inventory_qty_chk', sql`${t.qty} >= 0`)
 	]
 );
+// NOTE: add `slot: text('slot')` to the column list above (nullable;
+// only set for cosmetics). Treats / furniture / buffs leave it null.
 
 // Phase 5 only — buffs with active windows. Punted from v1 schema.
 // Slug carried here for migration planning, NOT created in P1.
@@ -392,25 +401,58 @@ a few ms after both having submitted). The single source of truth is
 the partial unique index `pet_ledger_dedupe_uq`.
 
 ```ts
-// All inside one Postgres transaction (BEGIN ... COMMIT):
-const [inserted] = await tx
-	.insert(petLedger)
-	.values({ coupleId, userId, kind: 'earn', source, coinsDelta, xpDelta, dedupeKey })
-	.onConflictDoNothing({ target: [petLedger.coupleId, petLedger.dedupeKey] })
-	.returning();
+// B4 fix — single transaction, fully atomic. The ledger insert and
+// the wallet/pet UPDATEs all live in one BEGIN…COMMIT. If any version
+// check inside the tx misses, the WHOLE transaction (including the
+// ledger row) rolls back, and the outer 3× retry re-runs the entire
+// transaction with freshly re-read versions. There is no "ledger
+// committed but wallet untouched" state — the unique index alone
+// decides the dedupe winner; the version check decides the write
+// winner; both must succeed together or both must roll back together.
+//
+// Drizzle's `targetWhere` is required to make ON CONFLICT match the
+// partial unique index `pet_ledger_dedupe_uq` (B3 — verified against
+// drizzle-orm@^0.45.1 in package.json).
 
-if (!inserted) {
-	// Loser of the race. Read the winning row so the caller has the
-	// canonical answer, but apply NO further effect.
-	return readWinningLedger(tx, coupleId, dedupeKey);
+async function awardForEvent(args): Promise<AwardResult> {
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const result = await db.transaction(async (tx) => {
+			const [ledgerRow] = await tx
+				.insert(petLedger)
+				.values({ coupleId, userId, kind: 'earn', source, coinsDelta, xpDelta, dedupeKey })
+				.onConflictDoNothing({
+					target: [petLedger.coupleId, petLedger.dedupeKey],
+					targetWhere: sql`${petLedger.dedupeKey} is not null`
+				})
+				.returning();
+
+			if (!ledgerRow) {
+				// Lost the dedupe race. Surface the canonical winning row;
+				// no wallet/pet effect.
+				const winner = await readWinningLedger(tx, coupleId, dedupeKey);
+				return { kind: 'deduped' as const, winner };
+			}
+
+			// Won the dedupe race. Now bump wallet + pet inside the SAME tx
+			// using version-gated UPDATE … RETURNING. A miss throws
+			// VersionConflict and aborts the whole tx (including the
+			// ledger row we just inserted) so the next attempt is a clean
+			// re-do.
+			const wallet = await bumpWalletAtomic(tx, coupleId, coinsDelta); // throws VersionConflict on miss
+			const pet = await bumpPetAtomic(tx, coupleId, xpDelta); //          throws VersionConflict on miss
+			return { kind: 'applied' as const, ledgerRow, wallet, pet };
+		});
+
+		if (result.kind === 'deduped') return depudedResultToCallerShape(result.winner);
+		if (result.kind === 'applied') return appliedResultToCallerShape(result);
+	}
+	// 3 misses in a row = abnormal contention. Audit-log and surface a
+	// non-fatal failure to the caller; they will see {coinsDelta: 0,
+	// xpDelta: 0, deduped: false, failed: true}. The caller's happy
+	// path (the original ritual) is unaffected.
+	await auditLog({ action: 'pet.award.failed', meta: { coupleId, source, dedupeKey } });
+	return AWARD_FAILED;
 }
-
-// Winner of the race. Bump wallet + pet stats with optimistic
-// concurrency: WHERE version = ? RETURNING. On miss, retry up to 3×;
-// on persistent miss, log audit_log and treat as soft-failure (the
-// ledger row stays — wallet will reconcile on next earn).
-await applyWalletDelta(tx, coupleId, coinsDelta);
-await applyPetXpAndDecayPersist(tx, coupleId, xpDelta);
 ```
 
 Key properties:
@@ -420,13 +462,16 @@ Key properties:
 - We avoid `pg_advisory_xact_lock` because the unique index already
   serialises winners-vs-losers, and advisory locks add a per-key
   contention point we don't need at our scale.
-- The wallet/pet update is **inside the same transaction** as the
-  ledger insert. A partial failure (network drop after ledger insert,
-  before wallet update) leaves the wallet under-credited; the next
-  earn detects this via a periodic "ledger sum vs wallet" sanity
-  check (Phase 5, in the Diagnostics view) and emits an `adjust`
-  ledger row to correct it. **We accept brief eventual consistency**
-  rather than a 2-phase commit.
+- **B4 — atomic guarantee:** wallet/pet UPDATEs live in the same
+  transaction as the ledger insert. Either everything happens or
+  nothing does. There is no silent under-credit state. The Phase 5
+  reconciliation tool (renamed to "ledger audit script") becomes a
+  pure sanity-check, not load-bearing.
+- **B3 — partial-index ON CONFLICT:** Drizzle 0.45+ accepts
+  `targetWhere`, which compiles to the index predicate Postgres
+  needs to infer the partial unique index. Verified in
+  `package.json`. P1.5 must include the test "double-fire same
+  dedupeKey under load → 1 ledger row, 1 wallet delta, 0 exceptions."
 
 ### Decay path
 
@@ -445,7 +490,7 @@ the table-defined constants when `mutual: false`.
 
 ---
 
-## Real-time sync (decision: YES — debounced snapshot broadcast)
+## Real-time sync (decision: YES — broadcast-on-commit, RAF coalescing on receiver)
 
 **Decision:** when partner A writes the pet (earn / buy / treat / equip),
 the server emits **one snapshot event** on the existing per-couple
@@ -495,36 +540,82 @@ they always agree without traffic.
   event arrival they replace local state entirely. No diff/merge
   logic — the snapshot is the truth.
 
-### Server-side debounce / coalescing (race protection)
+### Broadcast-on-commit (B2 fix — no in-isolate timers)
 
-Bursty earn paths (e.g. both partners reveal within seconds) would
-otherwise emit 2 snapshots back-to-back, with the second one strictly
-newer. We coalesce in-process per Worker isolate using a Map keyed by
-`coupleId` with a **2 s trailing-edge debounce** — the latest snapshot
-wins, intermediate ones are dropped before broadcast. Implementation
-shape in `src/lib/server/services/pet.ts`:
+Cloudflare Worker isolates are evicted at any time, so `setTimeout`
+inside a Worker **cannot be trusted to fire**. The earlier "2 s
+trailing-edge debounce in a Map" design was struck on this basis.
+Replacement:
+
+- **Server: broadcast immediately, synchronously, after the database
+  transaction commits.** Each write path
+  (`awardForEvent` / `buyItem` / `consumeTreat` / `equipCosmetic` /
+  `hatchPet` / `renamePet`) ends with one
+  `await broadcastPetState(coupleId)` *after* the tx commits and
+  *before* the HTTP response returns. No timers. No in-memory
+  coalescing. Failure is try/catched and logged to `audit_log`
+  (`action = 'pet.broadcast.failed'`); HTTP success still returns.
+- **Receiver: RAF-coalesce on the client.** If a burst of N broadcasts
+  lands in one frame, the receiver collapses them into a single DOM
+  render via `requestAnimationFrame`, applying only the snapshot with
+  the strictly-greatest `(pet.version, wallet.version)` pair (W-yellow
+  fix — version-gate is composite). Implementation in
+  `src/lib/client/realtime.svelte.ts`:
 
 ```ts
-const pendingPetBroadcast = new Map<string, ReturnType<typeof setTimeout>>();
-function scheduleBroadcast(coupleId: string, snap: PetSnapshot) {
-	clearTimeout(pendingPetBroadcast.get(coupleId));
-	pendingPetBroadcast.set(
-		coupleId,
-		setTimeout(() => {
-			pendingPetBroadcast.delete(coupleId);
-			void broadcastToCouple(coupleId, { t: 'pet_state', ts: Date.now(), p: snap });
-		}, 2000)
-	);
+let pendingSnapshot: PetSnapshot | null = null;
+let rafId = 0;
+function onPetState(snap: PetSnapshot) {
+	if (
+		pendingSnapshot &&
+		snap.pet.version <= pendingSnapshot.pet.version &&
+		snap.wallet.version <= pendingSnapshot.wallet.version
+	) {
+		return; // strictly older — drop
+	}
+	pendingSnapshot = snap;
+	if (!rafId) {
+		rafId = requestAnimationFrame(() => {
+			petSnapshot = pendingSnapshot!; // svelte rune — single render
+			pendingSnapshot = null;
+			rafId = 0;
+		});
+	}
 }
 ```
 
-Caveat: Cloudflare Worker isolates are short-lived. `setTimeout` only
-holds the broadcast for the lifetime of one isolate, so coalescing is
-**best-effort** across requests in the same isolate, **not** across
-isolates. That is OK because the snapshot includes `pet.version` /
-`wallet.version` — receivers ignore any snapshot whose `version` is
-not strictly greater than what they already display. Out-of-order or
-duplicate snapshots are idempotent at the receiver.
+**Trade-off accepted:** during a 3-events-in-1-second burst the server
+sends 3 broadcasts (one per write) instead of 1 coalesced one. The
+server-side write count was already going to happen, so the only delta
+is broadcast volume, which the receiver then collapses. This costs at
+most a few extra Realtime messages per burst — measured in §"Cost
+ceiling" below — in exchange for never losing a broadcast to
+isolate eviction.
+
+**Out-of-order resilience.** Both versions are monotonic; the receiver
+ignores any snapshot whose `(pet.version, wallet.version)` is not
+strictly newer than what it already has. Reorders, retries, and
+duplicate broadcasts are all no-ops at the receiver.
+
+### Inactive couples — silent fallback (B1 locked direction)
+
+When the couple's `couple.status != 'active'` (paused, unlinked, or
+mid-deletion):
+
+- Pet REST routes (`/api/pet/*`) STILL work. Routes use a dedicated
+  helper `loadCoupleAnyStatus(userId)` (free function in
+  `src/lib/server/services/couple.ts`, NOT injected into
+  `event.locals.couple` to avoid changing the active-only invariant
+  every other route relies on).
+- `broadcastPetState` checks `couple.status === 'active'` BEFORE
+  calling `broadcastToCouple`. If inactive, it skips the broadcast
+  entirely (the existing `0003_realtime_rls.sql` policy denies
+  non-active members anyway, so the broadcast would be a no-op even
+  if attempted; we skip explicitly to avoid the wasted REST call).
+- UI: when `/pet` `+page.server.ts` detects inactive couple, it
+  passes `realtimePaused: true` to the page. The page renders a
+  warm one-line Notice ("Sync paused — refresh to update."); no
+  scorekeeping copy, no "your partner left" inference.
 
 ### Receiver UX
 
@@ -535,8 +626,10 @@ duplicate snapshots are idempotent at the receiver.
   own writes (those animate from the optimistic local update). All
   animations respect `prefers-reduced-motion`.
 - No toast, no sound, no badge dot. The animation IS the notification.
-- If `pet_state.p.pet === null` after a hatch, run the one-time
-  hatch fade-in (same anim Phase 3 ships).
+- If `pet_state.p.pet !== null` AND the local snapshot's `pet === null`,
+  run the one-time hatch fade-in (same anim Phase 3 ships). The original
+  inverted check would have triggered the hatch anim on every snapshot
+  for an already-hatched pet — yellow fix.
 
 ### Reconnect strategy
 
@@ -547,16 +640,22 @@ to a forced snapshot. This handles offline-then-online and tab
 backgrounding. Cost: 1 cached request per reconnect per partner — well
 within the existing budget.
 
-### Cost ceiling
+### Cost ceiling (recomputed for broadcast-on-commit)
 
-Worst-case per couple: 7 mutual writes/day × debounce-coalesced to
-≤ 7 broadcasts × (1 send + 2 receivers) = **21 messages/day/couple**.
-At 100 000 active couples: 2.1 M messages/day → ~63 M/month, which is
-above Free (2 M) and Pro (5 M), priced at $2.50 per additional 1 M
-([Supabase Realtime pricing](https://supabase.com/docs/guides/realtime/pricing)).
-Real-world rate will be far lower (most days have 1–3 writes, not 7).
-Re-evaluate at 10 k couples; if cost matters, drop debounce window to
-5 s or coalesce per-minute.
+Worst-case per couple: 7 mutual writes/day × 1 broadcast each ×
+(1 send + 2 receivers) = **21 messages/day/couple**. (The number
+matches the previous design because the previous "debounce" only
+fired on bursts; on the typical 1-write-per-event day, both designs
+produce the same 7 broadcasts.) Cost-impacting change is the
+3-events-in-1-second burst case: previous design = 1 broadcast,
+new design = 3. At our action types this happens rarely (a partner
+spamming /pulse mood logs is the realistic example, capped at 3/day
+anyway by the earn table). At 100 000 active couples baseline still
+~63 M/month, slightly above Pro (5 M, $2.50 per additional 1 M) →
+[Supabase Realtime pricing](https://supabase.com/docs/guides/realtime/pricing).
+Re-evaluate at 10 k couples; if cost matters, the lever is **drop the
+broadcast for solo earns** (only mutual earns broadcast), not
+re-introducing in-isolate timers (B2).
 
 ---
 
@@ -605,19 +704,24 @@ export async function listLedger(coupleId: string, limit?: number): Promise<PetL
 
 **Lazy decay** is implemented inside `getPetState`, AND a matching
 client-side projection ships in `src/lib/pet.constants.ts` so partners
-agree without broadcasting tick events:
+agree without broadcasting tick events. **W1 — clock-skew handling:**
+every snapshot (HTTP and broadcast) carries `serverNow: ISO8601`. The
+client computes `clockOffset = serverNow - clientNow` once per
+snapshot and uses `(clientNow + clockOffset)` for all subsequent
+projections. The function returns floor'd integers to match the
+DB column type — server and client always converge bit-for-bit.
 
 ```ts
 // Server (pet.ts) and client (pet.constants.ts) share this pure fn:
 export function projectDecay(
 	stored: { mood: number; hunger: number; moodUpdatedAt: Date; hungerUpdatedAt: Date },
-	now = new Date()
+	now: Date // server: new Date(); client: new Date(Date.now() + clockOffset)
 ) {
 	const moodDays = (now.getTime() - stored.moodUpdatedAt.getTime()) / 86_400_000;
 	const hungerDays = (now.getTime() - stored.hungerUpdatedAt.getTime()) / 86_400_000;
 	return {
-		mood: clamp(stored.mood - 5 * moodDays, 20, 100),
-		hunger: clamp(stored.hunger + 5 * hungerDays, 0, 80)
+		mood: Math.floor(clamp(stored.mood - 5 * moodDays, 20, 100)),
+		hunger: Math.floor(clamp(stored.hunger + 5 * hungerDays, 0, 80))
 	};
 }
 // Server: persist projected values on the next WRITE path; reads stay read-only (D1).
@@ -626,9 +730,11 @@ export function projectDecay(
 // reconciliation strategy (E).
 ```
 
-The client and server use the **same** function and the **same**
-constants module, so a snapshot from realtime + a 30 s local re-projection
-are guaranteed to converge on identical values.
+The client and server use the **same** function, the **same**
+constants module, and the **same `now`** (server-anchored via
+`clockOffset`), so a snapshot from realtime + a 30 s local re-projection
+are guaranteed to converge on identical floored integers regardless
+of phone-clock drift, DST, or wrong system time.
 
 Constants live in `src/lib/pet.constants.ts` (parallel to
 `bucketList.constants.ts`). Same module is importable client-side for
@@ -643,8 +749,8 @@ response returns** (P1) so we never lose grants to closed DB bundles.
 
 | Service                                                            | Actual function name (verified)            | dedupeKey shape                                               | Mutual?                                               |
 | ------------------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------- |
-| `daily.ts` — `submitDailyAnswer`                                   | line 120                                   | `daily_send:<userId>:<YYYY-MM-DD>`                            | `mutual = false` (always solo)                        |
-| `daily.ts` — inside `loadDaily` when `revealed && !alreadyAwarded` | line 75                                    | `daily_reveal:<questionId>:<YYYY-MM-DD>`                      | `mutual = true`                                       |
+| `daily.ts` — `submitDailyAnswer` (own row insert)                  | line 120                                   | `daily_send:<userId>:<YYYY-MM-DD>`                            | `mutual = false` (always solo)                        |
+| `daily.ts` — `submitDailyAnswer` (when 2nd insert flips `revealed`) | line 120 — same fn                         | `daily_reveal:<questionId>:<YYYY-MM-DD>`                      | `mutual = true` — W7 fix: writes only fire from submit, never from `loadDaily` (page reads stay read-only) |
 | `mood.ts` — `setMood`                                              | line 62                                    | `mood_log:<userId>:<YYYY-MM-DDTHH>` (hour-bucket → 3/day max) | `mutual = false`                                      |
 | `quiz.ts` — `submitFinal` (NOT `finaliseRun`)                      | line 340                                   | `quiz_complete:<runId>`                                       | `mutual = true` (only fires when both partners final) |
 | `bucketList.ts` — `markDone`                                       | line 167                                   | `bucket_complete:<itemId>`                                    | `mutual = true`                                       |
@@ -653,8 +759,16 @@ response returns** (P1) so we never lose grants to closed DB bundles.
 
 > **Plan correction:** the original plan named `revealDaily` /
 > `finaliseRun` / `markResolved` — none exist. The verified names are
-> in the table above. The daily reveal hook lives inside `loadDaily`
-> at the point where the function computes `revealed = !!mine && !!partnerRow`.
+> in the table above. **W7 — read paths stay read-only.** The daily
+> reveal hook lives inside `submitDailyAnswer`, fired right after the
+> insert when the function detects `mine && partnerRow` (i.e. the
+> insert that JUST happened was the second one). `loadDaily` performs
+> NO writes; page loads remain pure reads.
+>
+> All dedupe-key timestamps are computed server-side in UTC via
+> existing `todayKey()` (search `src/lib/server/util/date.ts`; if
+> absent, define it during P2.1) — never from client locale
+> (yellow fix).
 
 `awardForEvent` returns `{ coinsDelta: 0, xpDelta: 0, deduped: true }`
 on dedupe-hit so callers can ignore it; UI doesn't surface a toast in
@@ -681,7 +795,7 @@ All under `src/routes/api/pet/`. JSON in/out, auth via `event.locals.user`
 
 | Method · path                     | Body                   | Returns                                                            |
 | --------------------------------- | ---------------------- | ------------------------------------------------------------------ |
-| `GET    /api/pet`                 | —                      | `{ pet: PetState \| null, wallet, equipped: PetInventoryEntry[] }` |
+| `GET    /api/pet`                 | —                      | `{ pet: PetState \| null, wallet, equipped: PetInventoryEntry[], serverNow: ISO8601, welcomeBack: { granted: true, treatId } \| null }` (W1, W2) |
 | `POST   /api/pet/hatch`           | `{ species, name }`    | `PetState` (only valid when no pet exists)                         |
 | `PATCH  /api/pet`                 | `{ name }`             | `PetState`                                                         |
 | `GET    /api/pet/shop`            | —                      | list of `PetShopItem` filtered by current stage + `enabled`        |
@@ -694,6 +808,23 @@ All under `src/routes/api/pet/`. JSON in/out, auth via `event.locals.user`
 Validation rules:
 
 - `species` ∈ {fox,cat,bird,capybara}; `name` 1–24 chars, no newlines, NFKC-normalised.
+- **W1 — `serverNow`.** Every response (REST + broadcast snapshot)
+  carries `serverNow: ISO8601` so the client can derive `clockOffset`
+  and project decay deterministically (see §"Decay path").
+- **W2 — welcome-back grant.** `GET /api/pet` checks if (a) the
+  caller's last `pet_ledger` row is older than 60 days AND (b) no
+  `welcome_back:<userId>:*` ledger row exists in the last 90 days.
+  If both true, it inserts a `welcome_back:<userId>:<YYYY-MM-DD>`
+  ledger row that grants one `treat_strawberry` to inventory inside
+  the same transaction, and surfaces `welcomeBack: { granted: true,
+  treatId: 'treat_strawberry' }` to the UI for a one-time warm
+  toast. Dedupe key uses date-of-grant (UTC `todayKey()`), so a
+  bug-induced double-fire on the same day is a no-op.
+- **B1 — inactive couples.** Pet routes use `loadCoupleAnyStatus(userId)`
+  (free function in `src/lib/server/services/couple.ts`) instead of
+  `event.locals.couple` (which loads only active couples). Writes
+  succeed; broadcasts skip when status ≠ active; UI shows
+  "Sync paused — refresh to update." Notice.
 - `buy` returns **402 Payment Required** if coins < price.
 - `equip` returns **409 Conflict** if another item is already in that slot
   (server auto-unequips on the _next_ equip; explicit unequip via
@@ -821,8 +952,15 @@ of casual play and the most expensive furniture takes ~a month.
 | `treat_cake`       | treat     | —          | grown | 35    | +50 mood, −40 hunger       |
 | `furn_rug`         | furniture | —          | baby  | 80    | Background tile            |
 | `furn_window`      | furniture | —          | grown | 140   | Background tile            |
-| `buff_doublecoin`  | buff      | —          | baby  | 50    | Next 24 h: ×1.5 coin earns |
-| `buff_xpboost`     | buff      | —          | grown | 70    | Next 24 h: ×1.5 XP earns   |
+| `buff_doublecoin`  | buff      | —          | baby  | 50    | Next 24 h: ×1.5 coin earns — **`enabled=false` in seed (W3)** |
+| `buff_xpboost`     | buff      | —          | grown | 70    | Next 24 h: ×1.5 XP earns — **`enabled=false` in seed (W3)**   |
+
+> **W3 — buffs hidden until P5.** The `buff_*` rows ship in the
+> P1.1 seed migration with `enabled = false`, so they are invisible
+> in `/api/pet/shop` (which filters on `enabled`). Phase 5's
+> migration `0023_pet_buffs.sql` flips `enabled = true` in the same
+> commit that creates the `petBuff` table and wires the multiplier
+> — never ship a buyable item whose effect doesn't exist.
 
 Buffs are stored on `petInventory` with `qty` and a separate
 `active_until` timestamp on a _future_ `petBuff` table — punted to
@@ -1126,7 +1264,8 @@ postgres-js bundle (`max: 1`), so no new connections are opened. The
 limit (200 connections) is unaffected by per-request statement count.
 
 Realtime: **bounded by earn rate.** Worst-case 7 writes/day/couple ×
-3 messages each (1 send + 2 receivers, debounce-coalesced) =
+3 messages each (1 send + 2 receivers; broadcast-on-commit, one
+broadcast per write, no in-isolate coalescing — B2) =
 **21 messages/day/couple**. At 100 k couples ≈ 63 M/month — overflows
 Pro tier ($2.50/M overage); at 10 k couples ≈ 6.3 M/month, still inside
 Pro. ([Supabase Realtime pricing](https://supabase.com/docs/guides/realtime/pricing))
