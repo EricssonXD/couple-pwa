@@ -32,6 +32,69 @@ export const WELCOME_BACK_INACTIVE_DAYS = 60;
 export const WELCOME_BACK_DEDUPE_DAYS = 90;
 export const WELCOME_BACK_TREAT_ID = 'treat_strawberry';
 
+// ─── Earn table (P2.3) ────────────────────────────────────────────────────
+// Each ritual that grants coins/XP. `coinsFull` and `xpFull` are the
+// MUTUAL pay; solo callers earn `Math.floor(coinsFull / 2)` and
+// `Math.floor(xpFull / 2)`. `mutualOnly: true` actions assert the
+// caller passed `mutual: true` (defensive — the dedupe key shape and
+// call site already gate this, so a `false` here is a programmer
+// error). All numbers are tunable from this file alone — tests assert
+// the constants, never literals (see pet-system.md §1 earning table).
+
+export const EARN_SOURCES = [
+	'daily_send',
+	'daily_reveal',
+	'mood_log',
+	'quiz_complete',
+	'bucket_complete',
+	'repair_complete',
+	'anniversary'
+] as const;
+export type EarnSource = (typeof EARN_SOURCES)[number];
+
+export const EARN_TABLE: Record<
+	EarnSource,
+	{ coinsFull: number; xpFull: number; mutualOnly: boolean }
+> = {
+	daily_send: { coinsFull: 2, xpFull: 1, mutualOnly: false },
+	daily_reveal: { coinsFull: 8, xpFull: 4, mutualOnly: true },
+	mood_log: { coinsFull: 1, xpFull: 1, mutualOnly: false },
+	quiz_complete: { coinsFull: 12, xpFull: 8, mutualOnly: true },
+	bucket_complete: { coinsFull: 6, xpFull: 3, mutualOnly: true },
+	repair_complete: { coinsFull: 10, xpFull: 5, mutualOnly: true },
+	anniversary: { coinsFull: 25, xpFull: 12, mutualOnly: true }
+};
+
+/**
+ * Halving rule for solo actions. Mutual pays full; solo pays
+ * `Math.floor(full / 2)` so a 1-XP action still grants something
+ * (Math.floor(1/2)=0; callers that care emit `mood_log` only when
+ * they have a non-zero contribution).
+ */
+export function computePay(
+	source: EarnSource,
+	mutual: boolean
+): { coinsDelta: number; xpDelta: number } {
+	const row = EARN_TABLE[source];
+	if (mutual) return { coinsDelta: row.coinsFull, xpDelta: row.xpFull };
+	return {
+		coinsDelta: Math.floor(row.coinsFull / 2),
+		xpDelta: Math.floor(row.xpFull / 2)
+	};
+}
+
+// ─── Treat effects (P2.3) ─────────────────────────────────────────────────
+// Mood/hunger deltas applied when a treat is consumed. Hunger is
+// SUBTRACTED (treats reduce hunger toward HUNGER_FLOOR). Items not
+// listed here are inert (cosmetics/furniture). Treat IDs match the
+// seed in 0022_pet.sql.
+
+export const TREAT_EFFECTS: Record<string, { mood: number; hunger: number }> = {
+	treat_strawberry: { mood: 8, hunger: 12 },
+	treat_dumpling: { mood: 12, hunger: 20 },
+	treat_cake: { mood: 18, hunger: 30 }
+};
+
 const MS_PER_DAY = 86_400_000;
 
 function clamp(n: number, min: number, max: number): number {
