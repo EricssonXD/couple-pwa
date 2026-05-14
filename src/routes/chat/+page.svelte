@@ -193,7 +193,7 @@
 
 <section class="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col px-4 py-5 pb-24">
 	<header class="mb-3 flex items-center gap-3">
-		<BackButton fallbackHref="/daily" ariaLabel={m.chat_back_aria()} />
+		<BackButton fallbackHref="/daily" />
 		<div class="flex-1 space-y-0.5">
 			<h1 class="text-display text-2xl font-semibold tracking-wide">{m.chat_title()}</h1>
 			<p class="text-xs text-base-content/55">

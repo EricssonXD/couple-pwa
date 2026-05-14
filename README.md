@@ -141,7 +141,8 @@ visitor without needing a fourth `onMount` guard on the page itself.
 - **P-series**: PWA shell hardening — done.
 - **U-series**: design-system rebuild + 8 routes — done.
 - **A / H / N / R / G series** (post-MVP hardening, push, growth, reliability): all but `G3 photo-moments` (blocked on Storage bucket) shipped. Per-feature trail in `git log`; high-level rationale in `docs/history.md` (frozen pivot-era plan, not a live chronicle).
-- **Phase 2 (F-series)**: F1 anniversary timeline, F2 daily prompts, F3 love-note time capsule (cron + UI), F4 connection streak, F5 mood pulse, F5b mood-trend strip, F6 shared bucket list, F8 shared calendar (v1 + v2 RRULE + v2 reminder cron), F9 quiz packs, F10 throwbacks, F11 PWA widgets (manifest shortcuts + Adaptive Cards templates + data endpoints + SW widgetinstall/widgetresume handler — Windows 11 today, iOS native widget pending), F16 repair toolkit — shipped. Remaining items (F7 chat, F14 cycle, F18 premium) tracked in `plan.md`.
+- **Phase 2 (F-series)**: F1 anniversary timeline, F2 daily prompts, F3 love-note time capsule (cron + UI), F4 connection streak, F5 mood pulse, F5b mood-trend strip, F6 shared bucket list, F8 shared calendar (v1 + v2 RRULE + v2 reminder cron), F9 quiz packs, F10 throwbacks, F11 PWA widgets (manifest shortcuts + Adaptive Cards templates + data endpoints + SW widgetinstall/widgetresume handler — Windows 11 today, iOS native widget pending), F16 repair toolkit, F7 couple-only chat (text + 7-day TTL) — shipped. Remaining items (F14 cycle, F18 premium) tracked in `plan.md`.
+- **Navigation**: every secondary route ships a `BackButton` (history.back with iOS-PWA-safe fallback) above its header; `BottomNav` highlights the parent tab on secondary routes via a `SECONDARY_PARENT` map.
 
 ## License
 

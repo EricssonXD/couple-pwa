@@ -6,60 +6,12 @@
 
 ---
 
-## ⏳ ACTIVE: Migrate to vite-plugin-pwa (Option B + prompt+auto UX)
+## Routing & offline flow (canonical, do not regress)
 
-User mandate (this session): replace SvelteKit-built `src/service-worker.ts`
-with vite-plugin-pwa. Workbox-managed runtime caching. Keep ALL current
-behavior. Ship a small prompt banner ALONGSIDE the existing auto-apply at
-navigation boundary.
-
-### Phasing (one commit per phase)
-
-- **P1a** Install `@vite-pwa/sveltekit` + workbox deps. Wire into
-  `vite.config.ts` with `strategies: 'injectManifest'`, `srcDir: 'src'`,
-  `filename: 'service-worker.ts'`. Set SvelteKit `kit.serviceWorker.register
-= false` so vite-pwa owns registration. SW behavior unchanged in this
-  step — purely transport swap.
-- **P1b** Validate: `bun run build`, `bun run check`, all e2e offline
-  suites still green.
-- **P2** Replace our hand-rolled fetch handler with workbox helpers
-  (`precacheAndRoute(self.__WB_MANIFEST)`, `registerRoute` + `StaleWhileRevalidate`
-  - `ExpirationPlugin`). Keep `injectManifest` so we can still embed the
-    custom message handlers (PURGE_USER_CACHES, SKIP_WAITING) and the
-    R1 background-sync queue drain — workbox's BackgroundSyncPlugin has
-    different replay semantics than our IDB queue and would force a behavior
-    diff with the foreground installQueueRunner mirror.
-- **P3** Replace `src/lib/pwa/register.ts` poll loop with vite-pwa's
-  `registerSW({ onNeedRefresh, onOfflineReady })`. Keep our beforeNavigate
-  auto-apply hook on top. Re-introduce `UpdatePromptBanner.svelte` (small
-  bottom-right pill) that shows on `onNeedRefresh` so power users can
-  click to update immediately rather than wait for the next nav.
-- **P4** CSP audit: confirm `worker-src 'self'` covers workbox's
-  `importScripts` chunks; confirm no new `script-src` entries needed.
-- **P5** Tests: rewrite `src/service-worker.spec.ts` for the new
-  structure; add Playwright e2e for "old SW → deploy → banner appears →
-  click reload → new SW serving". Re-run all offline e2e.
-- **P6** Docs: add `docs/pwa-update-flow.md`. Prune deprecated bits in
-  CLAUDE.md, AGENTS.md. Fix `pet-system.md` prettier debt while we're in
-  the area. Mark this section ✅ in Roadmap when done.
-
-### Trade-offs accepted
-
-- ~50KB dev-deps (workbox-build).
-- ~15-20KB gzipped runtime addition for workbox in the SW. Acceptable
-  for declarative caching + maintained-by-Google semantics.
-- Pure `generateSW` mode is rejected: it cannot embed our PURGE handler,
-  widget refresh, push handler, or our IDB-backed R1 queue — porting
-  R1 to workbox's BackgroundSyncPlugin would force a behavior diff.
-  We use `injectManifest` with workbox helpers internally — best of both.
-
----
-
-## Routing & offline flow (current, do not regress)
-
-The "logged-in user briefly sees /welcome" and "/auth bounce strands
-offline" classes of bugs are guarded by three layers — see README
-§"Routing & offline flow" for the canonical write-up.
+The classic "logged-in user briefly sees /welcome" and "/auth bounce
+strands offline users" bugs are guarded by **three layers**. Same
+write-up lives in `README.md §"Routing & offline flow"`; this is the
+short-form version for plan readers.
 
 ```
                           GET /
@@ -81,60 +33,65 @@ offline" classes of bugs are guarded by three layers — see README
                 is intentionally NOT precached).
 ```
 
-The `ds_auth` cookie is set client-readable by `hooks.server.ts`
-(NO secrets — purely a routing flag) and cleared the moment the
-server stops seeing a user. SW precaches `/auth/sign-in` so a
-captive-portal cold-launch still gets a usable form.
+Key invariants:
 
-If you observe a regression: rebuild + redeploy, then clear the
-PWA cache on the test device. The SW pinned to a stale `version`
-hash will keep serving old HTML until the user gestures the
-update banner.
+- `/` is a **router stub** — `+page.server.ts` always 303s, `+page.svelte`
+  renders nothing (offline fallback only).
+- `/welcome` is the cacheable anonymous landing surface; its
+  `+page.server.ts` 303s signed-in users to `/pulse` or `/onboarding`
+  so the back button from inside the app can never resurface it.
+- `/auth/sign-in`, `/welcome`, `/onboarding` are precached in
+  `SHELL_CACHE` so cold-launch + offline + already-signed-in still
+  works. Every other `/auth/*` is intentionally NOT cached.
+- `ds_auth` cookie is client-readable, holds NO secret (just the
+  routing-flag value), set + cleared by `hooks.server.ts` on every
+  request. The pre-paint inline script in `src/app.html` is the
+  **only** thing fast enough to beat the welcome paint on cold
+  launch — CSP `mode: 'hash'` auto-hashes it.
+
+If a regression appears: rebuild + redeploy + clear PWA cache on the
+test device. The SW pinned to a stale `version` hash will keep
+serving old HTML until the user gestures the update banner.
 
 ---
 
 ## Done (do not re-plan)
 
 - **MVP**: M0–M6 backend + RLS + private realtime.
-- **PWA hardening**: P-series, R1–R4 (offline queue, idempotency,
-  presence resilience, shell precache, conflict resolution).
+- **PWA shell + update flow**: P-series including the
+  vite-plugin-pwa migration (`injectManifest` + workbox helpers,
+  `UpdatePromptBanner` + `onNeedRefresh`). Canonical doc:
+  `docs/pwa-update-flow.md`.
+- **Reliability (R-series)**: R1–R4 — offline queue + idempotency,
+  presence resilience, shell precache, conflict resolution.
 - **Push (N-series)**: N1 VAPID, N2 trigger surface, N3 delivery
-  worker, N4 iOS UX. Real VAPID keys provisioned. **Push-perf**: edge
-  fn now sends `Urgency: high` + RFC 8030 `Topic` for OS-immediate
-  wake + same-key coalescing; SvelteKit Worker fires
+  worker, N4 iOS UX. Real VAPID keys provisioned. Edge fn sends
+  `Urgency: high` + RFC 8030 `Topic`; SvelteKit Worker fires
   `kickPushDeliver()` inline via `event.platform.context.waitUntil`
-  so taps arrive in ~3-5s instead of waiting up to 60s for the next
-  pg_cron tick. Cron stays as backstop. `verify_jwt=false` for
-  `push-deliver` is pinned in `supabase/config.toml` because the fn
-  authenticates with our own `Bearer CRON_TOKEN` — without that flag
-  the platform 401s before our handler runs and the outbox piles up
-  silently (user-visible symptom: "notifications only appear when I
-  open the app").
+  so taps arrive in ~3-5 s. `verify_jwt=false` for `push-deliver` is
+  pinned in `supabase/config.toml` (we authenticate with our own
+  `Bearer CRON_TOKEN`).
 - **Hardening (H-series)**: H1 sentry stub, H2 security headers,
   H3 rate limits, H4 account deletion, H5 anti-coercion + audit log.
 - **Growth (G-series)**: G1 couple-link UX, G2 first-run, G4 unified
   settings. **G3 photo-moments — BLOCKED** on Supabase Storage bucket.
 - **Phase 2 features**: F1 anniversary timeline, F2 daily prompts,
   F3 time-capsule (cron + UI), F4 connection streak, F5 mood pulse,
-  F5b mood-trend strip, F6 shared bucket list, F8 shared calendar
-  (v1 CRUD + v2 RRULE recurrence + v2 reminder cron — 24 h + 1 h
-  push via `calendar_reminders` + `app.deliver_due_calendar_reminders`
-  pg_cron job), F9 quiz packs (catalog + runner + reveal), F10
-  throwbacks, **F11 PWA widgets** (manifest shortcuts + Adaptive
-  Cards templates + `/api/widgets/<tag>` data endpoints + SW
-  widgetinstall/widgetresume handler; Windows 11 today, iOS native
-  widget extension still a future lift), **F16 repair toolkit**
-  (cooldown timer → reflection → joint commitment, push to partner,
-  audit-log entries on every transition).
+  F5b mood-trend strip, F6 shared bucket list, F7 couple-only chat
+  (text + 7-day TTL — voice notes deferred to F7 v2 once G3 ships),
+  F8 shared calendar (v1 CRUD + v2 RRULE + v2 reminder cron), F9
+  quiz packs (catalog + runner + reveal), F10 throwbacks, **F11 PWA
+  widgets** (manifest shortcuts + Adaptive Cards + `/api/widgets/<tag>`
+  - SW `widgetinstall`/`widgetresume`; Windows 11 today, iOS native
+    widget extension still a future lift), **F16 repair toolkit**.
+- **Navigation**: secondary routes (timeline, bucket, notes, calendar,
+  chat, quiz, repair, settings sub-pages) ship a reusable `BackButton`
+  above their existing header — uses `afterNavigate`-tracked `canPop`
+  so iOS standalone PWAs (which lie about `history.length`) still get
+  a working fallback `goto`. `BottomNav.isActive` lights the parent
+  tab on secondary routes via a `SECONDARY_PARENT` map.
 - **CI/DX**: size-limit perf budget, RLS contract tests, a11y fixes,
   bundle-audit lazy splits.
-- **F7 couple-only chat** — text-only with hard 7-day TTL (RLS SELECT
-  predicate + hourly pg_cron purge + read-time service filter). Body
-  in private realtime channel; NEVER in push payload (lockscreen
-  privacy mirrors F16). History fetched client-side after hydration
-  so SW + HTML cache cannot leak past retention. Voice notes deferred
-  to F7 v2 once G3 (Storage bucket) exists. Migrations 0020 + 0021
-  must be applied via `bun run db:push` or the Supabase SQL editor.
 
 ---
 
@@ -144,8 +101,8 @@ update banner.
 
 - **F18 premium gating** — Stripe + entitlement check in
   `hooks.server.ts`. Most competitors charge $5–10/mo. Free = MVP +
-  Tier 1; premium = chat history >30d, time capsules >X, photo
-  storage >100MB, advanced widgets.
+  Tier 1; premium = chat history > 30 d, time capsules > X, photo
+  storage > 100 MB, advanced widgets.
 
 ### Phase 2 — Tier 3 (re-prioritize after retention metrics)
 
@@ -156,11 +113,13 @@ update banner.
 
 ### Parked
 
+- **G3 photo-moments** — blocked on Supabase Storage bucket
+  provisioning (outside our control). Unblocks F7 v2 voice notes.
 - F12 therapy modules (content-heavy; partner with therapist for IP)
 - F13 shared playlist (per-provider OAuth cost)
 - F15 voice/video calling (WebRTC + TURN cost; users have WhatsApp)
 - F17 sticker packs / couple avatars (premium-tier polish)
-- F19 smart notification budget (≤3 push/day priority ranking)
+- F19 smart notification budget (≤ 3 push/day priority ranking)
 - F20 onboarding personality (3-question intake)
 
 ---
@@ -174,15 +133,13 @@ update banner.
 4. Commit with conventional message + `Co-authored-by: Copilot`.
    Frequent meaningful commits — never batch unrelated changes.
 5. SQL todo → `done`.
-6. ask_user for next.
+6. `ask_user` for next.
 
 ---
 
 ## Notes
 
-- DEFER G3 photo-moments until Storage bucket exists (outside our
-  control to provision). F7 v2 voice notes also blocked on G3.
-- N1–N3 ship code; real VAPID keys + Stripe (F18) + Storage (G3)
-  all need ops setup before they actually do anything in prod.
+- F18 (Stripe) needs ops setup before it actually does anything in prod.
+- G3 (Storage bucket) blocks photo-moments and F7 v2 voice notes.
 - Update this plan only at major milestones. Per-task tracking
   lives in the SQL `todos` table.
