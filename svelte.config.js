@@ -16,6 +16,17 @@ const config = {
 		csp: {
 			// 'hash' works for both prerendered and dynamic responses
 			// (nonce mode breaks prerender because nonces are per-request).
+			//
+			// vite-plugin-pwa migration audit (P4):
+			//   - injectManifest mode bundles workbox INTO src/service-worker.ts,
+			//     so the built /service-worker.js has zero importScripts() calls
+			//     and no requests to storage.googleapis.com/workbox-*. worker-src
+			//     'self' is sufficient — no CDN allowlist needed.
+			//   - injectRegister:false (vite.config.ts) means we register manually
+			//     via $lib/pwa/register.ts, and no /registerSW.js asset is emitted.
+			//     virtual:pwa-register is tree-shaken into the regular _app/* JS
+			//     bundle, covered by script-src 'self'.
+			//   - no new img/style/font origins introduced.
 			mode: 'hash',
 			directives: {
 				'default-src': ['self'],
