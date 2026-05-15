@@ -23,6 +23,7 @@ import {
 	check,
 	doublePrecision,
 	integer,
+	numeric,
 	boolean,
 	uuid,
 	jsonb,
@@ -745,5 +746,30 @@ export const petInventory = pgTable(
 			.on(t.coupleId, t.slot)
 			.where(sql`${t.equipped} and ${t.slot} is not null`),
 		check('pet_inventory_qty_chk', sql`${t.qty} >= 0`)
+	]
+);
+
+// Active temporary multiplier buffs (Phase 5). Unique on (couple_id,
+// kind) so re-activating the same buff EXTENDS active_until rather
+// than stacking — the multiplier cap (×2.0) lives in service code.
+// Kinds: 'coin' (multiplies coin earns), 'xp' (multiplies XP earns —
+// v1 has no XP system, so service refuses activation for now).
+export const petBuff = pgTable(
+	'pet_buff',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		kind: text('kind').notNull(),
+		multiplier: numeric('multiplier', { precision: 3, scale: 2 }).notNull(),
+		activeUntil: timestamp('active_until', { withTimezone: true }).notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('pet_buff_couple_kind_uq').on(t.coupleId, t.kind),
+		index('pet_buff_active_until_idx').on(t.activeUntil),
+		check('pet_buff_kind_chk', sql`${t.kind} in ('coin','xp')`),
+		check('pet_buff_multiplier_chk', sql`${t.multiplier} > 1.0 and ${t.multiplier} <= 2.0`)
 	]
 );
