@@ -13,12 +13,20 @@
 <script lang="ts">
 	import { invalidateAll, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
-	import { MomentCard } from '$lib/components/duosync';
+	import { MomentCard, HubHeader } from '$lib/components/duosync';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import {
+		BookOpenIcon,
+		ClockCounterClockwiseIcon,
+		NoteIcon,
+		CalendarIcon,
+		ListChecksIcon
+	} from '$lib/components/ui/icons';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
@@ -26,6 +34,14 @@
 
 	const { data }: { data: PageData } = $props();
 	const rt = createRealtimeClient(untrack(() => ({ coupleId: data.coupleId, userId: data.me.id })));
+
+	const momentsChips = [
+		{ href: '/moments', label: m.hub_chip_feed, icon: BookOpenIcon, exact: true },
+		{ href: '/timeline', label: m.hub_chip_timeline, icon: ClockCounterClockwiseIcon },
+		{ href: '/notes', label: m.hub_chip_notes, icon: NoteIcon },
+		{ href: '/calendar', label: m.hub_chip_calendar, icon: CalendarIcon },
+		{ href: '/bucket', label: m.hub_chip_bucket, icon: ListChecksIcon }
+	];
 
 	let viewerLat = $state<number | null>(null);
 	let viewerLon = $state<number | null>(null);
@@ -110,10 +126,17 @@
 </svelte:head>
 
 <div class="min-h-screen bg-base-100">
+	<HubHeader
+		title={m.hub_moments_title}
+		fallbackHref="/pulse"
+		chips={momentsChips}
+		current={page.url.pathname}
+		class="mx-auto max-w-md"
+	/>
 	<header
 		class="sticky top-0 z-10 mx-auto flex max-w-md items-baseline justify-between bg-base-100/85 px-5 py-4 backdrop-blur"
 	>
-		<h1 class="text-display text-2xl font-semibold tracking-wide">{m.moments_title()}</h1>
+		<h2 class="text-display text-xl font-semibold tracking-wide">{m.moments_title()}</h2>
 		<PillButton href={resolve('/moments/new')} size="sm" class="shadow-paper">
 			<Icon icon={PlusIcon} size={14} weight="bold" />
 			{m.moments_drop_button()}
