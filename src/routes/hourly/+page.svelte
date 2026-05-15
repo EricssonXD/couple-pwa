@@ -25,12 +25,12 @@
 	const { data }: { data: PageData } = $props();
 
 	type Mood = 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset';
-	const MOODS: ReadonlyArray<{ value: Mood; emoji: string; label: string }> = [
-		{ value: 'joyful', emoji: '😄', label: 'Joyful' },
-		{ value: 'happy', emoji: '🙂', label: 'Happy' },
-		{ value: 'neutral', emoji: '😐', label: 'Neutral' },
-		{ value: 'sad', emoji: '🙁', label: 'Sad' },
-		{ value: 'upset', emoji: '😣', label: 'Upset' }
+	const MOODS: ReadonlyArray<{ value: Mood; emoji: string; label: () => string }> = [
+		{ value: 'joyful', emoji: '😄', label: m.hourly_mood_joyful },
+		{ value: 'happy', emoji: '🙂', label: m.hourly_mood_happy },
+		{ value: 'neutral', emoji: '😐', label: m.hourly_mood_neutral },
+		{ value: 'sad', emoji: '🙁', label: m.hourly_mood_sad },
+		{ value: 'upset', emoji: '😣', label: m.hourly_mood_upset }
 	];
 
 	interface DayCell {
@@ -125,7 +125,7 @@
 	}
 </script>
 
-<svelte:head><title>Hourly · DuoSync</title></svelte:head>
+<svelte:head><title>{m.hourly_title()} · DuoSync</title></svelte:head>
 
 <HubHeader
 	chips={momentsChips}
@@ -135,23 +135,25 @@
 />
 
 <main class="mx-auto max-w-md px-4 pt-4 pb-24">
-	<h1 class="mb-1 text-xl font-semibold">Hourly diary</h1>
+	<h1 class="mb-1 text-xl font-semibold">{m.hourly_title()}</h1>
 	<p class="mb-4 text-sm text-base-content/60">
-		A 2-second moment + how you felt, every hour you're awake.
+		{m.hourly_subtitle()}
 	</p>
 
 	<section class="mb-6 rounded-2xl border border-base-content/10 bg-base-200/40 p-4">
-		<h2 class="mb-2 text-sm font-semibold">Right now — {hourLabel(currentHourIndex())}</h2>
+		<h2 class="mb-2 text-sm font-semibold">
+			{m.hourly_right_now({ hour: hourLabel(currentHourIndex()) })}
+		</h2>
 		{#if recorderOpen}
 			<HourlyRecorder onsuccess={onCaptureSuccess} oncancel={() => (recorderOpen = false)} />
 		{:else}
 			{@const youCells = day?.you.cells ?? []}
 			{@const currentCell = youCells[currentHourIndex()]}
 			{#if currentCell?.clip}
-				<p class="mb-2 text-xs text-success">✓ Captured this hour</p>
+				<p class="mb-2 text-xs text-success">{m.hourly_captured_this_hour()}</p>
 			{:else}
 				<PillButton variant="primary" block onclick={() => (recorderOpen = true)}>
-					Capture this hour
+					{m.hourly_capture_cta()}
 				</PillButton>
 			{/if}
 			<div class="mt-3 flex justify-between gap-1">
@@ -159,7 +161,7 @@
 					{@const active = currentCell?.mood === mood.value}
 					<button
 						type="button"
-						aria-label={mood.label}
+						aria-label={mood.label()}
 						aria-pressed={active}
 						disabled={savingMood !== null}
 						class="flex h-12 w-12 items-center justify-center rounded-full border text-2xl transition disabled:opacity-50 {active
@@ -175,10 +177,11 @@
 	</section>
 
 	{#if loading}
-		<p class="text-sm text-base-content/60">Loading today…</p>
+		<p class="text-sm text-base-content/60">{m.hourly_loading()}</p>
 	{:else if loadError}
 		<p class="text-sm text-error">
-			Couldn't load today. <button class="underline" onclick={load}>Retry</button>
+			{m.hourly_load_failed()}
+			<button class="underline" onclick={load}>{m.hourly_retry()}</button>
 		</p>
 	{:else if day}
 		<section>
@@ -186,8 +189,8 @@
 				class="mb-2 grid grid-cols-[3rem_1fr_1fr] items-center gap-2 px-1 text-xs font-semibold tracking-wider text-base-content/50 uppercase"
 			>
 				<span></span>
-				<span>You</span>
-				<span>Partner</span>
+				<span>{m.hourly_col_you()}</span>
+				<span>{m.hourly_col_partner()}</span>
 			</header>
 			<ol class="space-y-1">
 				{#each day.you.cells as youCell, idx (youCell.hourBucket)}

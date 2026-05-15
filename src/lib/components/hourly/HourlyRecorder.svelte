@@ -11,6 +11,7 @@
 -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import * as m from '$lib/paraglide/messages.js';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import {
 		acquireStream,
@@ -145,14 +146,14 @@
 <div class="flex flex-col items-center gap-3">
 	{#if phase === 'idle'}
 		<p class="text-sm text-base-content/70">
-			Capture a 2-second moment of this hour. Camera + mic required.
+			{m.hourly_rec_intro()}
 		</p>
-		<PillButton variant="primary" size="lg" onclick={start}>Start recording</PillButton>
+		<PillButton variant="primary" size="lg" onclick={start}>{m.hourly_rec_start()}</PillButton>
 		<button type="button" class="text-xs text-base-content/60 underline" onclick={flipCamera}>
-			Use {facing === 'user' ? 'rear' : 'front'} camera
+			{facing === 'user' ? m.hourly_rec_use_rear() : m.hourly_rec_use_front()}
 		</button>
 	{:else if phase === 'requesting'}
-		<p class="text-sm text-base-content/70">Requesting camera…</p>
+		<p class="text-sm text-base-content/70">{m.hourly_rec_requesting()}</p>
 	{:else if phase === 'recording'}
 		<div class="relative aspect-square w-full max-w-sm overflow-hidden rounded-2xl bg-base-300">
 			<video bind:this={videoEl} class="h-full w-full object-cover" muted playsinline autoplay
@@ -163,37 +164,37 @@
 				● REC
 			</span>
 		</div>
-		<p class="text-xs text-base-content/60">2 seconds — hold still…</p>
+		<p class="text-xs text-base-content/60">{m.hourly_rec_recording_hint()}</p>
 	{:else if phase === 'previewing' && previewUrl}
 		<div class="relative aspect-square w-full max-w-sm overflow-hidden rounded-2xl bg-base-300">
 			<video src={previewUrl} class="h-full w-full object-cover" autoplay loop muted playsinline
 			></video>
 		</div>
 		{#if errorCode}
-			<p class="text-xs text-error">Upload failed — try again.</p>
+			<p class="text-xs text-error">{m.hourly_rec_upload_failed()}</p>
 		{/if}
 		<div class="flex gap-2">
-			<PillButton variant="primary" onclick={submit}>Use this</PillButton>
-			<PillButton variant="outline" onclick={retry}>Retry</PillButton>
-			<PillButton variant="ghost" onclick={cancel}>Cancel</PillButton>
+			<PillButton variant="primary" onclick={submit}>{m.hourly_rec_use_this()}</PillButton>
+			<PillButton variant="outline" onclick={retry}>{m.hourly_rec_retry()}</PillButton>
+			<PillButton variant="ghost" onclick={cancel}>{m.common_cancel()}</PillButton>
 		</div>
 	{:else if phase === 'uploading'}
-		<p class="text-sm text-base-content/70">Uploading…</p>
+		<p class="text-sm text-base-content/70">{m.hourly_rec_uploading()}</p>
 	{:else if phase === 'error'}
 		<p class="text-sm text-error">
 			{#if errorCode === 'permission_denied'}
-				Camera permission was denied. Enable it in your browser settings to record.
+				{m.hourly_rec_err_permission()}
 			{:else if errorCode === 'camera_unavailable'}
-				No camera available on this device.
+				{m.hourly_rec_err_unavailable()}
 			{:else if errorCode === 'mediarecorder_unsupported' || errorCode === 'getusermedia_unsupported'}
-				This browser doesn't support in-browser recording.
+				{m.hourly_rec_err_unsupported()}
 			{:else}
-				Something went wrong. Please try again.
+				{m.hourly_rec_err_generic()}
 			{/if}
 		</p>
 		<div class="flex gap-2">
-			<PillButton variant="primary" onclick={retry}>Try again</PillButton>
-			<PillButton variant="ghost" onclick={cancel}>Cancel</PillButton>
+			<PillButton variant="primary" onclick={retry}>{m.hourly_rec_try_again()}</PillButton>
+			<PillButton variant="ghost" onclick={cancel}>{m.common_cancel()}</PillButton>
 		</div>
 	{/if}
 </div>
