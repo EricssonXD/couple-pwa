@@ -17,7 +17,8 @@ export type AuditAction =
 	| 'repair.join'
 	| 'repair.complete'
 	| 'repair.cancel'
-	| 'pet.award.failed';
+	| 'pet.award.failed'
+	| 'pet.visit';
 
 export async function recordAudit(
 	userId: string,

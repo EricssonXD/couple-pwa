@@ -201,6 +201,22 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		const prev = pendingPetSnapshot ?? lastPetState;
 		if (prev && isStrictlyOlder(snap, prev)) return;
 		pendingPetSnapshot = snap;
+		// Telemetry (P6.6): presence-track that this client SAW a pet_state
+		// snapshot. Lets the partner's UI know the broadcast was received
+		// without a return broadcast or extra DB write. Best-effort only —
+		// untracked failures are silently ignored (matches all other track
+		// calls in this client).
+		void channel
+			?.track({
+				presence: lastPresence,
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot ISO timestamp sent over the wire
+				online_at: new Date().toISOString(),
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity -- one-shot ISO timestamp sent over the wire
+				pet_state_received_at: new Date().toISOString()
+			})
+			.catch(() => {
+				/* silent — telemetry is non-essential */
+			});
 		if (typeof requestAnimationFrame !== 'function') {
 			// Fallback for non-browser environments (SSR/tests). Apply
 			// synchronously; no coalescing possible without RAF.

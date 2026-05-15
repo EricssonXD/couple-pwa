@@ -339,6 +339,10 @@ export async function broadcastPetState(
 	try {
 		const snap = await getPetState(coupleId);
 		await broadcastToCouple(coupleId, { t: 'pet_state', ts: Date.now(), p: snap });
+		// Telemetry (P6.6): structured log so logpush can aggregate per-couple
+		// broadcast volume and verify the "≤ 21 messages/day/couple" budget
+		// from pet-system.md §"Real-time sync" against live traffic.
+		console.info('[telemetry] pet_state_broadcast', { coupleId });
 	} catch (err) {
 		console.warn('[pet] broadcastPetState failed', err);
 	}

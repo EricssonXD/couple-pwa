@@ -12,8 +12,15 @@ import {
 	getPetInventory,
 	getPetLedger
 } from '$lib/server/services/pet';
+import { recordAudit } from '$lib/server/services/audit';
 
-export const load: PageServerLoad = async ({ locals }) => {
+// Per-session marker so `pet.visit` is logged at most once per browser
+// session per user, not on every reload. Session cookies expire when
+// the browser closes — exactly the cadence the spec asks for ("first
+// /pet mount per session"). HttpOnly so the client can't forge it.
+const PET_VISIT_COOKIE = 'ds_pet_visit';
+
+export const load: PageServerLoad = async ({ locals, cookies }) => {
 	if (!locals.user) redirect(303, '/auth/sign-in');
 	const couple = await loadCoupleAnyStatus(locals.user.id);
 	if (!couple) redirect(303, '/onboarding/link');
@@ -28,6 +35,20 @@ export const load: PageServerLoad = async ({ locals }) => {
 		getPetInventory(couple.id),
 		getPetLedger(couple.id, { limit: 5 })
 	]);
+
+	// Telemetry (P6.6): one audit row per browser session per user.
+	// Non-blocking: recordAudit swallows its own errors so a flaky audit
+	// write never breaks the page render.
+	if (!cookies.get(PET_VISIT_COOKIE)) {
+		cookies.set(PET_VISIT_COOKIE, '1', {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			secure: true
+			// no maxAge → session cookie, cleared when the browser closes
+		});
+		void recordAudit(locals.user.id, 'pet.visit', { coupleStatus: couple.status });
+	}
 
 	return {
 		snapshot,
