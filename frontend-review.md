@@ -322,17 +322,17 @@ See §1.2 + §1.6 — needs full rewrite.
 
 Live route surface (19 routes) vs. discoverability:
 
-| Route | In BottomNav | Linked from a hub page | Reachable only by URL? |
-| --- | :---: | --- | :---: |
-| `/pulse`, `/map`, `/daily`, `/moments`, `/settings` | ✅ tab | — | — |
-| `/timeline` | — | `/pulse:236`, `/settings:275` | — |
-| `/pet` | — | `/pulse:251,266` | — |
-| `/notes` | — | `/settings:369` (junk drawer) | — |
-| `/calendar` | — | `/settings:355` (junk drawer) | — |
-| `/bucket` | — | `/settings:348` (junk drawer) | — |
-| `/chat` | — | `/settings:362` (junk drawer) | — |
-| **`/quiz`** | — | **none** | **🔴 yes** |
-| **`/repair`** | — | **none** | **🔴 yes** |
+| Route                                               | In BottomNav | Linked from a hub page        | Reachable only by URL? |
+| --------------------------------------------------- | :----------: | ----------------------------- | :--------------------: |
+| `/pulse`, `/map`, `/daily`, `/moments`, `/settings` |    ✅ tab    | —                             |           —            |
+| `/timeline`                                         |      —       | `/pulse:236`, `/settings:275` |           —            |
+| `/pet`                                              |      —       | `/pulse:251,266`              |           —            |
+| `/notes`                                            |      —       | `/settings:369` (junk drawer) |           —            |
+| `/calendar`                                         |      —       | `/settings:355` (junk drawer) |           —            |
+| `/bucket`                                           |      —       | `/settings:348` (junk drawer) |           —            |
+| `/chat`                                             |      —       | `/settings:362` (junk drawer) |           —            |
+| **`/quiz`**                                         |      —       | **none**                      |       **🔴 yes**       |
+| **`/repair`**                                       |      —       | **none**                      |       **🔴 yes**       |
 
 Three implications:
 
@@ -391,7 +391,7 @@ Keep BottomNav at 4 (`Pulse · Map · Moments · You`). Promote `/daily`, `/cale
 
 **Option A**, with these specific edits to `docs/ui-design.md`:
 
-1. **§7.2 `BottomNav` contract** — rewrite "4 tabs" → "5 tabs: Pulse · Today · Moments · Plan · You. Each non-Pulse tab is a *hub* — a landing surface that exposes its sub-routes via a chip-row at the top, below `PageHeader`."
+1. **§7.2 `BottomNav` contract** — rewrite "4 tabs" → "5 tabs: Pulse · Today · Moments · Plan · You. Each non-Pulse tab is a _hub_ — a landing surface that exposes its sub-routes via a chip-row at the top, below `PageHeader`."
 2. **§8 IA table** — add rows for `/today`, `/quiz`, `/repair`, `/chat`, `/pet`, `/timeline`, `/notes`, `/calendar`, `/bucket`, mark each with its hub parent. Remove "deferred (Phase: settings/theme)" notes that are no longer accurate.
 3. **§7 — add a new contract `HubChips`** (a `ui/` primitive): horizontal scroll-snap row of chips, each `min-h-44px`, active chip uses `bg-primary/12` + `aria-current="page"`, inactive chips are `bg-base-200`. Reduced-motion safe (no scroll animation). One per hub.
 4. **§13 anti-patterns** — add: "Linking a content route from `/settings`. Settings is configuration only; content features must live under their hub."
@@ -413,4 +413,3 @@ Keep BottomNav at 4 (`Pulse · Map · Moments · You`). Promote `/daily`, `/cale
 4. Remove junk-drawer links from `/settings:275-369`.
 5. Add `BottomNav` 5th tab (`Plan`) and rename `Daily → Today`. Update `SECONDARY_PARENT` map.
 6. Add e2e: from cold app launch, every authed route is reachable in ≤2 taps (BottomNav + chip).
-

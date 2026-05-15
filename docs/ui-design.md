@@ -215,6 +215,12 @@ CSS keyframes in `src/lib/motion/animations.css`. JS primitives in
   full-width text on tablet — readability collapses.
 - **Spacing scale**: use Tailwind `space-{1..6}` (4px → 24px). Larger gaps
   (32px+) only in hero sections.
+- **BottomNav clearance.** Routes that render `BottomNav` must add bottom
+  padding to their primary `<main>` so content scrolls above the nav.
+  - Hub pages (with `HubChips` row above the nav): `pb-32` (128px).
+  - Leaf pages (no chip row): `pb-24` (96px).
+  - Routes that hide BottomNav (auth, onboarding, `/welcome`, `/moments/new`): no extra padding.
+  - Magic values (`bottom-28`, `4.5rem`) in components are forbidden — use the tokens above.
 
 ---
 
@@ -242,9 +248,18 @@ Headless behaviour from **bits-ui**, styled with our tokens.
 | `Slider.svelte`      | Radius slider, generic range input                        |
 | `Tabs.svelte`        | Settings sub-sections                                     |
 | `Toggle.svelte`      | Ghost mode, notification toggles                          |
+| `HubChips.svelte`    | Horizontal scroll-snap chip row for hub sub-navigation    |
 
 If you need a primitive (popover, dropdown, command), add a thin wrapper
 under `ui/` first; do not pull bits-ui directly into a duosync/ component.
+
+#### `HubChips` (primitive)
+
+- **Inputs:** `chips: Array<{ href: string; label: () => string; icon?: Component }>`, `current: string` (the active route — typically `page.url.pathname`).
+- **Visual:** horizontal `scroll-snap-x` row, `gap-2`, full-bleed left/right with `px-4` content padding. Each chip is a pill with `min-h-[44px]` (a11y §10.2), `rounded-selector`, `text-sm` (Inter), optional 16px Phosphor icon. Active chip uses `bg-primary/12` + `text-base-content` + `aria-current="page"`. Inactive chips use `bg-base-200` + `text-base-content/70`.
+- **Motion:** none. Scroll position is preserved by the browser; do not animate `scrollLeft`. Reduced-motion safe by construction.
+- **Composition:** intended for use inside `HubHeader` (a `duosync/` component that pairs `HubChips` with the route title). A route may use `HubChips` standalone but must keep it directly below the page header (top of `<main>`), not floated.
+- **Anti-pattern:** never put more than ~6 chips in a row — past that the row becomes a hidden menu. Promote one of the chips to a tab, or split the hub.
 
 ### 7.2 `duosync/` — domain components
 
@@ -299,11 +314,19 @@ must not break the contract without bumping the relevant doc section.
 
 #### `BottomNav`
 
-- 4 tabs: Pulse / Map / Moments / Settings. Daily is intentionally
-  deferred — see plan §11.11.
-- Active tab gets the breathing pill (`.animate-breathe` over
-  `bg-primary/12`) AND filled icon AND `aria-current="page"`. All three.
+- **5 tabs**, fixed order: **Pulse · Map · Today · Moments · You**.
+  - **Pulse** — live couple status (DistanceBubble, HeartbeatZone).
+  - **Map** — both pins on a Leaflet canvas (forced dark theme, see §2).
+  - **Today** — relationship rituals: daily question, chat, quiz, repair, pet. Route is still `/daily` for legacy/API reasons; the **tab label** is "Today" (key `m.nav_today()`).
+  - **Moments** — past + future shared records: feed, timeline, notes, calendar, bucket. Hub page surfaces the children via `HubChips` (§7.1).
+  - **You** — settings (account, ghost mode, notifications, theme, diagnostics). Route is `/settings`; the **tab label** is "You" (key `m.nav_you()`). **No content features under You** — see §13.
+- Active tab gets the breathing pill (`.animate-breathe` over `bg-primary/12`) AND filled icon AND `aria-current="page"`. All three.
 - Hidden by `+layout.svelte` for unauthenticated and unpaired routes.
+- `SECONDARY_PARENT` map (in `BottomNav.svelte`) defines which tab lights up for non-tab routes:
+  - `chat`, `quiz`, `repair`, `pet` → `/daily` (Today)
+  - `timeline`, `notes`, `calendar`, `bucket` → `/moments`
+  - `settings/*` → `/settings` (You)
+  - Any new secondary route MUST be added here AND surfaced as a chip on the parent hub. Orphan routes (reachable only by URL) are a §13 anti-pattern.
 
 #### `GhostBanner`
 
@@ -314,22 +337,39 @@ must not break the contract without bumping the relevant doc section.
 
 ## 8. Screens (information architecture)
 
-| route                              | theme    | hero component                                                                   | bottom nav       |
-| ---------------------------------- | -------- | -------------------------------------------------------------------------------- | ---------------- |
-| `/welcome`                         | light    | marketing block                                                                  | hidden           |
-| `/auth/sign-in`                    | light    | form card                                                                        | hidden           |
-| `/onboarding`                      | light    | name + emoji + mood pickers                                                      | hidden           |
-| `/onboarding/link`                 | light    | 6-char `LinkCode`, paired bloom                                                  | hidden           |
-| `/pulse`                           | light    | AnniversaryRibbon → DistanceBubble → PartnerAvatar → MoodWeather → HeartbeatZone | visible          |
-| `/map`                             | **dark** | Leaflet full-screen, two pins, distance curve, sheet                             | visible          |
-| `/moments`                         | light    | timeline of MomentCard, FAB `+`                                                  | visible          |
-| `/moments/new`                     | **dark** | mini-map + radius slider + caption + Drop FAB                                    | visible          |
-| `/settings` (+ `/settings/couple`) | light    | Tabs                                                                             | visible          |
-| `/daily` (deferred)                | light    | Daily question card                                                              | visible (future) |
+Every authed route must appear in the table below AND be reachable in
+≤2 taps from a cold app launch (1 for hub tabs, ≤2 for hub children via
+`HubChips`). Routes that violate this are §13 anti-patterns.
+
+| route                                  | theme    | hub (BottomNav tab) | role                                                                             |
+| -------------------------------------- | -------- | ------------------- | -------------------------------------------------------------------------------- |
+| `/welcome`                             | light    | (anon) hidden       | marketing block                                                                  |
+| `/auth/sign-in`, `/auth/check-email`   | light    | (anon) hidden       | form card                                                                        |
+| `/onboarding`, `/onboarding/link`      | light    | hidden              | name + emoji + mood pickers, 6-char `LinkCode`, paired bloom                     |
+| `/pulse`                               | light    | **Pulse** (tab)     | AnniversaryRibbon → DistanceBubble → PartnerAvatar → MoodWeather → HeartbeatZone |
+| `/map`                                 | **dark** | **Map** (tab)       | Leaflet full-screen, two pins, distance curve, sheet                             |
+| `/daily` (tab label "Today")           | light    | **Today** (tab)     | hub: daily question card + `HubChips` for children                               |
+| `/chat`                                | light    | Today               | couple-only chat (7-day TTL)                                                     |
+| `/quiz`, `/quiz/[id]`, `/quiz/run/[…]` | light    | Today               | "How well do you know me?" packs                                                 |
+| `/repair`                              | light    | Today               | conflict-repair flow                                                             |
+| `/pet`                                 | light    | Today               | shared pet habitat (Habitat / Shop / Wardrobe)                                   |
+| `/moments`                             | light    | **Moments** (tab)   | hub: feed + `HubChips` for children                                              |
+| `/moments/new`                         | **dark** | Moments             | mini-map + radius slider + caption + Drop FAB                                    |
+| `/timeline`                            | light    | Moments             | full milestone history + upcoming countdowns                                     |
+| `/notes`                               | light    | Moments             | shared notes                                                                     |
+| `/calendar`                            | light    | Moments             | shared calendar (forward-looking dates)                                          |
+| `/bucket`                              | light    | Moments             | shared bucket list                                                               |
+| `/settings` (tab label "You")          | light    | **You** (tab)       | hub: account + ghost mode + notifications + theme                                |
+| `/settings/activity`                   | light    | You                 | activity log                                                                     |
+| `/settings/offline-queue`              | light    | You                 | offline action queue                                                             |
+| `/settings/diagnostics/*`              | light    | You (hidden)        | diagnostics — never linked from primary surfaces                                 |
 
 Every screen rule: **one primary action per view**. The Distance Bubble
 on `/pulse` is information, not action; the only action on `/pulse` is
-the heartbeat zone.
+the heartbeat zone. The hub pages (`/daily`, `/moments`) treat
+`HubChips` as navigation, not action — the primary action of a hub is
+its own canonical content (e.g. answering today's daily question on
+`/daily`).
 
 ---
 
@@ -411,3 +451,13 @@ A PR doing any of these will be sent back:
 - Hardcoded user-visible text (no Paraglide key).
 - `setInterval`/`setTimeout`-based animation. Use CSS or
   `requestAnimationFrame`.
+- **Linking a content route from `/settings`.** Settings is configuration
+  only (account, notifications, ghost mode, theme, diagnostics). Content
+  features (`/timeline`, `/notes`, `/calendar`, `/bucket`, `/chat`,
+  `/quiz`, `/repair`, `/pet`) must live under their hub (Today or
+  Moments) and be reachable via that hub's `HubChips`. The `/settings`
+  page must not contain anchors to those routes.
+- **Orphan routes.** Any new authed route that is not in the §8 IA table,
+  not surfaced as a `HubChips` chip on its parent hub, and not in
+  `BottomNav.SECONDARY_PARENT` is unreachable from a cold app launch.
+  This is a ship-blocker.
