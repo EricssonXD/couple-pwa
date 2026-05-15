@@ -6,25 +6,10 @@
 	import InputField from '$lib/components/ui/InputField.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { HubHeader } from '$lib/components/duosync';
-	import {
-		ChatCircleIcon,
-		QuestionIcon,
-		WrenchIcon,
-		PawPrintIcon,
-		PulseIcon
-	} from '$lib/components/ui/icons';
+	import { HubHeader, todayChips } from '$lib/components/duosync';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
-
-	const todayChips = [
-		{ href: '/daily', label: m.hub_chip_daily, icon: PulseIcon, exact: true },
-		{ href: '/chat', label: m.hub_chip_chat, icon: ChatCircleIcon },
-		{ href: '/quiz', label: m.hub_chip_quiz, icon: QuestionIcon },
-		{ href: '/repair', label: m.hub_chip_repair, icon: WrenchIcon },
-		{ href: '/pet', label: m.hub_chip_pet, icon: PawPrintIcon }
-	];
 
 	let body = $state('');
 	let submitting = $state(false);

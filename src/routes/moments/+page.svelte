@@ -17,16 +17,9 @@
 	import { onMount, onDestroy, untrack } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
-	import { MomentCard, HubHeader } from '$lib/components/duosync';
+	import { MomentCard, HubHeader, momentsChips } from '$lib/components/duosync';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
-	import {
-		BookOpenIcon,
-		ClockCounterClockwiseIcon,
-		NoteIcon,
-		CalendarIcon,
-		ListChecksIcon
-	} from '$lib/components/ui/icons';
 	import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
 	import SparkleIcon from 'phosphor-svelte/lib/SparkleIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
@@ -34,14 +27,6 @@
 
 	const { data }: { data: PageData } = $props();
 	const rt = createRealtimeClient(untrack(() => ({ coupleId: data.coupleId, userId: data.me.id })));
-
-	const momentsChips = [
-		{ href: '/moments', label: m.hub_chip_feed, icon: BookOpenIcon, exact: true },
-		{ href: '/timeline', label: m.hub_chip_timeline, icon: ClockCounterClockwiseIcon },
-		{ href: '/notes', label: m.hub_chip_notes, icon: NoteIcon },
-		{ href: '/calendar', label: m.hub_chip_calendar, icon: CalendarIcon },
-		{ href: '/bucket', label: m.hub_chip_bucket, icon: ListChecksIcon }
-	];
 
 	let viewerLat = $state<number | null>(null);
 	let viewerLon = $state<number | null>(null);

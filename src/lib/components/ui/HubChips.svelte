@@ -54,23 +54,35 @@
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- chips arrive already-resolved from caller -->
-<nav
-	aria-label="Section navigation"
-	class="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden {klass}"
->
-	{#each chips as chip (chip.href)}
-		{@const active = isActive(chip)}
-		<a
-			href={chip.href}
-			aria-current={active ? 'page' : undefined}
-			class="inline-flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-selector px-4 text-sm font-medium transition-colors {active
-				? 'bg-primary/12 text-base-content'
-				: 'bg-base-200 text-base-content/70 hover:bg-base-200/70'}"
-		>
-			{#if chip.icon}
-				<Icon icon={chip.icon} size={16} weight={active ? 'fill' : 'duotone'} />
-			{/if}
-			{chip.label()}
-		</a>
-	{/each}
-</nav>
+<div class="relative {klass}">
+	<nav
+		aria-label="Section navigation"
+		class="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+	>
+		{#each chips as chip (chip.href)}
+			{@const active = isActive(chip)}
+			<a
+				href={chip.href}
+				aria-current={active ? 'page' : undefined}
+				class="inline-flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-selector px-4 text-sm font-medium transition-colors {active
+					? 'bg-primary/12 text-base-content'
+					: 'bg-base-200 text-base-content/70 hover:bg-base-200/70'}"
+			>
+				{#if chip.icon}
+					<Icon icon={chip.icon} size={16} weight={active ? 'fill' : 'duotone'} />
+				{/if}
+				{chip.label()}
+			</a>
+		{/each}
+	</nav>
+	<!--
+	  Right-edge fade affordance: a thin gradient overlay signalling
+	  "more chips off-screen". Pointer-events-none so it never blocks
+	  taps on the rightmost chip. Hidden in reduced-motion-irrelevant
+	  contexts (it's purely visual).
+	-->
+	<div
+		aria-hidden="true"
+		class="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-base-100 to-transparent"
+	></div>
+</div>

@@ -27,3 +27,4 @@ export { default as MoodPicker } from './MoodPicker.svelte';
 export { default as MoodTrendStrip } from './MoodTrendStrip.svelte';
 export { default as BackButton } from './BackButton.svelte';
 export { default as HubHeader } from './HubHeader.svelte';
+export { todayChips, momentsChips, type HubChip } from './hub-chips';
