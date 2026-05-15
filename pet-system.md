@@ -1,5 +1,13 @@
 # DuoSync — Shared Pet System
 
+> **Status: SHIPPED.** All phases described below are live in prod
+> (`/pet`, `pet_state` realtime, ledger at
+> `/settings/diagnostics/pet-ledger`, all earn sources wired). This
+> file is retained as the canonical design spec — the pillars,
+> pitfall mitigations, and economy table still govern any future
+> tweaks. Per-feature commit trail in `git log`. Active backlog:
+> `plan.md` at repo root.
+
 > Locked design pillars (from the Socratic gate, brainstorming skill):
 > **Tamagotchi-lite** • **single species pet, picked at hatch, evolves through stages** •
 > **decay enabled but never lethal** • **only mutual / mostly-mutual actions feed it** •

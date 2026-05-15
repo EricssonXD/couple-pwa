@@ -90,6 +90,13 @@ serving old HTML until the user gestures the update banner.
   so iOS standalone PWAs (which lie about `history.length`) still get
   a working fallback `goto`. `BottomNav.isActive` lights the parent
   tab on secondary routes via a `SECONDARY_PARENT` map.
+- **IA overhaul (§14 of the closed `frontend-review.md`)**: `HubChips`
+  primitive + `HubHeader` composer route the secondary surfaces from
+  the hub pages they belong to (`/daily`, `/moments`); BottomNav tabs
+  3 + 5 relabelled to `Today` / `You`; `/settings` junk-drawer rows
+  for sibling features removed (kept only the diagnostic surfaces:
+  offline-queue, activity, pet-ledger). Stories live alongside the
+  primitive (`HubChips.stories.svelte`).
 - **CI/DX**: size-limit perf budget, RLS contract tests, a11y fixes,
   bundle-audit lazy splits.
 
