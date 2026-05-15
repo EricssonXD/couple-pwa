@@ -7,8 +7,10 @@
   - Active indicator is a 'breathing path' — a soft rose pill behind
     the icon column that scales/opacity-cycles, instead of just a
     color change. Reduced-motion users still get the color-only signal.
-  - 5 tabs (Pulse, Map, Daily, Moments, Settings). 'Daily' surfaces
-    the once-per-day couple prompt at /daily.
+  - 5 tabs (Pulse, Map, Today, Moments, You). The tab routes stay
+    /pulse · /map · /daily · /moments · /settings — only the
+    user-facing labels change ("Today" surfaces /daily, "You"
+    surfaces /settings). See docs/ui-design.md §7.2 + §8.
   - Adds aria-current to the active <a>.
 
   Visibility: the parent +layout.svelte still owns when to render
@@ -39,9 +41,9 @@
 	const tabs: Tab[] = [
 		{ href: '/pulse', label: m.nav_pulse, icon: PulseIcon },
 		{ href: '/map', label: m.nav_map, icon: MapPinIcon },
-		{ href: '/daily', label: m.nav_daily, icon: ChatCircleIcon },
+		{ href: '/daily', label: m.nav_today, icon: ChatCircleIcon },
 		{ href: '/moments', label: m.nav_moments, icon: BookOpenIcon },
-		{ href: '/settings', label: m.nav_settings, icon: GearIcon }
+		{ href: '/settings', label: m.nav_you, icon: GearIcon }
 	];
 
 	// Secondary routes that aren't tabs themselves but should still
@@ -59,7 +61,8 @@
 		'/bucket': '/moments',
 		'/chat': '/daily',
 		'/quiz': '/daily',
-		'/repair': '/daily'
+		'/repair': '/daily',
+		'/pet': '/daily'
 	};
 
 	const current = $derived(page.url.pathname);
