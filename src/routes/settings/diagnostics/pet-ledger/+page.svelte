@@ -13,14 +13,13 @@
   the rule only matches resolve() as the entire value.
 -->
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import Card from '$lib/components/ui/Card.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
-	import Icon from '$lib/components/ui/Icon.svelte';
-	import CaretLeftIcon from 'phosphor-svelte/lib/CaretLeftIcon';
+	import { BackButton } from '$lib/components/duosync';
 	import { ledgerSourceLabel } from '$lib/components/pet/ledger-i18n';
 	import type { PageData } from './$types';
 
@@ -73,14 +72,8 @@
 </svelte:head>
 
 <main class="mx-auto max-w-screen-md space-y-4 p-4 pb-24">
+	<BackButton fallbackHref="/settings" />
 	<header class="space-y-2">
-		<a
-			href={resolve('/settings')}
-			class="inline-flex items-center gap-1 text-xs text-base-content/60 hover:text-primary"
-		>
-			<Icon icon={CaretLeftIcon} size={12} weight="bold" />
-			<span>{m.pet_diag_back()}</span>
-		</a>
 		<h1 class="text-xl font-semibold">{m.pet_diag_title()}</h1>
 		<p class="text-sm text-base-content/70">{m.pet_diag_subtitle()}</p>
 	</header>

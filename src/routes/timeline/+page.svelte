@@ -6,8 +6,9 @@
   no realtime.
 -->
 <script lang="ts">
+	import { page } from '$app/state';
 	import * as m from '$lib/paraglide/messages.js';
-	import { BackButton } from '$lib/components/duosync';
+	import { HubHeader, momentsChips } from '$lib/components/duosync';
 	import {
 		allMilestones,
 		pastMilestones,
@@ -45,80 +46,86 @@
 	<title>{m.timeline_title_tag()}</title>
 </svelte:head>
 
-<main class="mx-auto min-h-screen max-w-md px-4 py-8 pb-24">
-	<div class="mb-2"><BackButton fallbackHref="/moments" /></div>
-	<header class="mb-6">
-		<p class="text-xs tracking-[0.2em] text-base-content/60 uppercase">{m.timeline_heading()}</p>
-		{#if data.coupleNickname}
-			<h1 class="mt-1 text-2xl font-semibold">{data.coupleNickname}</h1>
-		{/if}
-		<p class="mt-2 text-base-content/80">
-			<span class="text-display text-3xl font-semibold">{totalDays.toLocaleString()}</span>
-			<span class="text-sm text-base-content/60">{m.anniversary_days_unit()}</span>
-		</p>
-		<p class="text-xs text-base-content/50">
-			{m.timeline_since({ date: fmtDate(baseDate) })}
-		</p>
-	</header>
-
-	{#if next}
-		<section
-			class="mb-6 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-accent/10 p-4"
-		>
-			<p class="text-[10px] tracking-[0.2em] text-primary uppercase">{m.timeline_next_up()}</p>
-			<p class="mt-1 text-lg font-semibold">{label(next)}</p>
-			<p class="text-sm text-base-content/70">
-				{m.timeline_in_n_days({ n: dayDiffUTC(today, next.date) })}
-				· {fmtDate(next.date)}
+<main class="mx-auto min-h-screen max-w-md pb-24">
+	<HubHeader
+		title={m.timeline_heading}
+		fallbackHref="/moments"
+		chips={momentsChips}
+		current={page.url.pathname}
+	/>
+	<div class="px-4 pt-2">
+		<header class="mb-6">
+			{#if data.coupleNickname}
+				<h2 class="text-2xl font-semibold">{data.coupleNickname}</h2>
+			{/if}
+			<p class="mt-2 text-base-content/80">
+				<span class="text-display text-3xl font-semibold">{totalDays.toLocaleString()}</span>
+				<span class="text-sm text-base-content/60">{m.anniversary_days_unit()}</span>
 			</p>
-		</section>
-	{/if}
+			<p class="text-xs text-base-content/50">
+				{m.timeline_since({ date: fmtDate(baseDate) })}
+			</p>
+		</header>
 
-	{#if future.length > 0}
-		<section class="mb-8">
-			<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70">
-				{m.timeline_upcoming()}
-			</h2>
-			<ol class="space-y-2">
-				{#each future as ms (ms.kind + ms.n)}
-					<li
-						class="flex items-center justify-between rounded-xl border border-base-content/5 bg-base-200/60 p-3"
-					>
-						<div>
-							<p class="font-medium">{label(ms)}</p>
-							<p class="text-xs text-base-content/60">{fmtDate(ms.date)}</p>
-						</div>
-						<p class="text-xs font-semibold text-primary">
-							{m.timeline_in_n_days({ n: dayDiffUTC(today, ms.date) })}
-						</p>
-					</li>
-				{/each}
-			</ol>
-		</section>
-	{/if}
+		{#if next}
+			<section
+				class="mb-6 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-accent/10 p-4"
+			>
+				<p class="text-[10px] tracking-[0.2em] text-primary uppercase">{m.timeline_next_up()}</p>
+				<p class="mt-1 text-lg font-semibold">{label(next)}</p>
+				<p class="text-sm text-base-content/70">
+					{m.timeline_in_n_days({ n: dayDiffUTC(today, next.date) })}
+					· {fmtDate(next.date)}
+				</p>
+			</section>
+		{/if}
 
-	{#if past.length > 0}
-		<section>
-			<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70">
-				{m.timeline_passed()}
-			</h2>
-			<ol class="space-y-2">
-				{#each past as ms (ms.kind + ms.n)}
-					<li class="flex items-center justify-between rounded-xl bg-base-200/40 p-3 opacity-70">
-						<div>
-							<p class="font-medium">{label(ms)}</p>
-							<p class="text-xs text-base-content/60">{fmtDate(ms.date)}</p>
-						</div>
-						<p class="text-xs text-base-content/50">
-							{m.timeline_n_days_ago({ n: -dayDiffUTC(today, ms.date) })}
-						</p>
-					</li>
-				{/each}
-			</ol>
-		</section>
-	{/if}
+		{#if future.length > 0}
+			<section class="mb-8">
+				<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70">
+					{m.timeline_upcoming()}
+				</h2>
+				<ol class="space-y-2">
+					{#each future as ms (ms.kind + ms.n)}
+						<li
+							class="flex items-center justify-between rounded-xl border border-base-content/5 bg-base-200/60 p-3"
+						>
+							<div>
+								<p class="font-medium">{label(ms)}</p>
+								<p class="text-xs text-base-content/60">{fmtDate(ms.date)}</p>
+							</div>
+							<p class="text-xs font-semibold text-primary">
+								{m.timeline_in_n_days({ n: dayDiffUTC(today, ms.date) })}
+							</p>
+						</li>
+					{/each}
+				</ol>
+			</section>
+		{/if}
 
-	{#if past.length === 0 && future.length === 0}
-		<p class="text-center text-base-content/60">{m.timeline_empty()}</p>
-	{/if}
+		{#if past.length > 0}
+			<section>
+				<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70">
+					{m.timeline_passed()}
+				</h2>
+				<ol class="space-y-2">
+					{#each past as ms (ms.kind + ms.n)}
+						<li class="flex items-center justify-between rounded-xl bg-base-200/40 p-3 opacity-70">
+							<div>
+								<p class="font-medium">{label(ms)}</p>
+								<p class="text-xs text-base-content/60">{fmtDate(ms.date)}</p>
+							</div>
+							<p class="text-xs text-base-content/50">
+								{m.timeline_n_days_ago({ n: -dayDiffUTC(today, ms.date) })}
+							</p>
+						</li>
+					{/each}
+				</ol>
+			</section>
+		{/if}
+
+		{#if past.length === 0 && future.length === 0}
+			<p class="text-center text-base-content/60">{m.timeline_empty()}</p>
+		{/if}
+	</div>
 </main>

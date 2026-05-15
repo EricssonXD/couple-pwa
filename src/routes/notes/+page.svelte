@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import * as m from '$lib/paraglide/messages.js';
 	import { MAX_BODY_LEN, MIN_LEAD_TIME_MS } from '$lib/scheduledNotes.constants';
 	import type { PageData } from './$types';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { BackButton } from '$lib/components/duosync';
+	import { HubHeader, momentsChips } from '$lib/components/duosync';
 
 	const { data }: { data: PageData } = $props();
 
@@ -79,96 +80,100 @@
 	<title>{m.notes_title_tag()}</title>
 </svelte:head>
 
-<main class="mx-auto min-h-screen max-w-md px-4 py-8 pb-24">
-	<div class="mb-2"><BackButton fallbackHref="/moments" /></div>
-	<header class="mb-6">
-		<p class="text-xs tracking-wider text-base-content/60 uppercase">{m.notes_settings_link()}</p>
-		<h1 class="text-display text-3xl font-semibold tracking-wide">
-			{m.notes_compose_heading()}
-		</h1>
-	</header>
+<main class="mx-auto min-h-screen max-w-md pb-24">
+	<HubHeader
+		title={m.notes_compose_heading}
+		fallbackHref="/moments"
+		chips={momentsChips}
+		current={page.url.pathname}
+	/>
+	<div class="px-4 pt-2">
+		<header class="mb-6">
+			<p class="text-xs tracking-wider text-base-content/60 uppercase">{m.notes_settings_link()}</p>
+		</header>
 
-	<Card class="space-y-3">
-		<label class="form-control">
-			<div class="label">
-				<span class="label-text">{m.notes_body_label()}</span>
-				<span class="label-text-alt text-base-content/60">{body.length}/{MAX_BODY_LEN}</span>
-			</div>
-			<textarea
-				bind:value={body}
-				maxlength={MAX_BODY_LEN}
-				rows={5}
-				placeholder={m.notes_body_placeholder()}
-				class="textarea-bordered textarea"
-			></textarea>
-		</label>
-		<label class="form-control">
-			<div class="label">
-				<span class="label-text">{m.notes_deliver_at_label()}</span>
-			</div>
-			<input type="datetime-local" bind:value={deliverAtLocal} class="input-bordered input" />
-		</label>
-		{#if err}<p class="text-sm text-error">{err}</p>{/if}
-		<button
-			class="btn btn-block btn-primary"
-			disabled={submitting || !body.trim()}
-			onclick={submit}
-		>
-			{#if submitting}
-				<Spinner />
-				{m.notes_saving()}
+		<Card class="space-y-3">
+			<label class="form-control">
+				<div class="label">
+					<span class="label-text">{m.notes_body_label()}</span>
+					<span class="label-text-alt text-base-content/60">{body.length}/{MAX_BODY_LEN}</span>
+				</div>
+				<textarea
+					bind:value={body}
+					maxlength={MAX_BODY_LEN}
+					rows={5}
+					placeholder={m.notes_body_placeholder()}
+					class="textarea-bordered textarea"
+				></textarea>
+			</label>
+			<label class="form-control">
+				<div class="label">
+					<span class="label-text">{m.notes_deliver_at_label()}</span>
+				</div>
+				<input type="datetime-local" bind:value={deliverAtLocal} class="input-bordered input" />
+			</label>
+			{#if err}<p class="text-sm text-error">{err}</p>{/if}
+			<button
+				class="btn btn-block btn-primary"
+				disabled={submitting || !body.trim()}
+				onclick={submit}
+			>
+				{#if submitting}
+					<Spinner />
+					{m.notes_saving()}
+				{:else}
+					{m.notes_save()}
+				{/if}
+			</button>
+		</Card>
+
+		<section class="mt-8">
+			<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70 uppercase">
+				{m.notes_pending_heading()}
+			</h2>
+			{#if data.pending.length === 0}
+				<p class="text-sm text-base-content/60">{m.notes_pending_empty()}</p>
 			{:else}
-				{m.notes_save()}
-			{/if}
-		</button>
-	</Card>
-
-	<section class="mt-8">
-		<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70 uppercase">
-			{m.notes_pending_heading()}
-		</h2>
-		{#if data.pending.length === 0}
-			<p class="text-sm text-base-content/60">{m.notes_pending_empty()}</p>
-		{:else}
-			<ul class="space-y-2">
-				{#each data.pending as n (n.id)}
-					<li class="card bg-base-100 shadow-sm">
-						<div class="card-body p-4">
-							<p class="text-sm whitespace-pre-wrap">{n.body}</p>
-							<div class="mt-2 flex items-center justify-between">
-								<span class="text-xs text-base-content/60">
-									{m.notes_scheduled_for({ when: fmt(n.deliverAt) })}
-								</span>
-								<button class="btn text-error btn-ghost btn-xs" onclick={() => cancel(n.id)}>
-									{m.notes_cancel()}
-								</button>
+				<ul class="space-y-2">
+					{#each data.pending as n (n.id)}
+						<li class="card bg-base-100 shadow-sm">
+							<div class="card-body p-4">
+								<p class="text-sm whitespace-pre-wrap">{n.body}</p>
+								<div class="mt-2 flex items-center justify-between">
+									<span class="text-xs text-base-content/60">
+										{m.notes_scheduled_for({ when: fmt(n.deliverAt) })}
+									</span>
+									<button class="btn text-error btn-ghost btn-xs" onclick={() => cancel(n.id)}>
+										{m.notes_cancel()}
+									</button>
+								</div>
 							</div>
-						</div>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
 
-	<section class="mt-8">
-		<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70 uppercase">
-			{m.notes_delivered_heading()}
-		</h2>
-		{#if data.delivered.length === 0}
-			<p class="text-sm text-base-content/60">{m.notes_delivered_empty()}</p>
-		{:else}
-			<ul class="space-y-2">
-				{#each data.delivered as n (n.id)}
-					<li class="card bg-gradient-to-br from-primary/5 to-accent/5 shadow-sm">
-						<div class="card-body p-4">
-							<p class="text-sm whitespace-pre-wrap">{n.body}</p>
-							<p class="mt-2 text-xs text-base-content/60">
-								{fmt(n.deliveredAt)}{n.authorId === data.viewerId ? ' · you' : ''}
-							</p>
-						</div>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+		<section class="mt-8">
+			<h2 class="mb-3 text-sm font-semibold tracking-wide text-base-content/70 uppercase">
+				{m.notes_delivered_heading()}
+			</h2>
+			{#if data.delivered.length === 0}
+				<p class="text-sm text-base-content/60">{m.notes_delivered_empty()}</p>
+			{:else}
+				<ul class="space-y-2">
+					{#each data.delivered as n (n.id)}
+						<li class="card bg-gradient-to-br from-primary/5 to-accent/5 shadow-sm">
+							<div class="card-body p-4">
+								<p class="text-sm whitespace-pre-wrap">{n.body}</p>
+								<p class="mt-2 text-xs text-base-content/60">
+									{fmt(n.deliveredAt)}{n.authorId === data.viewerId ? ' · you' : ''}
+								</p>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	</div>
 </main>
