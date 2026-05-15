@@ -5,6 +5,9 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import {
+	BUFF_DURATION_MS,
+	BUFF_EFFECTS,
+	BUFF_MULTIPLIER_CAP,
 	DECAY_PER_DAY,
 	EARN_SOURCES,
 	EARN_TABLE,
@@ -300,5 +303,31 @@ describe('TREAT_EFFECTS', () => {
 	});
 	it('welcome-back treat is in the table (consistency)', () => {
 		expect(TREAT_EFFECTS[WELCOME_BACK_TREAT_ID]).toBeDefined();
+	});
+});
+
+describe('BUFF_EFFECTS (P5.1)', () => {
+	it('covers both seeded buff items from 0023_pet_buffs.sql', () => {
+		expect(Object.keys(BUFF_EFFECTS).sort()).toEqual(['buff_doublecoin', 'buff_xpboost']);
+	});
+	it('coin buff multiplier (1.5) yields 18 from a base of 12 — spec verify line', () => {
+		// pet-system.md L1192: "Activate buff_doublecoin, complete a quiz,
+		// ledger row shows 18 coins (= 12 × 1.5)."
+		const mul = BUFF_EFFECTS.buff_doublecoin.multiplier;
+		expect(BUFF_EFFECTS.buff_doublecoin.kind).toBe('coin');
+		expect(Math.round(12 * mul)).toBe(18);
+	});
+	it('xp buff is declared kind=xp (so service can refuse activation in v1)', () => {
+		expect(BUFF_EFFECTS.buff_xpboost.kind).toBe('xp');
+	});
+	it('every buff multiplier sits within (1, BUFF_MULTIPLIER_CAP]', () => {
+		for (const id of Object.keys(BUFF_EFFECTS)) {
+			const mul = BUFF_EFFECTS[id].multiplier;
+			expect(mul).toBeGreaterThan(1);
+			expect(mul).toBeLessThanOrEqual(BUFF_MULTIPLIER_CAP);
+		}
+	});
+	it('BUFF_DURATION_MS is exactly 24h', () => {
+		expect(BUFF_DURATION_MS).toBe(24 * 60 * 60 * 1000);
 	});
 });

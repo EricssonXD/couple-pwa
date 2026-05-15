@@ -11,7 +11,14 @@
 
 import { and, eq, gt, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { pet, petInventory, petLedger, petShopItem, petWallet } from '$lib/server/db/schema';
+import {
+	pet,
+	petBuff,
+	petInventory,
+	petLedger,
+	petShopItem,
+	petWallet
+} from '$lib/server/db/schema';
 import { broadcastToCouple } from '$lib/server/realtime';
 import { recordAudit } from '$lib/server/services/audit';
 import {
@@ -20,6 +27,9 @@ import {
 	NAME_MIN,
 	SPECIES,
 	TREAT_EFFECTS,
+	BUFF_EFFECTS,
+	BUFF_DURATION_MS,
+	BUFF_MULTIPLIER_CAP,
 	HUNGER_CEIL,
 	HUNGER_FLOOR,
 	MOOD_CEIL,
@@ -32,6 +42,7 @@ import {
 	stageForXp,
 	stageUnlocks,
 	todayKey,
+	type BuffKind,
 	type EarnSource,
 	type EquippedItem,
 	type PetInventoryEntry,
@@ -417,7 +428,34 @@ export async function awardForEvent(args: {
 		return AWARD_FAILED;
 	}
 
-	const { coinsDelta, xpDelta } = computePay(source, mutual);
+	const base = computePay(source, mutual);
+
+	// Apply any active multiplier buff for this couple. We multiply
+	// 'coin' kind into coinsDelta and 'xp' kind into xpDelta. Capped
+	// at ×BUFF_MULTIPLIER_CAP defensively (DB CHECK also enforces).
+	// Lookup is a single-row indexed read; failure is silently treated
+	// as no-buff (we never block an earn because the buff query fell
+	// over). Multiplier is applied via Math.round so the ledger row
+	// stays an integer — fractional cents would break wallet invariants.
+	let coinsDelta = base.coinsDelta;
+	let xpDelta = base.xpDelta;
+	try {
+		const buffs = await db
+			.select({ kind: petBuff.kind, multiplier: petBuff.multiplier })
+			.from(petBuff)
+			.where(and(eq(petBuff.coupleId, coupleId), gt(petBuff.activeUntil, new Date())));
+		for (const b of buffs) {
+			const mul = Math.min(BUFF_MULTIPLIER_CAP, Number(b.multiplier));
+			if (!Number.isFinite(mul) || mul <= 1) continue;
+			if (b.kind === 'coin' && coinsDelta > 0) {
+				coinsDelta = Math.round(coinsDelta * mul);
+			} else if (b.kind === 'xp' && xpDelta > 0) {
+				xpDelta = Math.round(xpDelta * mul);
+			}
+		}
+	} catch (err) {
+		console.warn('[pet] awardForEvent: buff lookup failed', err);
+	}
 
 	// Lazy-provision wallet OUTSIDE the retry loop so retries don't
 	// race the INSERT … ON CONFLICT DO NOTHING repeatedly.
@@ -590,10 +628,13 @@ export type PetShopErrorCode =
 	| 'item_already_owned'
 	| 'item_not_treat'
 	| 'item_not_cosmetic'
+	| 'item_not_buff'
 	| 'inventory_empty'
 	| 'insufficient_coins'
 	| 'pet_not_found'
-	| 'treat_effect_missing';
+	| 'treat_effect_missing'
+	| 'buff_effect_missing'
+	| 'buff_xp_unavailable';
 
 export class PetShopError extends Error {
 	readonly code: PetShopErrorCode;
@@ -624,8 +665,12 @@ export function petShopErrorStatus(code: PetShopErrorCode): number {
 			return 409;
 		case 'item_not_treat':
 		case 'item_not_cosmetic':
+		case 'item_not_buff':
 			return 400;
+		case 'buff_xp_unavailable':
+			return 403;
 		case 'treat_effect_missing':
+		case 'buff_effect_missing':
 			return 500;
 	}
 }
@@ -1043,4 +1088,118 @@ export async function consumeTreat(
 	// caller retries from a fresh GET. This is exceptionally rare since
 	// only the partner's earn pipeline writes to pet too.
 	throw new PetShopError('inventory_empty', 'pet version contention');
+}
+
+// ─── activateBuff (P5.1) ─────────────────────────────────────────────────
+
+/**
+ * Burn one buff item from inventory and arm a temporary multiplier.
+ *
+ * Lifecycle:
+ *   1. Validate item is a buff and enabled and we have qty ≥ 1.
+ *   2. Look up `BUFF_EFFECTS[itemId]` for kind+multiplier; v1 refuses
+ *      kind='xp' with `buff_xp_unavailable` since there's no XP system.
+ *   3. In a single tx: decrement inventory qty (row stays at 0 same
+ *      pattern as treats), upsert `pet_buff` row with
+ *      `active_until = now() + BUFF_DURATION_MS`. Re-activating the
+ *      same kind EXTENDS the window from now (does not stack on top
+ *      of remaining time — keeps the "always 24h fresh" UX honest).
+ *   4. Append a spend ledger row.
+ *   5. Bump wallet.version so realtime receivers refetch state.
+ *
+ * Idempotency: not idempotent — caller must guard against double-fires
+ * client-side. Buff items are inexpensive and the risk of an accidental
+ * double-activate is just losing one item, not an invariant break.
+ */
+export async function activateBuff(
+	coupleId: string,
+	userId: string | null,
+	itemId: string
+): Promise<PetMutationResult> {
+	const [item] = await db
+		.select({
+			kind: petShopItem.kind,
+			enabled: petShopItem.enabled,
+			minStage: petShopItem.minStage
+		})
+		.from(petShopItem)
+		.where(eq(petShopItem.id, itemId))
+		.limit(1);
+	if (!item) throw new PetShopError('item_not_found');
+	if (!item.enabled) throw new PetShopError('item_disabled');
+	if (item.kind !== 'buff') throw new PetShopError('item_not_buff');
+
+	const effect = BUFF_EFFECTS[itemId];
+	if (!effect) throw new PetShopError('buff_effect_missing');
+
+	// v1 has no XP system — buff_xpboost is buyable but not activatable.
+	if (effect.kind === 'xp') throw new PetShopError('buff_xp_unavailable');
+
+	const stage = await readPetStage(coupleId);
+	if (!stage) throw new PetShopError('pet_not_found');
+	if (!stageUnlocks(stage, item.minStage as Stage)) {
+		throw new PetShopError('item_locked');
+	}
+
+	const multiplier = Math.min(BUFF_MULTIPLIER_CAP, effect.multiplier);
+	const activeUntil = new Date(Date.now() + BUFF_DURATION_MS);
+
+	for (let attempt = 0; attempt < SHOP_RETRY_LIMIT; attempt += 1) {
+		try {
+			await db.transaction(async (tx) => {
+				const [inv] = await tx
+					.select({ id: petInventory.id, qty: petInventory.qty })
+					.from(petInventory)
+					.where(and(eq(petInventory.coupleId, coupleId), eq(petInventory.itemId, itemId)))
+					.limit(1);
+				if (!inv || inv.qty <= 0) throw new PetShopError('inventory_empty');
+
+				const decremented = await tx
+					.update(petInventory)
+					.set({ qty: inv.qty - 1, equipped: false })
+					.where(and(eq(petInventory.id, inv.id), gt(petInventory.qty, 0)))
+					.returning({ id: petInventory.id });
+				if (decremented.length === 0) throw new PetShopError('inventory_empty');
+
+				// Upsert: same (couple, kind) → bump activeUntil/multiplier.
+				// Spec note: re-activating refreshes the 24h window, not
+				// stacks on remaining time.
+				await tx
+					.insert(petBuff)
+					.values({
+						coupleId,
+						kind: effect.kind,
+						multiplier: multiplier.toFixed(2),
+						activeUntil
+					})
+					.onConflictDoUpdate({
+						target: [petBuff.coupleId, petBuff.kind],
+						set: { multiplier: multiplier.toFixed(2), activeUntil }
+					});
+
+				await tx.insert(petLedger).values({
+					coupleId,
+					userId,
+					kind: 'spend',
+					source: `buff:${itemId}`,
+					coinsDelta: 0,
+					xpDelta: 0,
+					dedupeKey: null
+				});
+
+				// Bump wallet.version so realtime receivers re-fetch — the
+				// buff itself doesn't appear in PetSnapshot today, but the
+				// receiver's coins-projection logic should be re-fetched
+				// to get the new buff state (and pulse the inventory list).
+				await bumpWalletAtomic(tx, coupleId, 0);
+			});
+
+			return buildMutationResult(coupleId);
+		} catch (err) {
+			if (err instanceof VersionConflictError) continue;
+			throw err;
+		}
+	}
+
+	throw new PetShopError('inventory_empty', 'wallet version contention');
 }

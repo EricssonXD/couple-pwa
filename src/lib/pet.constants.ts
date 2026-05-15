@@ -109,6 +109,23 @@ export const TREAT_EFFECTS: Record<string, { mood: number; hunger: number }> = {
 	treat_cake: { mood: 18, hunger: 30 }
 };
 
+// ─── Buff effects (P5.1) ──────────────────────────────────────────────────
+// Each buff item maps to a kind ('coin' multiplies coin earns, 'xp'
+// multiplies XP earns), a multiplier (capped ×2.0 in DB CHECK and
+// service code), and a duration. v1 has no XP system, so 'xp' buffs
+// refuse activation with `buff_xp_unavailable` per session decision 2.
+
+export const BUFF_DURATION_MS = 24 * 60 * 60 * 1000; // 24h
+
+export type BuffKind = 'coin' | 'xp';
+
+export const BUFF_EFFECTS: Record<string, { kind: BuffKind; multiplier: number }> = {
+	buff_doublecoin: { kind: 'coin', multiplier: 1.5 },
+	buff_xpboost: { kind: 'xp', multiplier: 1.5 }
+};
+
+export const BUFF_MULTIPLIER_CAP = 2.0;
+
 const MS_PER_DAY = 86_400_000;
 
 function clamp(n: number, min: number, max: number): number {
