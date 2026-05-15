@@ -7,3 +7,4 @@ export { default as LedgerStrip } from './LedgerStrip.svelte';
 export { default as ShopCard } from './ShopCard.svelte';
 export { default as WardrobePanel } from './WardrobePanel.svelte';
 export { default as HatchFlow } from './HatchFlow.svelte';
+export { deriveMoodState, moodStateCopy, type PetMoodState } from './pet-state';

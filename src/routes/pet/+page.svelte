@@ -43,7 +43,9 @@
 		CoinIcon,
 		LedgerStrip,
 		ShopCard,
-		WardrobePanel
+		WardrobePanel,
+		deriveMoodState,
+		moodStateCopy
 	} from '$lib/components/pet';
 	import {
 		projectDecay,
@@ -525,6 +527,9 @@
 
 			<section class="mt-6">
 				<MoodHungerBars mood={liveMood} hunger={liveHunger} pulse={treatPulse} />
+				<p class="mt-3 text-center text-sm text-base-content/70">
+					{moodStateCopy(deriveMoodState(liveMood, liveHunger), p.name)}
+				</p>
 			</section>
 
 			<section class="mt-4">
