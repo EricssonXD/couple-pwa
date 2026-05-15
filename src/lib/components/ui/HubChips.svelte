@@ -57,14 +57,14 @@
 <div class="relative {klass}">
 	<nav
 		aria-label="Section navigation"
-		class="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+		class="flex flex-wrap gap-2 pb-1 sm:-mx-4 sm:snap-x sm:snap-mandatory sm:flex-nowrap sm:overflow-x-auto sm:scroll-smooth sm:px-4 sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden"
 	>
 		{#each chips as chip (chip.href)}
 			{@const active = isActive(chip)}
 			<a
 				href={chip.href}
 				aria-current={active ? 'page' : undefined}
-				class="inline-flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-selector px-4 text-sm font-medium transition-colors {active
+				class="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-selector px-4 text-sm font-medium transition-colors sm:snap-start {active
 					? 'bg-primary/12 text-base-content'
 					: 'bg-base-200 text-base-content/70 hover:bg-base-200/70'}"
 			>
@@ -76,13 +76,13 @@
 		{/each}
 	</nav>
 	<!--
-	  Right-edge fade affordance: a thin gradient overlay signalling
-	  "more chips off-screen". Pointer-events-none so it never blocks
-	  taps on the rightmost chip. Hidden in reduced-motion-irrelevant
-	  contexts (it's purely visual).
+	  Right-edge fade affordance: only meaningful when the row is
+	  horizontally scrollable (sm+). On mobile the row wraps, so all
+	  chips are already visible and the gradient would be misleading.
+	  Pointer-events-none so it never blocks taps on the rightmost chip.
 	-->
 	<div
 		aria-hidden="true"
-		class="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-base-100 to-transparent"
+		class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-gradient-to-l from-base-100 to-transparent sm:block"
 	></div>
 </div>
