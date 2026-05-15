@@ -39,3 +39,4 @@ export { default as QuestionIcon } from 'phosphor-svelte/lib/QuestionIcon';
 export { default as WrenchIcon } from 'phosphor-svelte/lib/WrenchIcon';
 export { default as ClockCounterClockwiseIcon } from 'phosphor-svelte/lib/ClockCounterClockwiseIcon';
 export { default as NoteIcon } from 'phosphor-svelte/lib/NoteIcon';
+export { default as VideoCameraIcon } from 'phosphor-svelte/lib/VideoCameraIcon';
