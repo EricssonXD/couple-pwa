@@ -19,8 +19,13 @@
 import * as rruleNs from 'rrule';
 import type { RRule, RRuleSet } from 'rrule';
 type RruleModule = { rrulestr: typeof import('rrule').rrulestr };
+// Computed key access — esbuild's bundled rrule ESM has no static `default`
+// export, so a literal `.default` triggers an "import is undefined" warning
+// even though Node ESM's CJS interop populates it at runtime. Using a
+// computed key keeps the lookup dynamic so both runtimes work without noise.
+const rruleNsRecord = rruleNs as unknown as Record<string, unknown>;
 const rruleModule: RruleModule =
-	(rruleNs as unknown as { default?: RruleModule }).default ?? (rruleNs as unknown as RruleModule);
+	(rruleNsRecord['default'] as RruleModule | undefined) ?? (rruleNs as unknown as RruleModule);
 const { rrulestr } = rruleModule;
 
 export const ALLOWED_FREQS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as const;
