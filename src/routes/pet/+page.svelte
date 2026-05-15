@@ -41,6 +41,7 @@
 		MoodHungerBars,
 		HatchFlow,
 		CoinIcon,
+		LedgerStrip,
 		ShopCard,
 		WardrobePanel
 	} from '$lib/components/pet';
@@ -48,6 +49,7 @@
 		projectDecay,
 		type PetSnapshot,
 		type PetInventoryEntry,
+		type PetLedgerEntry,
 		type PetMutationResult,
 		type ShopItemView,
 		type Species
@@ -60,6 +62,7 @@
 	let snapshot = $state<PetSnapshot>(untrack(() => data.snapshot));
 	let inventory = $state<PetInventoryEntry[]>(untrack(() => data.inventory));
 	let shopItems = $state<ShopItemView[]>(untrack(() => data.shopItems));
+	let ledger = $state<PetLedgerEntry[]>(untrack(() => data.ledger));
 
 	// ── decay re-projection (unchanged) ─────────────────────────────────
 	let liveMood = $state(untrack(() => data.snapshot.pet?.mood ?? 0));
@@ -245,6 +248,23 @@
 		}
 	}
 
+	// Same race-protection pattern for the ledger strip — partner
+	// earnings broadcast pet_state, we then refetch /api/pet/ledger to
+	// pick up the new row. (PetSnapshot doesn't carry ledger entries.)
+	let ledgerFetchSeq = 0;
+	async function refetchLedger(): Promise<void> {
+		const my = ++ledgerFetchSeq;
+		try {
+			const res = await fetch('/api/pet/ledger?limit=5');
+			if (!res.ok) return;
+			const body = (await res.json()) as { entries: PetLedgerEntry[] };
+			if (my !== ledgerFetchSeq) return;
+			ledger = body.entries;
+		} catch {
+			/* silent — strip will repair on next mutation */
+		}
+	}
+
 	function mapErrorStatus(status: number, code?: string): string {
 		if (status === 402) return m.pet_action_error_402();
 		if (status === 403) {
@@ -288,6 +308,10 @@
 			// Inventory is non-versioned but is part of the same write
 			// txn; commit it unconditionally — fresh from our own write.
 			inventory = result.inventory;
+			// Ledger is not part of PetMutationResult; refetch async so
+			// the activity strip surfaces the new row without blocking
+			// the snapshot apply.
+			void refetchLedger();
 			return result;
 		} catch {
 			actionError = m.pet_action_error_network();
@@ -350,6 +374,7 @@
 			// the actual animation.
 			treatPulse += 1;
 			void refetchInventory();
+			void refetchLedger();
 		}
 	});
 
@@ -372,6 +397,7 @@
 				const reseed = (await res.json()) as PetSnapshot;
 				applyPetSnapshot(reseed);
 				await refetchInventory();
+				await refetchLedger();
 			} catch {
 				/* silent — next mutation or visibility-change rejoin retries */
 			}
@@ -499,6 +525,10 @@
 
 			<section class="mt-6">
 				<MoodHungerBars mood={liveMood} hunger={liveHunger} pulse={treatPulse} />
+			</section>
+
+			<section class="mt-4">
+				<LedgerStrip entries={ledger} />
 			</section>
 		{/snippet}
 

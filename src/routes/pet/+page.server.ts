@@ -6,7 +6,12 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { loadCoupleAnyStatus } from '$lib/server/services/couple';
-import { getPetState, listShopItems, getPetInventory } from '$lib/server/services/pet';
+import {
+	getPetState,
+	listShopItems,
+	getPetInventory,
+	getPetLedger
+} from '$lib/server/services/pet';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) redirect(303, '/auth/sign-in');
@@ -17,16 +22,18 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// Wardrobe tabs render immediately on first paint with no follow-up
 	// round-trip. Catalogue is small (12 rows) so the cost is negligible
 	// and we avoid lazy-fetch race conditions when toggling tabs fast.
-	const [snapshot, shopItems, inventory] = await Promise.all([
+	const [snapshot, shopItems, inventory, ledger] = await Promise.all([
 		getPetState(couple.id, null),
 		listShopItems(couple.id),
-		getPetInventory(couple.id)
+		getPetInventory(couple.id),
+		getPetLedger(couple.id, { limit: 5 })
 	]);
 
 	return {
 		snapshot,
 		shopItems,
 		inventory,
+		ledger,
 		coupleId: couple.id,
 		userId: locals.user.id,
 		// Inactive couples (paused / broken) skip realtime entirely:
