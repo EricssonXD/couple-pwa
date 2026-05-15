@@ -774,6 +774,80 @@ async function buildMutationResult(coupleId: string, now?: Date): Promise<PetMut
 	return { snapshot, inventory };
 }
 
+// ─── reconcileWallet ─────────────────────────────────────────────────────
+
+/**
+ * Reconcile `pet_wallet.coins` against `SUM(pet_ledger.coins_delta)`.
+ *
+ * The ledger is the immutable journal (source of truth). The wallet is
+ * a materialized running balance. If they drift (bug, partial write,
+ * manual repair) the user can run reconcile from Settings →
+ * Diagnostics. We trust the ledger sum, write a 0-delta `adjust` audit
+ * row capturing the discrepancy in the source label, and update the
+ * wallet balance to match.
+ *
+ * Idempotent: running with no drift writes nothing and bumps no
+ * version.
+ *
+ * Returns `adjusted` = ledgerSum - walletCoins (signed delta applied
+ * to the wallet). Zero means the wallet was already correct.
+ */
+export async function reconcileWallet(
+	coupleId: string
+): Promise<{ adjusted: number; result: PetMutationResult }> {
+	await ensureWallet(coupleId);
+
+	for (let attempt = 0; attempt < SHOP_RETRY_LIMIT; attempt += 1) {
+		try {
+			const adjusted = await db.transaction(async (tx) => {
+				const [wallet] = await tx
+					.select({ coins: petWallet.coins, version: petWallet.version })
+					.from(petWallet)
+					.where(eq(petWallet.coupleId, coupleId))
+					.limit(1);
+				if (!wallet) throw new VersionConflictError('wallet');
+
+				const [sumRow] = await tx
+					.select({ total: sql<string | null>`coalesce(sum(${petLedger.coinsDelta}), 0)` })
+					.from(petLedger)
+					.where(eq(petLedger.coupleId, coupleId));
+				const ledgerSum = Number(sumRow?.total ?? 0);
+				const diff = ledgerSum - wallet.coins;
+				if (diff === 0) return 0;
+
+				await tx.insert(petLedger).values({
+					coupleId,
+					userId: null,
+					kind: 'adjust',
+					source: `reconcile:${diff > 0 ? '+' : ''}${diff}`,
+					coinsDelta: 0,
+					xpDelta: 0
+				});
+
+				const updated = await tx
+					.update(petWallet)
+					.set({
+						coins: ledgerSum,
+						version: wallet.version + 1,
+						updatedAt: new Date()
+					})
+					.where(and(eq(petWallet.coupleId, coupleId), eq(petWallet.version, wallet.version)))
+					.returning({ version: petWallet.version });
+				if (updated.length === 0) throw new VersionConflictError('wallet');
+
+				return diff;
+			});
+
+			const result = await buildMutationResult(coupleId);
+			return { adjusted, result };
+		} catch (err) {
+			if (err instanceof VersionConflictError && attempt < SHOP_RETRY_LIMIT - 1) continue;
+			throw err;
+		}
+	}
+	throw new VersionConflictError('wallet');
+}
+
 /** Current pet stage from xp, or null when no pet exists. */
 async function readPetStage(coupleId: string): Promise<Stage | null> {
 	const [row] = await db
@@ -808,16 +882,26 @@ export async function listShopItems(coupleId: string): Promise<ShopItemView[]> {
 	const ownedById = new Map<string, PetInventoryEntry>();
 	for (const inv of inventory) ownedById.set(inv.itemId, inv);
 
-	return items.map((row) => {
-		const pub = shopItemRowToPublic(row);
-		const owned = ownedById.get(pub.id);
-		return {
-			...pub,
-			ownedQty: owned?.qty ?? 0,
-			equipped: owned?.equipped ?? false,
-			unlocked: stageUnlocks(stage, pub.minStage)
-		};
-	});
+	return items
+		.filter((row) => {
+			// v1 has no XP system — hide xp buffs from the shop entirely so
+			// users can't buy something that can't be activated.
+			if (row.kind === 'buff') {
+				const effect = BUFF_EFFECTS[row.id];
+				if (effect && effect.kind === 'xp') return false;
+			}
+			return true;
+		})
+		.map((row) => {
+			const pub = shopItemRowToPublic(row);
+			const owned = ownedById.get(pub.id);
+			return {
+				...pub,
+				ownedQty: owned?.qty ?? 0,
+				equipped: owned?.equipped ?? false,
+				unlocked: stageUnlocks(stage, pub.minStage)
+			};
+		});
 }
 
 // ─── buyItem ─────────────────────────────────────────────────────────────
@@ -845,6 +929,12 @@ export async function buyItem(
 	const [item] = await db.select().from(petShopItem).where(eq(petShopItem.id, itemId)).limit(1);
 	if (!item) throw new PetShopError('item_not_found');
 	if (!item.enabled) throw new PetShopError('item_disabled');
+
+	// v1: refuse selling xp buffs since they can't be activated.
+	if (item.kind === 'buff') {
+		const effect = BUFF_EFFECTS[item.id];
+		if (effect && effect.kind === 'xp') throw new PetShopError('item_disabled');
+	}
 
 	const stage = await readPetStage(coupleId);
 	if (!stageUnlocks(stage, item.minStage as Stage)) {

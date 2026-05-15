@@ -52,6 +52,11 @@ export function ledgerSourceLabel(source: string): string {
 		case 'reconcile':
 			return m.pet_ledger_source_reconcile();
 	}
+	// Reconcile rows include the signed delta in the source, e.g.
+	// 'reconcile:+5' or 'reconcile:-2'. Strip the suffix for display.
+	if (source.startsWith('reconcile:')) {
+		return m.pet_ledger_source_reconcile();
+	}
 	if (source.startsWith('buy:')) {
 		return m.pet_ledger_source_buy({ name: itemDisplayName(source.slice(4)) });
 	}

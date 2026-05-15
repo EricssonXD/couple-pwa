@@ -11,6 +11,10 @@
 
   Re-fetches on `refreshKey` change so the parent can pulse the strip
   whenever a mutation lands (own action OR partner broadcast).
+
+  eslint-disable svelte/no-navigation-without-resolve — fullViewHref is
+  always passed pre-resolved by the caller (Pathname returned from
+  resolve()); no static literal href used inside.
 -->
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
@@ -19,20 +23,32 @@
 
 	type Props = {
 		entries: PetLedgerEntry[] | null;
+		/** Optional href to a fuller view (e.g. diagnostics page). */
+		fullViewHref?: string;
 	};
 
-	let { entries }: Props = $props();
+	let { entries, fullViewHref }: Props = $props();
 </script>
+
+<!-- eslint-disable svelte/no-navigation-without-resolve -- fullViewHref is pre-resolved by caller -->
 
 <section
 	class="rounded-2xl border border-base-200 bg-base-100/60 p-4"
 	aria-busy={entries === null}
 	aria-label={m.pet_ledger_title()}
 >
-	<header class="mb-2">
+	<header class="mb-2 flex items-center justify-between">
 		<h2 class="text-xs font-semibold tracking-wider text-base-content/60 uppercase">
 			{m.pet_ledger_title()}
 		</h2>
+		{#if entries && entries.length > 0 && fullViewHref}
+			<a
+				href={fullViewHref}
+				class="text-xs text-base-content/60 hover:text-primary focus-visible:text-primary"
+			>
+				→
+			</a>
+		{/if}
 	</header>
 
 	{#if entries === null}

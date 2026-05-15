@@ -18,7 +18,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { db } from '$lib/server/db';
 import { authUsers, couple, pet, petLedger, petWallet } from '$lib/server/db/schema';
-import { awardForEvent } from '$lib/server/services/pet';
+import { awardForEvent, reconcileWallet } from '$lib/server/services/pet';
 import { EARN_TABLE, computePay } from '$lib/pet.constants';
 
 vi.mock('$lib/server/realtime', () => ({
@@ -250,5 +250,98 @@ d('awardForEvent — pet bumping is best-effort when no pet exists', () => {
 			.from(petWallet)
 			.where(eq(petWallet.coupleId, ctx.coupleId));
 		expect(wallet.coins).toBeGreaterThan(0);
+	});
+});
+
+d('reconcileWallet — diagnostics audit (P5.3)', () => {
+	const ctx = freshContext();
+	beforeAll(() => seed(ctx));
+	afterAll(() => teardown(ctx));
+
+	it('no-op when wallet matches ledger sum (idempotent)', async () => {
+		// Award once so wallet has a real, ledger-backed balance.
+		await awardForEvent({
+			coupleId: ctx.coupleId,
+			userId: ctx.userA,
+			source: 'daily_send',
+			dedupeKey: `recon-noop-${ctx.runTag}`,
+			mutual: true
+		});
+
+		const [before] = await db
+			.select({ coins: petWallet.coins, version: petWallet.version })
+			.from(petWallet)
+			.where(eq(petWallet.coupleId, ctx.coupleId));
+
+		const r1 = await reconcileWallet(ctx.coupleId);
+		expect(r1.adjusted).toBe(0);
+
+		const [after] = await db
+			.select({ coins: petWallet.coins, version: petWallet.version })
+			.from(petWallet)
+			.where(eq(petWallet.coupleId, ctx.coupleId));
+		expect(after.coins).toBe(before.coins);
+		// Idempotent: no version bump and no adjust ledger row written.
+		expect(after.version).toBe(before.version);
+
+		const adjustRows = await db
+			.select({ id: petLedger.id })
+			.from(petLedger)
+			.where(and(eq(petLedger.coupleId, ctx.coupleId), eq(petLedger.kind, 'adjust')));
+		expect(adjustRows.length).toBe(0);
+	});
+
+	it('corrects positive drift (wallet too high) and writes audit row', async () => {
+		// Force drift by inflating wallet directly (simulates a write that
+		// landed in pet_wallet but failed mid-flight before the ledger row).
+		await db
+			.update(petWallet)
+			.set({ coins: 999, version: 50 })
+			.where(eq(petWallet.coupleId, ctx.coupleId));
+
+		const [sumRow] = await db
+			.select({ total: petLedger.coinsDelta })
+			.from(petLedger)
+			.where(eq(petLedger.coupleId, ctx.coupleId))
+			.limit(1);
+		// Sanity: sum exists and is < 999.
+		expect(sumRow).toBeDefined();
+
+		const res = await reconcileWallet(ctx.coupleId);
+		expect(res.adjusted).toBeLessThan(0); // wallet was too high
+
+		const [after] = await db
+			.select({ coins: petWallet.coins, version: petWallet.version })
+			.from(petWallet)
+			.where(eq(petWallet.coupleId, ctx.coupleId));
+		expect(after.coins).toBeLessThan(999);
+		expect(after.version).toBe(51);
+
+		const adjustRows = await db
+			.select({ source: petLedger.source, coinsDelta: petLedger.coinsDelta })
+			.from(petLedger)
+			.where(and(eq(petLedger.coupleId, ctx.coupleId), eq(petLedger.kind, 'adjust')));
+		expect(adjustRows.length).toBe(1);
+		expect(adjustRows[0].source).toMatch(/^reconcile:-?\d+$/);
+		expect(adjustRows[0].coinsDelta).toBe(0);
+	});
+
+	it('corrects negative drift (wallet too low)', async () => {
+		// Drop wallet below ledger sum — reconcile should bump it back up.
+		const [before] = await db
+			.select({ coins: petWallet.coins })
+			.from(petWallet)
+			.where(eq(petWallet.coupleId, ctx.coupleId));
+
+		await db.update(petWallet).set({ coins: 0 }).where(eq(petWallet.coupleId, ctx.coupleId));
+
+		const res = await reconcileWallet(ctx.coupleId);
+		expect(res.adjusted).toBeGreaterThan(0); // wallet was too low → positive correction
+
+		const [after] = await db
+			.select({ coins: petWallet.coins })
+			.from(petWallet)
+			.where(eq(petWallet.coupleId, ctx.coupleId));
+		expect(after.coins).toBe(before.coins);
 	});
 });

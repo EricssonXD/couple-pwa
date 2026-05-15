@@ -528,7 +528,7 @@
 			</section>
 
 			<section class="mt-4">
-				<LedgerStrip entries={ledger} />
+				<LedgerStrip entries={ledger} fullViewHref={resolve('/settings/diagnostics/pet-ledger')} />
 			</section>
 		{/snippet}
 
