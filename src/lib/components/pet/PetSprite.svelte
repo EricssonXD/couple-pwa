@@ -18,7 +18,7 @@
     - class    passthrough
 -->
 <script lang="ts">
-	import { moodKeyFor, type Species, type Stage } from '$lib/pet.constants';
+	import { moodKeyFor, STAGES, type Species, type Stage } from '$lib/pet.constants';
 
 	interface Props {
 		species: Species;
@@ -54,9 +54,45 @@
 			cancelled = true;
 		};
 	});
+
+	// One-shot stage-up animation. Tracks the previously rendered stage
+	// and fires `playStageUp` for one animation cycle when the pet
+	// progresses forward (egg → baby → grown). Reduced motion is handled
+	// in CSS — the class applies but the keyframes resolve to identity.
+	let prevStage = $state<Stage | null>(null);
+	let playStageUp = $state(false);
+	let stageUpTimer: ReturnType<typeof setTimeout> | null = null;
+
+	$effect(() => {
+		const current = stage;
+		const prev = prevStage;
+		prevStage = current;
+		if (prev === null || prev === current) return;
+		const prevIdx = STAGES.indexOf(prev);
+		const currIdx = STAGES.indexOf(current);
+		if (currIdx <= prevIdx) return; // never animate regressions
+		playStageUp = true;
+		if (stageUpTimer) clearTimeout(stageUpTimer);
+		stageUpTimer = setTimeout(() => {
+			playStageUp = false;
+			stageUpTimer = null;
+		}, 900);
+		return () => {
+			if (stageUpTimer) {
+				clearTimeout(stageUpTimer);
+				stageUpTimer = null;
+			}
+		};
+	});
 </script>
 
-<span class="pet-sprite {className}" style:--pet-size="{size}px" role="img" aria-label={ariaLabel}>
+<span
+	class="pet-sprite {className}"
+	class:pet-sprite--stageup={playStageUp}
+	style:--pet-size="{size}px"
+	role="img"
+	aria-label={ariaLabel}
+>
 	{#if loadError}
 		<span class="pet-sprite__fallback" aria-hidden="true">·</span>
 	{:else if svgRaw}
@@ -99,6 +135,11 @@
 			transform-origin: 50% 80%;
 			animation: pet-breathe 4s ease-in-out infinite;
 		}
+		.pet-sprite--stageup :global(svg) {
+			animation:
+				pet-stageup 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 1,
+				pet-breathe 4s ease-in-out infinite 900ms;
+		}
 	}
 	@keyframes pet-breathe {
 		0%,
@@ -107,6 +148,24 @@
 		}
 		50% {
 			transform: scaleY(1.02);
+		}
+	}
+	@keyframes pet-stageup {
+		0% {
+			transform: perspective(420px) rotateX(0deg) scale(1);
+			filter: brightness(1);
+		}
+		35% {
+			transform: perspective(420px) rotateX(-78deg) scale(0.9);
+			filter: brightness(1.25);
+		}
+		60% {
+			transform: perspective(420px) rotateX(18deg) scale(1.08);
+			filter: brightness(1.15);
+		}
+		100% {
+			transform: perspective(420px) rotateX(0deg) scale(1);
+			filter: brightness(1);
 		}
 	}
 </style>
