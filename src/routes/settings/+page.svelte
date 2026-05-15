@@ -32,6 +32,7 @@
 	import WrenchIcon from 'phosphor-svelte/lib/WrenchIcon';
 	import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
 	import FlameIcon from 'phosphor-svelte/lib/FlameIcon';
+	import VideoCameraIcon from 'phosphor-svelte/lib/VideoCameraIcon';
 	import { setUserTheme, getUserChoice, type ThemeChoice } from '$lib/theme/index.svelte';
 	import { locales, getLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
 	import type { PageData } from './$types';
@@ -67,6 +68,12 @@
 	let confirmDelete = $state(false);
 	let pendingDeletionAt = $state<string | null>(null);
 
+	// F11 H6 — hourly capture reminder waking window.
+	let hourlyWindow = $state<{ startHour: number; endHour: number; tz: string } | null>(null);
+	let hourlyStart = $state(9);
+	let hourlyEnd = $state(22);
+	const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
 	onMount(() => {
 		displayName = data.me.displayName ?? '';
 		avatarEmoji = data.me.avatarEmoji ?? '';
@@ -85,7 +92,40 @@
 		// Theme is initialised globally in +layout.svelte via initTheme();
 		// here we just sync the radio-group selection to the persisted choice.
 		themeChoice = getUserChoice();
+
+		void (async () => {
+			try {
+				const r = await fetch(resolve('/api/hourly/push-window'));
+				if (!r.ok) return;
+				const w = (await r.json()) as { startHour: number; endHour: number; tz: string };
+				hourlyWindow = w;
+				hourlyStart = w.startHour;
+				hourlyEnd = w.endHour;
+			} catch {
+				// non-fatal
+			}
+		})();
 	});
+
+	async function saveHourlyWindow() {
+		busy = 'hourly-window';
+		toast = null;
+		const tz =
+			hourlyWindow?.tz ??
+			(typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC');
+		const r = await fetch(resolve('/api/hourly/push-window'), {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ startHour: hourlyStart, endHour: hourlyEnd, tz })
+		});
+		busy = null;
+		if (r.ok) {
+			hourlyWindow = (await r.json()) as { startHour: number; endHour: number; tz: string };
+			toast = { kind: 'success', text: m.settings_saved() };
+		} else {
+			toast = { kind: 'error', text: m.settings_save_failed({ status: r.status }) };
+		}
+	}
 
 	function setThemeChoice(next: ThemeChoice) {
 		themeChoice = next;
@@ -225,6 +265,40 @@
 			<div class="mt-3">
 				<PushSubscribeCard />
 			</div>
+		</Card>
+
+		<!-- F11 H6 — hourly capture reminder waking window -->
+		<Card class="mt-4 space-y-3">
+			<SectionHeader icon={VideoCameraIcon} tone="primary" title={m.settings_section_hourly()} />
+			<p class="text-xs text-base-content/60">{m.settings_hourly_hint()}</p>
+			<div class="grid grid-cols-2 gap-3">
+				<label class="block">
+					<span class="mb-1.5 block text-xs text-base-content/60">{m.settings_hourly_start()}</span>
+					<select
+						bind:value={hourlyStart}
+						class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-3 py-2.5 text-sm"
+					>
+						{#each HOURS as h (h)}
+							<option value={h}>{String(h).padStart(2, '0')}:00</option>
+						{/each}
+					</select>
+				</label>
+				<label class="block">
+					<span class="mb-1.5 block text-xs text-base-content/60">{m.settings_hourly_end()}</span>
+					<select
+						bind:value={hourlyEnd}
+						class="w-full rounded-[var(--radius-card)] border border-base-content/10 bg-base-100 px-3 py-2.5 text-sm"
+					>
+						{#each HOURS as h (h)}
+							<option value={h}>{String(h).padStart(2, '0')}:00</option>
+						{/each}
+					</select>
+				</label>
+			</div>
+			<PillButton block disabled={busy === 'hourly-window'} onclick={saveHourlyWindow}>
+				{#if busy === 'hourly-window'}<Spinner />{/if}
+				{busy === 'hourly-window' ? m.settings_saving() : m.settings_save()}
+			</PillButton>
 		</Card>
 
 		<!-- theme -->
