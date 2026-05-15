@@ -13,6 +13,7 @@
 	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
 	import * as m from '$lib/paraglide/messages.js';
+	import { BackButton } from '$lib/components/duosync';
 	import Notice from '$lib/components/ui/Notice.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -102,7 +103,7 @@
 </svelte:head>
 
 <div class="mx-auto max-w-xl space-y-6 p-4">
-	<a class="text-sm underline" href={resolve('/quiz')}>{m.quiz_run_back_link()}</a>
+	<BackButton fallbackHref="/daily" />
 
 	<header class="space-y-1">
 		<h1 class="text-2xl font-semibold">{data.pack.title}</h1>

@@ -6,6 +6,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { PageData } from './$types';
+	import { BackButton } from '$lib/components/duosync';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
 	import XIcon from 'phosphor-svelte/lib/XIcon';
@@ -24,7 +25,7 @@
 </svelte:head>
 
 <div class="mx-auto max-w-2xl space-y-6 p-4">
-	<a class="text-sm underline" href={resolve('/quiz')}>← All packs</a>
+	<BackButton fallbackHref="/daily" />
 
 	<header class="space-y-1">
 		<h1 class="text-2xl font-semibold">{data.pack.title} — results</h1>

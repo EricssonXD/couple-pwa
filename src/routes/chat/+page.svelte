@@ -8,6 +8,7 @@
 	// reconciled when the POST returns the canonical row.
 
 	import { onMount, untrack } from 'svelte';
+	import { page } from '$app/state';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import {
 		CHAT_BODY_MAX_LEN,
@@ -17,7 +18,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Notice from '$lib/components/ui/Notice.svelte';
-	import { BackButton } from '$lib/components/duosync';
+	import { HubHeader, todayChips } from '$lib/components/duosync';
 	import PaperPlaneTiltIcon from 'phosphor-svelte/lib/PaperPlaneTiltIcon';
 	import type { PageData } from './$types';
 
@@ -191,89 +192,92 @@
 	<title>{m.chat_title()} — DuoSync</title>
 </svelte:head>
 
-<section class="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col px-4 py-5 pb-24">
-	<header class="mb-3 flex items-center gap-3">
-		<BackButton fallbackHref="/daily" />
-		<div class="flex-1 space-y-0.5">
-			<h1 class="text-display text-2xl font-semibold tracking-wide">{m.chat_title()}</h1>
-			<p class="text-xs text-base-content/55">
-				{m.chat_subtitle({ days: String(CHAT_RETENTION_DAYS) })}
-			</p>
-		</div>
-	</header>
-
-	<div bind:this={listEl} class="-mx-4 flex-1 overflow-y-auto px-4 py-2" aria-live="polite">
-		{#if loading}
-			<p class="my-8 text-center text-sm text-base-content/55">{m.chat_loading()}</p>
-		{:else if messages.length === 0}
-			<p class="my-8 text-center text-sm text-base-content/55">{m.chat_empty()}</p>
-		{:else}
-			{#if nextCursor}
-				<button
-					type="button"
-					disabled={loadingMore}
-					onclick={() => void loadMore()}
-					class="mx-auto mb-3 block rounded-full border border-base-content/10 bg-base-100 px-3.5 py-1.5 text-[0.7rem] font-semibold tracking-wider uppercase transition-colors hover:bg-base-200 disabled:opacity-50"
-				>
-					{loadingMore ? m.chat_loading_more() : m.chat_load_older()}
-				</button>
-			{/if}
-			<ul class="space-y-2">
-				{#each messages as msg (msg.id)}
-					{@const mine = msg.senderId === data.viewerId}
-					<li class="flex {mine ? 'justify-end' : 'justify-start'}">
-						<div
-							class="flex max-w-[78%] flex-col gap-0.5 rounded-2xl px-3.5 py-2 {mine
-								? 'bg-primary text-primary-content'
-								: 'bg-base-200 text-base-content'} {msg.pending ? 'opacity-60' : ''} {msg.failed
-								? 'ring-2 ring-error/60'
-								: ''}"
-						>
-							<p class="text-sm break-words whitespace-pre-wrap">{msg.body}</p>
-							<span
-								class="self-end text-[0.65rem] {mine
-									? 'text-primary-content/70'
-									: 'text-base-content/55'}"
-							>
-								{fmtTime(msg.createdAt)}
-								{#if msg.pending}· {m.chat_sending()}{/if}
-								{#if msg.failed}· {m.chat_failed()}{/if}
-							</span>
-						</div>
-					</li>
-				{/each}
-			</ul>
-		{/if}
+<section class="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-md flex-col pb-24">
+	<HubHeader
+		title={m.chat_title}
+		fallbackHref="/daily"
+		chips={todayChips}
+		current={page.url.pathname}
+	/>
+	<div class="px-4 pt-1">
+		<p class="mb-3 text-xs text-base-content/55">
+			{m.chat_subtitle({ days: String(CHAT_RETENTION_DAYS) })}
+		</p>
 	</div>
+	<div class="flex flex-1 flex-col px-4">
+		<div bind:this={listEl} class="-mx-4 flex-1 overflow-y-auto px-4 py-2" aria-live="polite">
+			{#if loading}
+				<p class="my-8 text-center text-sm text-base-content/55">{m.chat_loading()}</p>
+			{:else if messages.length === 0}
+				<p class="my-8 text-center text-sm text-base-content/55">{m.chat_empty()}</p>
+			{:else}
+				{#if nextCursor}
+					<button
+						type="button"
+						disabled={loadingMore}
+						onclick={() => void loadMore()}
+						class="mx-auto mb-3 block rounded-full border border-base-content/10 bg-base-100 px-3.5 py-1.5 text-[0.7rem] font-semibold tracking-wider uppercase transition-colors hover:bg-base-200 disabled:opacity-50"
+					>
+						{loadingMore ? m.chat_loading_more() : m.chat_load_older()}
+					</button>
+				{/if}
+				<ul class="space-y-2">
+					{#each messages as msg (msg.id)}
+						{@const mine = msg.senderId === data.viewerId}
+						<li class="flex {mine ? 'justify-end' : 'justify-start'}">
+							<div
+								class="flex max-w-[78%] flex-col gap-0.5 rounded-2xl px-3.5 py-2 {mine
+									? 'bg-primary text-primary-content'
+									: 'bg-base-200 text-base-content'} {msg.pending ? 'opacity-60' : ''} {msg.failed
+									? 'ring-2 ring-error/60'
+									: ''}"
+							>
+								<p class="text-sm break-words whitespace-pre-wrap">{msg.body}</p>
+								<span
+									class="self-end text-[0.65rem] {mine
+										? 'text-primary-content/70'
+										: 'text-base-content/55'}"
+								>
+									{fmtTime(msg.createdAt)}
+									{#if msg.pending}· {m.chat_sending()}{/if}
+									{#if msg.failed}· {m.chat_failed()}{/if}
+								</span>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
 
-	{#if composerError}
-		<Notice class="mt-2">{composerError}</Notice>
-	{/if}
+		{#if composerError}
+			<Notice class="mt-2">{composerError}</Notice>
+		{/if}
 
-	<form
-		class="mt-3 flex items-end gap-2 border-t border-base-content/5 pt-3"
-		onsubmit={(e) => {
-			e.preventDefault();
-			void send();
-		}}
-	>
-		<label for="chat-input" class="sr-only">{m.chat_input_label()}</label>
-		<textarea
-			id="chat-input"
-			bind:value={composerValue}
-			onkeydown={handleKey}
-			placeholder={m.chat_input_placeholder()}
-			maxlength={CHAT_BODY_MAX_LEN}
-			rows={1}
-			class="max-h-32 min-h-10 flex-1 resize-y rounded-2xl border border-base-content/10 bg-base-100 px-3.5 py-2 text-sm outline-none focus:border-primary"
-		></textarea>
-		<button
-			type="submit"
-			disabled={composerValue.trim().length === 0}
-			aria-label={m.chat_send_btn()}
-			class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-content transition-opacity disabled:opacity-50"
+		<form
+			class="mt-3 flex items-end gap-2 border-t border-base-content/5 pt-3"
+			onsubmit={(e) => {
+				e.preventDefault();
+				void send();
+			}}
 		>
-			<Icon icon={PaperPlaneTiltIcon} size={18} weight="fill" />
-		</button>
-	</form>
+			<label for="chat-input" class="sr-only">{m.chat_input_label()}</label>
+			<textarea
+				id="chat-input"
+				bind:value={composerValue}
+				onkeydown={handleKey}
+				placeholder={m.chat_input_placeholder()}
+				maxlength={CHAT_BODY_MAX_LEN}
+				rows={1}
+				class="max-h-32 min-h-10 flex-1 resize-y rounded-2xl border border-base-content/10 bg-base-100 px-3.5 py-2 text-sm outline-none focus:border-primary"
+			></textarea>
+			<button
+				type="submit"
+				disabled={composerValue.trim().length === 0}
+				aria-label={m.chat_send_btn()}
+				class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-content transition-opacity disabled:opacity-50"
+			>
+				<Icon icon={PaperPlaneTiltIcon} size={18} weight="fill" />
+			</button>
+		</form>
+	</div>
 </section>

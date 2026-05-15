@@ -30,6 +30,8 @@
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { HubHeader, todayChips } from '$lib/components/duosync';
 	import * as m from '$lib/paraglide/messages.js';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
 	import InputField from '$lib/components/ui/InputField.svelte';
@@ -413,170 +415,175 @@
 	<title>{m.pet_title()} · DuoSync</title>
 </svelte:head>
 
-<main class="mx-auto min-h-screen max-w-md px-4 pt-6 pb-32">
-	<header class="mb-6 flex items-center justify-between">
-		<a
-			href={resolve('/pulse')}
-			class="text-sm font-semibold text-base-content/60 transition hover:text-base-content"
-		>
-			← {m.pulse_title()}
-		</a>
-		<div
-			class="coin-chip inline-flex items-center gap-1 rounded-full bg-base-200 px-3 py-1 text-sm font-semibold tabular-nums"
-			class:coin-chip-pulse={coinBouncing}
-		>
-			<CoinIcon size={14} />
-			<span>{snapshot.wallet.coins}</span>
-		</div>
-	</header>
+<main class="mx-auto min-h-screen max-w-md pb-32">
+	<HubHeader
+		title={m.pet_title}
+		fallbackHref="/daily"
+		chips={todayChips}
+		current={page.url.pathname}
+	/>
+	<div class="px-4 pt-2">
+		<header class="mb-6 flex items-center justify-end">
+			<div
+				class="coin-chip inline-flex items-center gap-1 rounded-full bg-base-200 px-3 py-1 text-sm font-semibold tabular-nums"
+				class:coin-chip-pulse={coinBouncing}
+			>
+				<CoinIcon size={14} />
+				<span>{snapshot.wallet.coins}</span>
+			</div>
+		</header>
 
-	{#if realtimePaused}
-		<Notice tone="info" class="mb-4">{m.pet_realtime_paused()}</Notice>
-	{/if}
-
-	{#if snapshot.welcomeBack}
-		<Notice tone="success" class="mb-4">{m.pet_welcome_back()}</Notice>
-	{/if}
-
-	{#if !snapshot.pet}
-		<HatchFlow submitting={hatching} error={hatchError} onSubmit={onHatch} />
-	{:else}
-		{@const p = snapshot.pet}
-
-		{#if actionError}
-			<Notice tone="error" class="mb-4">{actionError}</Notice>
+		{#if realtimePaused}
+			<Notice tone="info" class="mb-4">{m.pet_realtime_paused()}</Notice>
 		{/if}
 
-		<Tabs
-			bind:value={activeTab}
-			items={[
-				{
-					id: 'habitat',
-					label: m.pet_tab_habitat(),
-					content: habitatTab
-				},
-				{
-					id: 'shop',
-					label: m.pet_tab_shop(),
-					content: shopTab
-				},
-				{
-					id: 'wardrobe',
-					label: m.pet_tab_wardrobe(),
-					content: wardrobeTab
-				}
-			]}
-		/>
+		{#if snapshot.welcomeBack}
+			<Notice tone="success" class="mb-4">{m.pet_welcome_back()}</Notice>
+		{/if}
 
-		{#snippet habitatTab()}
-			<section class="flex flex-col items-center gap-3">
-				<PetSprite species={p.species} stage={p.stage} mood={liveMood} size={160} />
-				{#if !renaming}
-					<div class="flex items-center gap-2">
-						<h1 class="text-2xl font-semibold tracking-tight">{p.name}</h1>
-						<button
-							type="button"
-							class="text-xs font-semibold text-base-content/60 underline-offset-2 hover:underline"
-							onclick={startRename}
-						>
-							{m.pet_rename_button()}
-						</button>
-					</div>
-				{:else}
-					<form
-						class="flex w-full max-w-xs flex-col gap-2"
-						onsubmit={(e) => {
-							e.preventDefault();
-							void submitRename();
-						}}
-					>
-						<label class="flex flex-col gap-1.5 text-left">
-							<span class="text-xs font-semibold tracking-wider text-base-content/60 uppercase"
-								>{m.pet_hatch_name_label()}</span
-							>
-							<InputField bind:value={renameValue} maxlength={24} disabled={renameSubmitting} />
-						</label>
-						{#if renameError}
-							<Notice tone="error">{renameError}</Notice>
-						{/if}
-						<div class="flex justify-end gap-2">
-							<PillButton
-								variant="subtle"
-								size="sm"
-								onclick={() => (renaming = false)}
-								disabled={renameSubmitting}
-							>
-								{m.pet_rename_cancel()}
-							</PillButton>
-							<PillButton type="submit" size="sm" disabled={renameSubmitting}>
-								{#if renameSubmitting}<Spinner size={14} />{/if}
-								{m.pet_rename_save()}
-							</PillButton>
-						</div>
-					</form>
-				{/if}
-				<p class="text-xs font-semibold tracking-wider text-base-content/50 uppercase">
-					{p.stage === 'egg'
-						? m.pet_stage_egg()
-						: p.stage === 'baby'
-							? m.pet_stage_baby()
-							: m.pet_stage_grown()}
-					· {m.pet_xp_label({ xp: p.xp })}
-				</p>
-			</section>
+		{#if !snapshot.pet}
+			<HatchFlow submitting={hatching} error={hatchError} onSubmit={onHatch} />
+		{:else}
+			{@const p = snapshot.pet}
 
-			<section class="mt-6">
-				<MoodHungerBars mood={liveMood} hunger={liveHunger} pulse={treatPulse} />
-				<p class="mt-3 text-center text-sm text-base-content/70">
-					{moodStateCopy(deriveMoodState(liveMood, liveHunger), p.name)}
-				</p>
-			</section>
-
-			<section class="mt-4">
-				<LedgerStrip entries={ledger} fullViewHref={resolve('/settings/diagnostics/pet-ledger')} />
-			</section>
-		{/snippet}
-
-		{#snippet shopGroup(label: string, items: ShopItemView[])}
-			{#if items.length > 0}
-				<section>
-					<h2 class="mb-2 text-xs font-semibold tracking-wider text-base-content/60 uppercase">
-						{label}
-					</h2>
-					<div class="grid grid-cols-2 gap-3">
-						{#each items as item (item.id)}
-							<ShopCard
-								{item}
-								coins={snapshot.wallet.coins}
-								pending={pending.has(item.id)}
-								onBuy={() => buy(item.id)}
-							/>
-						{/each}
-					</div>
-				</section>
+			{#if actionError}
+				<Notice tone="error" class="mb-4">{actionError}</Notice>
 			{/if}
-		{/snippet}
 
-		{#snippet shopTab()}
-			<div class="space-y-6">
-				{@render shopGroup(m.pet_wardrobe_section_treats(), treats)}
-				{@render shopGroup(m.pet_wardrobe_section_cosmetics(), cosmetics)}
-				{@render shopGroup(m.pet_wardrobe_section_furniture(), furniture)}
-				{@render shopGroup(m.pet_wardrobe_section_buffs(), buffs)}
-			</div>
-		{/snippet}
-
-		{#snippet wardrobeTab()}
-			<WardrobePanel
-				{inventory}
-				shopItems={liveShopItems}
-				pendingIds={pending}
-				{treatAnnouncement}
-				onEquip={equip}
-				onFeed={feed}
+			<Tabs
+				bind:value={activeTab}
+				items={[
+					{
+						id: 'habitat',
+						label: m.pet_tab_habitat(),
+						content: habitatTab
+					},
+					{
+						id: 'shop',
+						label: m.pet_tab_shop(),
+						content: shopTab
+					},
+					{
+						id: 'wardrobe',
+						label: m.pet_tab_wardrobe(),
+						content: wardrobeTab
+					}
+				]}
 			/>
-		{/snippet}
-	{/if}
+
+			{#snippet habitatTab()}
+				<section class="flex flex-col items-center gap-3">
+					<PetSprite species={p.species} stage={p.stage} mood={liveMood} size={160} />
+					{#if !renaming}
+						<div class="flex items-center gap-2">
+							<h1 class="text-2xl font-semibold tracking-tight">{p.name}</h1>
+							<button
+								type="button"
+								class="text-xs font-semibold text-base-content/60 underline-offset-2 hover:underline"
+								onclick={startRename}
+							>
+								{m.pet_rename_button()}
+							</button>
+						</div>
+					{:else}
+						<form
+							class="flex w-full max-w-xs flex-col gap-2"
+							onsubmit={(e) => {
+								e.preventDefault();
+								void submitRename();
+							}}
+						>
+							<label class="flex flex-col gap-1.5 text-left">
+								<span class="text-xs font-semibold tracking-wider text-base-content/60 uppercase"
+									>{m.pet_hatch_name_label()}</span
+								>
+								<InputField bind:value={renameValue} maxlength={24} disabled={renameSubmitting} />
+							</label>
+							{#if renameError}
+								<Notice tone="error">{renameError}</Notice>
+							{/if}
+							<div class="flex justify-end gap-2">
+								<PillButton
+									variant="subtle"
+									size="sm"
+									onclick={() => (renaming = false)}
+									disabled={renameSubmitting}
+								>
+									{m.pet_rename_cancel()}
+								</PillButton>
+								<PillButton type="submit" size="sm" disabled={renameSubmitting}>
+									{#if renameSubmitting}<Spinner size={14} />{/if}
+									{m.pet_rename_save()}
+								</PillButton>
+							</div>
+						</form>
+					{/if}
+					<p class="text-xs font-semibold tracking-wider text-base-content/50 uppercase">
+						{p.stage === 'egg'
+							? m.pet_stage_egg()
+							: p.stage === 'baby'
+								? m.pet_stage_baby()
+								: m.pet_stage_grown()}
+						· {m.pet_xp_label({ xp: p.xp })}
+					</p>
+				</section>
+
+				<section class="mt-6">
+					<MoodHungerBars mood={liveMood} hunger={liveHunger} pulse={treatPulse} />
+					<p class="mt-3 text-center text-sm text-base-content/70">
+						{moodStateCopy(deriveMoodState(liveMood, liveHunger), p.name)}
+					</p>
+				</section>
+
+				<section class="mt-4">
+					<LedgerStrip
+						entries={ledger}
+						fullViewHref={resolve('/settings/diagnostics/pet-ledger')}
+					/>
+				</section>
+			{/snippet}
+
+			{#snippet shopGroup(label: string, items: ShopItemView[])}
+				{#if items.length > 0}
+					<section>
+						<h2 class="mb-2 text-xs font-semibold tracking-wider text-base-content/60 uppercase">
+							{label}
+						</h2>
+						<div class="grid grid-cols-2 gap-3">
+							{#each items as item (item.id)}
+								<ShopCard
+									{item}
+									coins={snapshot.wallet.coins}
+									pending={pending.has(item.id)}
+									onBuy={() => buy(item.id)}
+								/>
+							{/each}
+						</div>
+					</section>
+				{/if}
+			{/snippet}
+
+			{#snippet shopTab()}
+				<div class="space-y-6">
+					{@render shopGroup(m.pet_wardrobe_section_treats(), treats)}
+					{@render shopGroup(m.pet_wardrobe_section_cosmetics(), cosmetics)}
+					{@render shopGroup(m.pet_wardrobe_section_furniture(), furniture)}
+					{@render shopGroup(m.pet_wardrobe_section_buffs(), buffs)}
+				</div>
+			{/snippet}
+
+			{#snippet wardrobeTab()}
+				<WardrobePanel
+					{inventory}
+					shopItems={liveShopItems}
+					pendingIds={pending}
+					{treatAnnouncement}
+					onEquip={equip}
+					onFeed={feed}
+				/>
+			{/snippet}
+		{/if}
+	</div>
 </main>
 
 <style>

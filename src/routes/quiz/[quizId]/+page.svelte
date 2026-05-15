@@ -4,6 +4,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { HubHeader, todayChips } from '$lib/components/duosync';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -33,33 +35,38 @@
 	<title>{data.pack.title} · Quiz · DuoSync</title>
 </svelte:head>
 
-<div class="mx-auto max-w-xl space-y-6 p-4">
-	<a class="text-sm underline" href={resolve('/quiz')}>← All packs</a>
+<div class="mx-auto max-w-xl">
+	<HubHeader
+		title={() => data.pack.title}
+		fallbackHref="/daily"
+		chips={todayChips}
+		current={page.url.pathname}
+	/>
+	<div class="space-y-6 px-4 pt-2">
+		<header class="space-y-2">
+			<p class="text-base-content/80">{data.pack.description}</p>
+			<p class="text-xs text-base-content/60">
+				{data.pack.questionCount} questions · ~3 min each
+			</p>
+		</header>
 
-	<header class="space-y-2">
-		<h1 class="text-2xl font-semibold">{data.pack.title}</h1>
-		<p class="text-base-content/80">{data.pack.description}</p>
-		<p class="text-xs text-base-content/60">
-			{data.pack.questionCount} questions · ~3 min each
-		</p>
-	</header>
+		<div class="space-y-2 rounded-lg bg-base-200 p-4 text-sm">
+			<p class="font-medium">How it works</p>
+			<ol class="list-inside list-decimal space-y-1">
+				<li>
+					For each question you pick what you'd really choose AND guess what your partner picked.
+				</li>
+				<li>Your answers stay private until you both finish.</li>
+				<li>When the second of you finishes, you'll both see the side-by-side reveal.</li>
+			</ol>
+		</div>
 
-	<div class="space-y-2 rounded-lg bg-base-200 p-4 text-sm">
-		<p class="font-medium">How it works</p>
-		<ol class="list-inside list-decimal space-y-1">
-			<li>
-				For each question you pick what you'd really choose AND guess what your partner picked.
-			</li>
-			<li>Your answers stay private until you both finish.</li>
-			<li>When the second of you finishes, you'll both see the side-by-side reveal.</li>
-		</ol>
+		{#if err}
+			<p class="text-sm text-error" role="alert">{err}</p>
+		{/if}
+
+		<button class="btn w-full btn-primary" onclick={start} disabled={starting}>
+			{starting ? 'Starting…' : 'Start (or resume) this quiz'}
+		</button>
 	</div>
-
-	{#if err}
-		<p class="text-sm text-error" role="alert">{err}</p>
-	{/if}
-
-	<button class="btn w-full btn-primary" onclick={start} disabled={starting}>
-		{starting ? 'Starting…' : 'Start (or resume) this quiz'}
-	</button>
 </div>
