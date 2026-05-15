@@ -59,6 +59,7 @@
 		'/notes': '/moments',
 		'/calendar': '/moments',
 		'/bucket': '/moments',
+		'/hourly': '/moments',
 		'/chat': '/daily',
 		'/quiz': '/daily',
 		'/repair': '/daily',

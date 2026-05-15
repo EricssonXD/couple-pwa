@@ -19,7 +19,9 @@ export type RateLimitBucket =
 	| 'calendar-write'
 	| 'quiz-write'
 	| 'repair-write'
-	| 'chat-write';
+	| 'chat-write'
+	| 'hourly-upload-attempt'
+	| 'hourly-mood-write';
 
 export interface RateLimitConfig {
 	/** Max tokens in the bucket (== max burst). */
@@ -37,7 +39,9 @@ const CONFIGS: Record<RateLimitBucket, RateLimitConfig> = {
 	'calendar-write': { capacity: 30, refillPerSec: 30 / 60 }, // 30/min sustained, burst 30 (F8 calendar)
 	'quiz-write': { capacity: 30, refillPerSec: 30 / 60 }, // 30/min sustained, burst 30 (F9 quiz drafts/submits)
 	'repair-write': { capacity: 10, refillPerSec: 10 / 60 }, // 10/min sustained (F16 repair sessions are rare but bursty)
-	'chat-write': { capacity: 30, refillPerSec: 30 / 60 } // 30/min sustained, burst 30 (F7 chat — paced to avoid push spam)
+	'chat-write': { capacity: 30, refillPerSec: 30 / 60 }, // 30/min sustained, burst 30 (F7 chat — paced to avoid push spam)
+	'hourly-upload-attempt': { capacity: 12, refillPerSec: 12 / 60 }, // F11: 12/min — covers retries within a single hour
+	'hourly-mood-write': { capacity: 12, refillPerSec: 12 / 60 } // F11: 12/min — same envelope as upload
 };
 
 interface BucketState {

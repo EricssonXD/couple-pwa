@@ -28,6 +28,7 @@ import {
 	PawPrintIcon,
 	PulseIcon,
 	QuestionIcon,
+	VideoCameraIcon,
 	WrenchIcon
 } from '$lib/components/ui/icons';
 import type { IconComponentProps } from 'phosphor-svelte';
@@ -55,5 +56,6 @@ export const momentsChips: HubChip[] = [
 	{ href: '/timeline', label: m.hub_chip_timeline, icon: ClockCounterClockwiseIcon },
 	{ href: '/notes', label: m.hub_chip_notes, icon: NoteIcon },
 	{ href: '/calendar', label: m.hub_chip_calendar, icon: CalendarIcon },
-	{ href: '/bucket', label: m.hub_chip_bucket, icon: ListChecksIcon }
+	{ href: '/bucket', label: m.hub_chip_bucket, icon: ListChecksIcon },
+	{ href: '/hourly', label: m.hub_chip_hourly, icon: VideoCameraIcon }
 ];

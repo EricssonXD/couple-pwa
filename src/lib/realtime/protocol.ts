@@ -108,6 +108,29 @@ export type ServerEvent =
 			t: 'pet_state';
 			ts: number;
 			p: PetSnapshot;
+	  }
+	| {
+			// F11: a partner just finalized an hourly clip. Metadata only —
+			// receivers must refetch /api/hourly/day to obtain a fresh,
+			// short-TTL signed playback URL. Including the signed URL in
+			// the broadcast would risk leakage via realtime logs / client
+			// telemetry.
+			t: 'hourly_clip';
+			ts: number;
+			p: { id: string; userId: string; hourBucket: string };
+	  }
+	| {
+			// F11: a partner just set/updated their hourly mood. Subject
+			// to the 24h cross-partner visibility window enforced in the
+			// service + RLS — clients should still re-query if they care
+			// about authoritative state.
+			t: 'hourly_mood';
+			ts: number;
+			p: {
+				userId: string;
+				hourBucket: string;
+				mood: 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset';
+			};
 	  };
 
 // ─── Client-originated events ────────────────────────────────────────────

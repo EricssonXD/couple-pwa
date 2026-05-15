@@ -773,3 +773,109 @@ export const petBuff = pgTable(
 		check('pet_buff_multiplier_chk', sql`${t.multiplier} > 1.0 and ${t.multiplier} <= 2.0`)
 	]
 );
+
+// ─── F11 Hourly diary (clip + mood + push window) ────────────────────────
+// Per-user 2-second camera-only video clips bucketed by hour, plus an
+// hourly mood emoji. Both partners see each other's day side-by-side.
+// Clips TTL after 2 days (purge cron + delete-pending lifecycle to avoid
+// orphan storage objects). Mood persists, but cross-partner SELECT is
+// limited to ≤24h via RLS to preserve mood_pulse anti-coercion stance.
+// See drizzle/manual/0025_hourly.sql + 0025_hourly_storage.sql.
+
+export const hourlyClipAttempt = pgTable(
+	'hourly_clip_attempt',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		hourBucket: timestamp('hour_bucket', { withTimezone: true }).notNull(),
+		storageKey: text('storage_key').notNull(),
+		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+		finalizedAt: timestamp('finalized_at', { withTimezone: true }),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		check(
+			'hourly_clip_attempt_hour_bucket_truncated_chk',
+			sql`date_trunc('hour', ${t.hourBucket}) = ${t.hourBucket}`
+		),
+		check('hourly_clip_attempt_expiry_chk', sql`${t.expiresAt} > ${t.createdAt}`),
+		index('hourly_clip_attempt_expiry_idx').on(t.expiresAt)
+	]
+);
+
+export const hourlyClip = pgTable(
+	'hourly_clip',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		hourBucket: timestamp('hour_bucket', { withTimezone: true }).notNull(),
+		storageKey: text('storage_key').notNull(),
+		mime: text('mime').notNull(),
+		byteSize: integer('byte_size').notNull(),
+		status: text('status').notNull().default('ready'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		check(
+			'hourly_clip_hour_bucket_truncated_chk',
+			sql`date_trunc('hour', ${t.hourBucket}) = ${t.hourBucket}`
+		),
+		check('hourly_clip_status_chk', sql`${t.status} in ('ready','delete_pending','deleted')`),
+		check('hourly_clip_byte_size_chk', sql`${t.byteSize} > 0 and ${t.byteSize} <= 750000`),
+		check('hourly_clip_mime_chk', sql`${t.mime} in ('video/webm','video/mp4')`),
+		index('hourly_clip_couple_hour_idx').on(t.coupleId, t.hourBucket),
+		index('hourly_clip_purge_idx').on(t.createdAt)
+	]
+);
+
+export const hourlyMood = pgTable(
+	'hourly_mood',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		coupleId: uuid('couple_id')
+			.notNull()
+			.references(() => couple.id, { onDelete: 'cascade' }),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		hourBucket: timestamp('hour_bucket', { withTimezone: true }).notNull(),
+		mood: text('mood').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('hourly_mood_couple_user_hour_uq').on(t.coupleId, t.userId, t.hourBucket),
+		check(
+			'hourly_mood_hour_bucket_truncated_chk',
+			sql`date_trunc('hour', ${t.hourBucket}) = ${t.hourBucket}`
+		),
+		check('hourly_mood_mood_chk', sql`${t.mood} in ('joyful','happy','neutral','sad','upset')`),
+		index('hourly_mood_couple_hour_idx').on(t.coupleId, t.hourBucket)
+	]
+);
+
+export const hourlyPushWindow = pgTable(
+	'hourly_push_window',
+	{
+		userId: uuid('user_id')
+			.primaryKey()
+			.references(() => authUsers.id, { onDelete: 'cascade' }),
+		startHour: integer('start_hour').notNull().default(9),
+		endHour: integer('end_hour').notNull().default(22),
+		tz: text('tz').notNull().default('UTC'),
+		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		check('hourly_push_window_start_chk', sql`${t.startHour} >= 0 and ${t.startHour} <= 23`),
+		check('hourly_push_window_end_chk', sql`${t.endHour} >= 0 and ${t.endHour} <= 23`)
+	]
+);
