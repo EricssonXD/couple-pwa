@@ -9,7 +9,7 @@
 // never from the request body. (B1 — pet routes intentionally accept
 // inactive couples; the broadcast is what gates on status.)
 
-import { and, eq, gt, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
 	pet,
@@ -42,10 +42,10 @@ import {
 	stageForXp,
 	stageUnlocks,
 	todayKey,
-	type BuffKind,
 	type EarnSource,
 	type EquippedItem,
 	type PetInventoryEntry,
+	type PetLedgerEntry,
 	type PetMutationResult,
 	type PetPublic,
 	type PetSnapshot,
@@ -719,6 +719,51 @@ async function readInventory(coupleId: string): Promise<PetInventoryEntry[]> {
 /** Public read of a couple's inventory — used by GET /api/pet/inventory. */
 export async function getPetInventory(coupleId: string): Promise<PetInventoryEntry[]> {
 	return readInventory(coupleId);
+}
+
+// ─── getPetLedger (P5.2) ─────────────────────────────────────────────────
+
+/**
+ * Read recent ledger rows for a couple, newest-first. The default
+ * `limit=5` powers the /pet "Recent activity" strip; the diagnostics
+ * page passes `limit=50` with `page>=1`.
+ *
+ * userId is intentionally never returned (W3 privacy: never reveal which
+ * partner did what — see pet-system.md L943-963).
+ *
+ * Bounds: limit clamped to [1, 100], page clamped to [1, 1000]. The
+ * page-cap is just a sanity guard — couples won't ever scroll that far
+ * but we don't want a malicious offset request to OOM the worker.
+ */
+export async function getPetLedger(
+	coupleId: string,
+	options: { page?: number; limit?: number } = {}
+): Promise<PetLedgerEntry[]> {
+	const limit = Math.max(1, Math.min(100, options.limit ?? 5));
+	const page = Math.max(1, Math.min(1000, options.page ?? 1));
+	const offset = (page - 1) * limit;
+	const rows = await db
+		.select({
+			id: petLedger.id,
+			kind: petLedger.kind,
+			source: petLedger.source,
+			coinsDelta: petLedger.coinsDelta,
+			xpDelta: petLedger.xpDelta,
+			createdAt: petLedger.createdAt
+		})
+		.from(petLedger)
+		.where(eq(petLedger.coupleId, coupleId))
+		.orderBy(desc(petLedger.createdAt))
+		.limit(limit)
+		.offset(offset);
+	return rows.map((r) => ({
+		id: r.id,
+		kind: r.kind as PetLedgerEntry['kind'],
+		source: r.source,
+		coinsDelta: r.coinsDelta,
+		xpDelta: r.xpDelta,
+		createdAt: r.createdAt.toISOString()
+	}));
 }
 
 async function buildMutationResult(coupleId: string, now?: Date): Promise<PetMutationResult> {

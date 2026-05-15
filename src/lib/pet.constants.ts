@@ -234,6 +234,25 @@ export type PetInventoryEntry = {
 };
 
 /**
+ * One row from the pet ledger as exposed to clients. The user_id field
+ * is intentionally omitted — privacy guarantee per W3 (pet-system.md
+ * L943): the activity strip and the diagnostics view never reveal which
+ * partner earned/spent. `kind` is one of 'earn'|'spend'|'adjust'.
+ *
+ * `source` is a free-form code (e.g. 'streak', 'mood_log',
+ * 'buff:buff_doublecoin', 'reconcile') — the UI maps it to a paraglide
+ * key with a fallback to the raw code when unknown.
+ */
+export type PetLedgerEntry = {
+	id: string;
+	kind: 'earn' | 'spend' | 'adjust';
+	source: string;
+	coinsDelta: number;
+	xpDelta: number;
+	createdAt: string;
+};
+
+/**
  * Shop catalogue row joined with this couple's ownership state. The UI
  * renders the shop grid and Wardrobe tab from the same array, filtering
  * by `kind` and `ownedQty`.
