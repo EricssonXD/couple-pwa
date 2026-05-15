@@ -10,13 +10,18 @@
 // event's `startsAt` — never trusted from the client string — so
 // timezone semantics stay anchored to the original event.
 
-// rrule ships dual cjs/esm. Node's ESM loader trips on named re-exports
-// through the cjs entry during SSR, while Vite's esbuild rejects a
-// default import (no `default` export in the ESM bundle). A namespace
-// import works in both worlds.
+// rrule ships dual cjs/esm. Under Node ESM (and Cloudflare Workers),
+// the namespace import exposes the real exports under `.default` —
+// `rruleNs.rrulestr` is undefined and only `rruleNs.default.rrulestr`
+// is a function. Vitest's resolver flattens this, which is why the
+// spec passed while production 500'd. Bun also flattens. Always read
+// through `.default ?? namespace` so every runtime works.
 import * as rruleNs from 'rrule';
 import type { RRule, RRuleSet } from 'rrule';
-const { rrulestr } = rruleNs as unknown as { rrulestr: typeof import('rrule').rrulestr };
+type RruleModule = { rrulestr: typeof import('rrule').rrulestr };
+const rruleModule: RruleModule =
+	(rruleNs as unknown as { default?: RruleModule }).default ?? (rruleNs as unknown as RruleModule);
+const { rrulestr } = rruleModule;
 
 export const ALLOWED_FREQS = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as const;
 export type RecurrenceFreq = (typeof ALLOWED_FREQS)[number];
