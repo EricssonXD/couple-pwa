@@ -87,6 +87,11 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		ts: number;
 	} | null>(null);
 	let lastPetState = $state<PetSnapshot | null>(null);
+	// F11: bumps to Date.now() on every received hourly_clip / hourly_mood
+	// event. Page-side $effect on this signal triggers a refetch of
+	// /api/hourly/day to pick up freshly-minted signed playback URLs +
+	// updated mood — broadcasts intentionally carry metadata only.
+	let lastHourlyChangeAt = $state(0);
 	// Bumps to Date.now() on every SUBSCRIBED transition. The /pet page
 	// uses this as a reseed signal — when the value increases AFTER the
 	// initial subscribe, refetch GET /api/pet to repair any state missed
@@ -180,6 +185,13 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 				return;
 			case 'pet_state':
 				ingestPetState(ev.p);
+				return;
+			case 'hourly_clip':
+			case 'hourly_mood':
+				// Metadata-only events; page-side effect refetches
+				// /api/hourly/day to obtain fresh signed playback URLs
+				// + updated mood. Bumping the timestamp is enough.
+				lastHourlyChangeAt = ev.ts || Date.now();
 				return;
 		}
 	}
@@ -445,6 +457,9 @@ export function createRealtimeClient({ coupleId, userId }: RealtimeClientArgs) {
 		},
 		get lastPetState() {
 			return lastPetState;
+		},
+		get lastHourlyChangeAt() {
+			return lastHourlyChangeAt;
 		},
 		get lastSubscribedAt() {
 			return lastSubscribedAt;

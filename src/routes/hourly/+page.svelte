@@ -10,19 +10,19 @@
 	Strings are placeholder English; H8 lands i18n.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import * as m from '$lib/paraglide/messages.js';
 	import { HubHeader, momentsChips } from '$lib/components/duosync';
 	import HourlyRecorder from '$lib/components/hourly/HourlyRecorder.svelte';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import type { PageData } from './$types';
 
 	// data is unused — page is fully client-driven via /api/hourly/day,
 	// but the +page.server.ts load gates auth + couple-paired access.
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const { data: _data }: { data: PageData } = $props();
+	const { data }: { data: PageData } = $props();
 
 	type Mood = 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset';
 	const MOODS: ReadonlyArray<{ value: Mood; emoji: string; label: string }> = [
@@ -75,6 +75,27 @@
 	}
 
 	onMount(load);
+
+	// F11 H5: subscribe to the couple realtime channel so a partner's
+	// new clip / mood landing causes us to refetch the day grid (with
+	// freshly-minted signed playback URLs). Broadcast payloads carry
+	// metadata only by design — a refetch is the only way to obtain a
+	// playback URL for a new clip.
+	const rt = createRealtimeClient(
+		untrack(() => ({ coupleId: data.coupleId, userId: data.viewerId }))
+	);
+	onMount(() => {
+		void rt.start();
+		return () => rt.stop();
+	});
+	let lastSeenHourly = 0;
+	$effect(() => {
+		const ts = rt.lastHourlyChangeAt;
+		if (ts > lastSeenHourly) {
+			lastSeenHourly = ts;
+			if (!loading) void load();
+		}
+	});
 
 	async function setMood(value: Mood): Promise<void> {
 		savingMood = value;
