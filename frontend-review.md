@@ -30,11 +30,11 @@ Side-effect: at 5 tabs × 75px each on a 390 px viewport with `max-w-md` (448 px
 
 The tokens defined in `src/routes/+layout.css` are `--color-*` (daisyUI-aligned: `--color-base-100`, `--color-primary`, `--color-error`, `--distance-*`, `--shadow-paper`, `--radius-*`). Three files reference a parallel `--ds-color-*` namespace that **never gets declared anywhere**, so the fallback hex literal is what actually renders:
 
-| File | Line | Fallback hex (the actual paint) |
-| --- | --- | --- |
-| `src/lib/components/duosync/QueueBadge.svelte` | 45-46, 52 | `#1f2937`, `#f9fafb`, `rgb(255 255 255 / 0.12)` |
-| `src/lib/components/duosync/UpdatePromptBanner.svelte` | 61-99 | `#1f2937`, `#f9fafb`, `#6366f1`, `rgb(255 255 255 / 0.08)` |
-| `src/routes/settings/offline-queue/+page.svelte` | 114-186 | `#6b7280`, `#f3f4f6`, `#dc2626`, `rgba(0,0,0,0.12)`, `rgba(0,0,0,0.08)` |
+| File                                                   | Line      | Fallback hex (the actual paint)                                         |
+| ------------------------------------------------------ | --------- | ----------------------------------------------------------------------- |
+| `src/lib/components/duosync/QueueBadge.svelte`         | 45-46, 52 | `#1f2937`, `#f9fafb`, `rgb(255 255 255 / 0.12)`                         |
+| `src/lib/components/duosync/UpdatePromptBanner.svelte` | 61-99     | `#1f2937`, `#f9fafb`, `#6366f1`, `rgb(255 255 255 / 0.08)`              |
+| `src/routes/settings/offline-queue/+page.svelte`       | 114-186   | `#6b7280`, `#f3f4f6`, `#dc2626`, `rgba(0,0,0,0.12)`, `rgba(0,0,0,0.08)` |
 
 Hard-coded hex is anti-pattern §13. The `#dc2626` red on `/settings/offline-queue` clashes with `--color-error` (`oklch` rose) and is visible as a different shade in `mobile-32-settings-offline-queue.png` (the "Discard all" outline). Two fixes either work:
 
@@ -45,7 +45,7 @@ Hard-coded hex is anti-pattern §13. The `#dc2626` red on `/settings/offline-que
 
 ### 1.3 [P1] `--color-error` is overused (anti-pattern §13 says "SOS only")
 
-§13: *"`--color-error` is for the SOS button only. Form errors and warnings → `--color-warning`."* Found in non-SOS contexts:
+§13: _"`--color-error` is for the SOS button only. Form errors and warnings → `--color-warning`."_ Found in non-SOS contexts:
 
 - `src/routes/moments/+page.svelte:157` — delete-moment hover `text-error`.
 - `src/routes/notes/+page.svelte:111` — error toast `text-error`. `:142` — cancel-edit btn `text-error`.
@@ -57,12 +57,12 @@ The settings danger sections are arguably "destructive identity action" and may 
 
 ### 1.4 [P1] `shadow-sm` / `shadow-md` used despite §13 banning everything except `shadow-paper`
 
-| File | Line | Class |
-| --- | --- | --- |
-| `src/routes/notes/+page.svelte` | 135, 162 | `shadow-sm` |
-| `src/routes/calendar/+page.svelte` | 214 | `shadow-sm` |
-| `src/routes/bucket/+page.svelte` | 134, 186 | `shadow-sm` |
-| `src/routes/quiz/+page.svelte` | 39 | `hover:shadow-md` |
+| File                               | Line     | Class             |
+| ---------------------------------- | -------- | ----------------- |
+| `src/routes/notes/+page.svelte`    | 135, 162 | `shadow-sm`       |
+| `src/routes/calendar/+page.svelte` | 214      | `shadow-sm`       |
+| `src/routes/bucket/+page.svelte`   | 134, 186 | `shadow-sm`       |
+| `src/routes/quiz/+page.svelte`     | 39       | `hover:shadow-md` |
 
 Replace with `shadow-paper` (the only token defined in `+layout.css`). Trivial mechanical fix.
 
@@ -264,16 +264,16 @@ See §1.2 + §1.6 — needs full rewrite.
 
 ## 6. Design-system drift summary
 
-| Token / Convention | Should be | Found also as | Where |
-| --- | --- | --- | --- |
-| Color | `--color-*` (canonical) | `--ds-color-*` (undefined → hex) | §1.2 |
-| Color | `text-warning` for non-fatal | `text-error` | §1.3 |
-| Shadow | `shadow-paper` | `shadow-sm`, `hover:shadow-md` | §1.4 |
-| Inputs | `<InputField>` | `<input class="input-bordered ...">` | §1.5 |
-| Buttons | `<PillButton>` | bare `<button>` (offline-queue) | §1.6 |
-| Confirm | inline reveal pattern (settings) | `confirm()` browser dialog | §1.10 |
-| Touch target | ≥44 px (`min-h-11`) | `h-9` (BackButton), `h-7` (moments delete), `btn-xs`, chat send `h-10` | §1.8 |
-| Container width | `max-w-md` | `max-w-2xl` (quiz), `max-width: 640px` (offline-queue scoped) | §2.15, §5 |
+| Token / Convention | Should be                        | Found also as                                                          | Where     |
+| ------------------ | -------------------------------- | ---------------------------------------------------------------------- | --------- |
+| Color              | `--color-*` (canonical)          | `--ds-color-*` (undefined → hex)                                       | §1.2      |
+| Color              | `text-warning` for non-fatal     | `text-error`                                                           | §1.3      |
+| Shadow             | `shadow-paper`                   | `shadow-sm`, `hover:shadow-md`                                         | §1.4      |
+| Inputs             | `<InputField>`                   | `<input class="input-bordered ...">`                                   | §1.5      |
+| Buttons            | `<PillButton>`                   | bare `<button>` (offline-queue)                                        | §1.6      |
+| Confirm            | inline reveal pattern (settings) | `confirm()` browser dialog                                             | §1.10     |
+| Touch target       | ≥44 px (`min-h-11`)              | `h-9` (BackButton), `h-7` (moments delete), `btn-xs`, chat send `h-10` | §1.8      |
+| Container width    | `max-w-md`                       | `max-w-2xl` (quiz), `max-width: 640px` (offline-queue scoped)          | §2.15, §5 |
 
 ---
 
@@ -311,3 +311,106 @@ See §1.2 + §1.6 — needs full rewrite.
   3. **§1.2** `--ds-color-*` undefined namespace (P1).
   4. **§1.3** `text-error` overuse in non-SOS contexts (P1).
   5. **§1.5 + §1.4** raw daisyUI inputs + `shadow-sm` in notes/calendar/bucket (P1).
+
+---
+
+## 14. Information architecture review — design system needs an update
+
+> Section added in response to: "the tabs below is not enough — where do you put the other pages? how does it make it feel intuitive?" Findings here justify normative edits to `docs/ui-design.md` §7.2 and §8 before any further routes ship.
+
+### 14.1 [P0] The IA is broken — features have no front door
+
+Live route surface (19 routes) vs. discoverability:
+
+| Route | In BottomNav | Linked from a hub page | Reachable only by URL? |
+| --- | :---: | --- | :---: |
+| `/pulse`, `/map`, `/daily`, `/moments`, `/settings` | ✅ tab | — | — |
+| `/timeline` | — | `/pulse:236`, `/settings:275` | — |
+| `/pet` | — | `/pulse:251,266` | — |
+| `/notes` | — | `/settings:369` (junk drawer) | — |
+| `/calendar` | — | `/settings:355` (junk drawer) | — |
+| `/bucket` | — | `/settings:348` (junk drawer) | — |
+| `/chat` | — | `/settings:362` (junk drawer) | — |
+| **`/quiz`** | — | **none** | **🔴 yes** |
+| **`/repair`** | — | **none** | **🔴 yes** |
+
+Three implications:
+
+1. **`/quiz` and `/repair` are dark routes** — implemented, tested, but unreachable from any UI surface. A user opening the app cold cannot find them.
+2. **`/settings` is misused as an app launcher** (lines 275–369). Settings is for configuration (account, notifications, theme, ghost mode) — putting `Notes`, `Calendar`, `Bucket`, `Chat`, `Timeline` there violates §1 ("quiet by default") and §7.2 BottomNav contract ("Settings = config tab"). It also creates two paths to the same feature, which dilutes the mental model.
+3. **`SECONDARY_PARENT` map** (`BottomNav.svelte:55-63`) declares `chat/quiz/repair → /daily` and `timeline/notes/calendar/bucket → /moments`, but **neither parent page surfaces those children**. The contract is one-way (active-tab-lighting on the way down, no entry points on the way back). User would have to leave the app and return via deep link.
+
+### 14.2 The real feature map
+
+Group routes by mental model, not by URL:
+
+```
+Now (live, synchronous)        →  /pulse  /map  /chat
+Today (relationship rituals)   →  /daily  /quiz  /repair  /pet
+Memory (asynchronous record)   →  /moments  /timeline  /notes
+Plan  (forward-looking)        →  /calendar  /bucket
+You   (config)                 →  /settings (+ /settings/activity, /settings/offline-queue)
+```
+
+Five hubs, not four. The design guide §7.2 still says "4 tabs" and BottomNav.svelte ships 5 (and the 5th, `/daily`, doesn't act as a hub for `/quiz`/`/repair`/`/pet`). Both are wrong against the live surface.
+
+### 14.3 Three IA options for `docs/ui-design.md`
+
+#### Option A — 5-tab hub-and-spoke (smallest change)
+
+BottomNav: **Pulse · Today · Moments · Plan · You** (rename `Settings → You`). Each parent page exposes its children as a horizontal chip-row at the top, below `PageHeader`:
+
+- `/today` (renamed `/daily`) — chips for `Daily question`, `Chat`, `Quiz`, `Repair`, `Pet`. Default landing = the daily-question card.
+- `/moments` — chips for `Feed`, `Timeline`, `Notes`. Default = feed.
+- `/plan` (NEW shell at `/plan/+page.svelte` that 303s to `/calendar`) — chips for `Calendar`, `Bucket`.
+- `/you` (renamed `/settings`) — current sub-tabs.
+- Drop the junk-drawer links from `/settings:275-369`.
+
+**Pros:** smallest code delta, preserves muscle memory for existing users, makes orphaned routes discoverable, settings goes back to being settings.
+**Cons:** 5 tabs at 360px is tight (still works at `text-[11px]`); requires renaming `daily → today` and adding a `/plan` shell route.
+
+#### Option B — 4-tab + persistent rail FAB
+
+Keep the original 4 (`Pulse · Map · Moments · Settings`) as in current §7.2. Add a **circular FAB at thumb-bottom-centre** that opens a radial sheet ("today menu") with `Daily / Chat / Quiz / Repair / Pet`. The FAB is the "today" entry point — it animates with the breathing pill currently used for active tab.
+
+**Pros:** preserves the 4-tab promise; the FAB is clearly the "do something with us" anchor (matches §1 "primary action lives in bottom third").
+**Cons:** new pattern (radial sheet) needs a contract in §7; map and moments still don't expose timeline/notes/calendar/bucket — those would need a different home (probably a chip-row inside `/moments` and a new `/plan` hub, partially negating the option).
+
+#### Option C — Two-tier nav: 4 tabs + per-screen secondary chips
+
+Keep BottomNav at 4 (`Pulse · Map · Moments · You`). Promote `/daily`, `/calendar`, `/bucket`, `/timeline`, `/notes`, `/chat`, `/quiz`, `/repair`, `/pet` to **chips inside their natural hub**:
+
+- `/pulse` gets a chip-row at the bottom (above HeartbeatZone): `Today · Pet · Chat · Repair`.
+- `/moments` gets a chip-row at the top: `Feed · Timeline · Notes · Calendar · Bucket`.
+- Map stays focused (no chips — it's a meditation surface).
+
+**Pros:** fewest BottomNav tabs (matches §7.2), each chip-row is contextual and localized.
+**Cons:** chip-rows on `/pulse` violate §6 ("primary action lives in the bottom third — top of viewport is for ambient information only"); also `/pulse` already has DistanceBubble + PartnerAvatar + MoodWeather + HeartbeatZone — vertical budget is exhausted.
+
+### 14.4 Recommendation
+
+**Option A**, with these specific edits to `docs/ui-design.md`:
+
+1. **§7.2 `BottomNav` contract** — rewrite "4 tabs" → "5 tabs: Pulse · Today · Moments · Plan · You. Each non-Pulse tab is a *hub* — a landing surface that exposes its sub-routes via a chip-row at the top, below `PageHeader`."
+2. **§8 IA table** — add rows for `/today`, `/quiz`, `/repair`, `/chat`, `/pet`, `/timeline`, `/notes`, `/calendar`, `/bucket`, mark each with its hub parent. Remove "deferred (Phase: settings/theme)" notes that are no longer accurate.
+3. **§7 — add a new contract `HubChips`** (a `ui/` primitive): horizontal scroll-snap row of chips, each `min-h-44px`, active chip uses `bg-primary/12` + `aria-current="page"`, inactive chips are `bg-base-200`. Reduced-motion safe (no scroll animation). One per hub.
+4. **§13 anti-patterns** — add: "Linking a content route from `/settings`. Settings is configuration only; content features must live under their hub."
+5. **§6 layout** — add: "BottomNav clearance is `pb-28` (112px) on hub pages with chip-rows, `pb-24` (96px) on leaf pages without." (Replaces the magic `bottom-28` and `4.5rem` spread across components flagged in §1.7.)
+
+### 14.5 New components/routes implied
+
+- `src/lib/components/ui/HubChips.svelte` (new primitive)
+- `src/lib/components/duosync/HubHeader.svelte` (composes `PageHeader` + `HubChips`)
+- `src/routes/plan/+page.server.ts` (303 → `/calendar`) — or a real `/plan` index showing both `Calendar` upcoming + `Bucket` recent items as a 2-card grid
+- Rename `/daily` → `/today` (keep a `/daily` redirect for muscle memory)
+- Rename `/settings` → `/you`? — bigger lift, may be Phase-2; keep the route at `/settings` and just relabel the BottomNav tab text via Paraglide (`m.nav_settings()` already exists; add `m.nav_you()` and switch).
+
+### 14.6 Migration order
+
+1. Update `docs/ui-design.md` §7.2 + §8 + §13 + add §HubChips contract — the design system change is the gate.
+2. Build `HubChips` primitive + Storybook stories.
+3. Build `HubHeader` and adopt it on `/today` (renamed daily), `/moments`, `/plan`.
+4. Remove junk-drawer links from `/settings:275-369`.
+5. Add `BottomNav` 5th tab (`Plan`) and rename `Daily → Today`. Update `SECONDARY_PARENT` map.
+6. Add e2e: from cold app launch, every authed route is reachable in ≤2 taps (BottomNav + chip).
+
