@@ -52,10 +52,10 @@ export const todayChips: HubChip[] = [
 
 /** Chips shown above every "Moments" hub child route. */
 export const momentsChips: HubChip[] = [
-	{ href: '/moments', label: m.hub_chip_feed, icon: BookOpenIcon, exact: true },
+	{ href: '/hourly', label: m.hub_chip_hourly, icon: VideoCameraIcon },
+	{ href: '/moments/feed', label: m.hub_chip_feed, icon: BookOpenIcon },
 	{ href: '/timeline', label: m.hub_chip_timeline, icon: ClockCounterClockwiseIcon },
 	{ href: '/notes', label: m.hub_chip_notes, icon: NoteIcon },
 	{ href: '/calendar', label: m.hub_chip_calendar, icon: CalendarIcon },
-	{ href: '/bucket', label: m.hub_chip_bucket, icon: ListChecksIcon },
-	{ href: '/hourly', label: m.hub_chip_hourly, icon: VideoCameraIcon }
+	{ href: '/bucket', label: m.hub_chip_bucket, icon: ListChecksIcon }
 ];

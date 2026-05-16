@@ -80,7 +80,7 @@
 					「{memory.body}」
 				</p>
 				<a
-					href={resolve('/moments')}
+					href={resolve('/moments/feed')}
 					class="mt-3 inline-block text-xs font-semibold tracking-wider text-primary uppercase hover:underline"
 				>
 					see moments →

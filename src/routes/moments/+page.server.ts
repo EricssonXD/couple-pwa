@@ -1,25 +1,11 @@
-import { error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
-import { listMomentsForViewer } from '$lib/server/services/moments';
-import { db } from '$lib/server/db';
-import { profile } from '$lib/server/db/schema';
+// /moments — hub landing. Hourly is the primary moments surface;
+// the long-form geo-feed lives at /moments/feed (reachable via the
+// hub chip row). This wrapper redirects so the bottom nav, hub chips,
+// and any legacy /moments links all land users on the hourly pager.
+
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.user) error(401, 'unauthorized');
-	if (!locals.couple) error(409, 'not_paired');
-	const moments = await listMomentsForViewer(locals.user.id, locals.couple.id);
-	const partnerId =
-		locals.couple.partnerA === locals.user.id ? locals.couple.partnerB : locals.couple.partnerA;
-	const [partnerProfile] = await db
-		.select({ displayName: profile.displayName })
-		.from(profile)
-		.where(eq(profile.userId, partnerId))
-		.limit(1);
-	return {
-		me: { id: locals.user.id },
-		coupleId: locals.couple.id,
-		moments,
-		partnerName: partnerProfile?.displayName ?? '夥伴'
-	};
+export const load: PageServerLoad = () => {
+	redirect(307, '/hourly');
 };

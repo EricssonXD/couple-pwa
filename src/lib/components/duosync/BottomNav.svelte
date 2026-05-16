@@ -60,6 +60,7 @@
 		'/calendar': '/moments',
 		'/bucket': '/moments',
 		'/hourly': '/moments',
+		'/moments/feed': '/moments',
 		'/chat': '/daily',
 		'/quiz': '/daily',
 		'/repair': '/daily',

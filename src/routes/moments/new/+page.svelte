@@ -160,7 +160,7 @@
 				// item will appear once the queue drains.
 				const { enqueue } = await import('$lib/client/offline-queue');
 				await enqueue('/api/moments', payload);
-				await goto(resolve('/moments'));
+				await goto(resolve('/moments/feed'));
 				return;
 			}
 			const r = await fetch('/api/moments', {
@@ -172,14 +172,14 @@
 				if (r.status >= 500) {
 					const { enqueue } = await import('$lib/client/offline-queue');
 					await enqueue('/api/moments', payload);
-					await goto(resolve('/moments'));
+					await goto(resolve('/moments/feed'));
 					return;
 				}
 				const t = await r.text().catch(() => '');
 				saveErr = m.moments_new_err_save({ status: r.status, detail: t });
 				return;
 			}
-			await goto(resolve('/moments'));
+			await goto(resolve('/moments/feed'));
 		} finally {
 			busy = false;
 		}
@@ -196,7 +196,7 @@
 	<header
 		class="sticky top-0 z-10 mx-auto flex max-w-md items-center justify-between bg-base-100/85 px-5 py-4 backdrop-blur"
 	>
-		<a class="text-xs tracking-wider text-base-content/60 uppercase" href={resolve('/moments')}
+		<a class="text-xs tracking-wider text-base-content/60 uppercase" href={resolve('/moments/feed')}
 			>{m.common_cancel()}</a
 		>
 		<h1 class="text-display text-lg font-semibold">{m.moments_new_title()}</h1>
