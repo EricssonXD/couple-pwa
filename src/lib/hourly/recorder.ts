@@ -92,16 +92,23 @@ export async function startCapture(
 }
 
 export async function acquireStream(
-	facingMode: 'user' | 'environment' = 'user'
+	facingMode: 'user' | 'environment' = 'user',
+	aspect: 'square' | 'landscape' = 'square'
 ): Promise<MediaStream> {
 	if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
 		throw new HourlyRecorderError('getusermedia_unsupported');
 	}
+	const video: MediaTrackConstraints =
+		aspect === 'landscape'
+			? {
+					facingMode,
+					width: { ideal: 1280 },
+					height: { ideal: 720 },
+					aspectRatio: { ideal: 16 / 9 }
+				}
+			: { facingMode, width: { ideal: 480 }, height: { ideal: 480 } };
 	try {
-		return await navigator.mediaDevices.getUserMedia({
-			video: { facingMode, width: { ideal: 480 }, height: { ideal: 480 } },
-			audio: true
-		});
+		return await navigator.mediaDevices.getUserMedia({ video, audio: true });
 	} catch (e) {
 		const name = (e as { name?: string })?.name ?? '';
 		if (name === 'NotAllowedError' || name === 'SecurityError') {

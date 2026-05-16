@@ -25,11 +25,17 @@
 
 	interface Props {
 		facingMode?: 'user' | 'environment';
+		aspect?: 'square' | 'landscape';
 		onsuccess?: () => void;
 		oncancel?: () => void;
 	}
 
-	let { facingMode: initialFacing = 'user', onsuccess, oncancel }: Props = $props();
+	let {
+		facingMode: initialFacing = 'user',
+		aspect = 'square',
+		onsuccess,
+		oncancel
+	}: Props = $props();
 
 	type Phase = 'idle' | 'requesting' | 'recording' | 'previewing' | 'uploading' | 'error';
 	let phase: Phase = $state('idle');
@@ -65,7 +71,7 @@
 		errorCode = null;
 		phase = 'requesting';
 		try {
-			stream = await acquireStream(facing);
+			stream = await acquireStream(facing, aspect);
 			phase = 'recording';
 			queueMicrotask(async () => {
 				if (videoEl && stream) {
@@ -155,7 +161,12 @@
 	{:else if phase === 'requesting'}
 		<p class="text-sm text-base-content/70">{m.hourly_rec_requesting()}</p>
 	{:else if phase === 'recording'}
-		<div class="relative aspect-square w-full max-w-sm overflow-hidden rounded-2xl bg-base-300">
+		<div
+			class="relative w-full max-w-sm overflow-hidden rounded-2xl bg-base-300 {aspect ===
+			'landscape'
+				? 'aspect-video'
+				: 'aspect-square'}"
+		>
 			<video bind:this={videoEl} class="h-full w-full object-cover" muted playsinline autoplay
 			></video>
 			<span
@@ -166,7 +177,12 @@
 		</div>
 		<p class="text-xs text-base-content/60">{m.hourly_rec_recording_hint()}</p>
 	{:else if phase === 'previewing' && previewUrl}
-		<div class="relative aspect-square w-full max-w-sm overflow-hidden rounded-2xl bg-base-300">
+		<div
+			class="relative w-full max-w-sm overflow-hidden rounded-2xl bg-base-300 {aspect ===
+			'landscape'
+				? 'aspect-video'
+				: 'aspect-square'}"
+		>
 			<video src={previewUrl} class="h-full w-full object-cover" autoplay loop muted playsinline
 			></video>
 		</div>
