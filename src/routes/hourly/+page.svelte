@@ -84,8 +84,11 @@
 	}
 
 	function todayIso(): string {
-		const now = new Date();
-		return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+		// Hour buckets are stored and indexed in UTC server-side; the
+		// pager and cells dict key off UTC hour ISO strings. The day
+		// endpoint expects the matching UTC date so the user's current
+		// hour bucket falls within the returned 24-hour window.
+		return new Date().toISOString().slice(0, 10);
 	}
 
 	async function load(): Promise<void> {
@@ -159,20 +162,18 @@
 	<RotatePrompt onlandscape={onLandscapeReady} oncancel={cancelRotate} />
 {/if}
 {#if recorderOpen}
-	<div class="fixed inset-0 z-40 bg-base-100">
-		<HourlyRecorder
-			aspect="landscape"
-			onsuccess={() => {
-				recorderOpen = false;
-				rotateGate = null;
-				void load();
-			}}
-			oncancel={() => {
-				recorderOpen = false;
-				rotateGate = null;
-			}}
-		/>
-	</div>
+	<HourlyRecorder
+		aspect="landscape"
+		onsuccess={() => {
+			recorderOpen = false;
+			rotateGate = null;
+			void load();
+		}}
+		oncancel={() => {
+			recorderOpen = false;
+			rotateGate = null;
+		}}
+	/>
 {/if}
 
 <main class="mx-auto flex h-[calc(100dvh-3.5rem)] w-full max-w-3xl flex-col">

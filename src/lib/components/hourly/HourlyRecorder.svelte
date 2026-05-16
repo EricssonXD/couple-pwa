@@ -1,18 +1,26 @@
 <!--
-	HourlyRecorder — F11 capture UI.
+HourlyRecorder — F11 fullscreen camera capture UI (U6).
 
-	Self-contained 4-state machine:
-	  idle  → user taps "Start" → permission+stream acquired
-	  recording → 2s auto-stop → previewing
-	  previewing → user picks Use / Retry / Cancel
-	  uploading → POST upload-attempt → PUT signed URL → POST finalize
+Fills its parent (the page wraps it in a fixed inset-0 overlay).
+Auto-acquires the camera stream on mount so the viewfinder appears
+immediately, with a large shutter button at the bottom — matching
+native camera-app affordances.
 
-	Strings are placeholder English; H8 lands i18n.
+State machine:
+  requesting → user grants permission, stream attached
+  ready → viewfinder live, shutter armed
+  recording → 2s auto-stop, progress ring around shutter
+  previewing → loop preview + Use/Retry/Cancel
+  uploading → optimistic UX while finalize runs
+  error → permission/unsupported overlay
 -->
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { resolve } from '$app/paths';
 	import * as m from '$lib/paraglide/messages.js';
 	import PillButton from '$lib/components/ui/PillButton.svelte';
+	import XIcon from 'phosphor-svelte/lib/X';
+	import ArrowsClockwiseIcon from 'phosphor-svelte/lib/ArrowsClockwise';
 	import {
 		acquireStream,
 		HOURLY_CLIP_MS,
@@ -32,14 +40,15 @@
 
 	let {
 		facingMode: initialFacing = 'user',
-		aspect = 'square',
+		aspect = 'landscape',
 		onsuccess,
 		oncancel
 	}: Props = $props();
 
-	type Phase = 'idle' | 'requesting' | 'recording' | 'previewing' | 'uploading' | 'error';
-	let phase: Phase = $state('idle');
+	type Phase = 'requesting' | 'ready' | 'recording' | 'previewing' | 'uploading' | 'error';
+	let phase: Phase = $state('requesting');
 	let errorCode: string | null = $state(null);
+	let uploadErrorDetail: string | null = $state(null);
 	// initialFacing is a one-time seed; subsequent prop changes shouldn't
 	// hijack an in-flight recording session.
 	// svelte-ignore state_referenced_locally
@@ -47,8 +56,10 @@
 	let stream: MediaStream | null = $state(null);
 	let captured: CaptureResult | null = $state(null);
 	let previewUrl: string | null = $state(null);
+	let recordProgress = $state(0);
 
 	let videoEl: HTMLVideoElement | null = $state(null);
+	let progressTimer: ReturnType<typeof setInterval> | null = null;
 
 	function teardownStream(): void {
 		stopStream(stream);
@@ -61,35 +72,35 @@
 		captured = null;
 	}
 
+	function clearProgress(): void {
+		if (progressTimer) {
+			clearInterval(progressTimer);
+			progressTimer = null;
+		}
+		recordProgress = 0;
+	}
+
 	function fail(code: string): void {
 		errorCode = code;
 		phase = 'error';
 		teardownStream();
+		clearProgress();
 	}
 
-	async function start(): Promise<void> {
+	async function acquire(): Promise<void> {
 		errorCode = null;
 		phase = 'requesting';
 		try {
 			stream = await acquireStream(facing, aspect);
-			phase = 'recording';
+			phase = 'ready';
 			queueMicrotask(async () => {
 				if (videoEl && stream) {
 					videoEl.srcObject = stream;
 					try {
 						await videoEl.play();
 					} catch {
-						/* autoplay restrictions — preview will still render frames */
+						/* autoplay restrictions — viewfinder will still render frames */
 					}
-				}
-				try {
-					if (!stream) return;
-					captured = await startCapture(stream, { clipMs: HOURLY_CLIP_MS });
-					previewUrl = URL.createObjectURL(captured.blob);
-					teardownStream();
-					phase = 'previewing';
-				} catch (e) {
-					fail(e instanceof HourlyRecorderError ? e.code : 'unknown');
 				}
 			});
 		} catch (e) {
@@ -97,34 +108,58 @@
 		}
 	}
 
+	async function record(): Promise<void> {
+		if (!stream) return;
+		phase = 'recording';
+		recordProgress = 0;
+		const tick = 50;
+		progressTimer = setInterval(() => {
+			recordProgress = Math.min(1, recordProgress + tick / HOURLY_CLIP_MS);
+		}, tick);
+		try {
+			captured = await startCapture(stream, { clipMs: HOURLY_CLIP_MS });
+			previewUrl = URL.createObjectURL(captured.blob);
+			teardownStream();
+			clearProgress();
+			phase = 'previewing';
+		} catch (e) {
+			fail(e instanceof HourlyRecorderError ? e.code : 'unknown');
+		}
+	}
+
 	function retry(): void {
 		teardownPreview();
-		phase = 'idle';
-		void start();
+		uploadErrorDetail = null;
+		void acquire();
 	}
 
 	function cancel(): void {
 		teardownStream();
 		teardownPreview();
-		phase = 'idle';
+		clearProgress();
 		oncancel?.();
 	}
 
-	function flipCamera(): void {
+	async function flipCamera(): Promise<void> {
 		facing = facing === 'user' ? 'environment' : 'user';
+		teardownStream();
+		await acquire();
 	}
 
 	async function submit(): Promise<void> {
 		if (!captured) return;
 		phase = 'uploading';
 		errorCode = null;
+		uploadErrorDetail = null;
 		try {
 			const attemptRes = await fetch(resolve('/api/hourly/upload-attempt'), {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ mime: captured.mime })
 			});
-			if (!attemptRes.ok) throw new Error(await attemptRes.text());
+			if (!attemptRes.ok) {
+				throw new Error(`attempt: ${attemptRes.status} ${await attemptRes.text()}`);
+			}
 			const attempt = (await attemptRes.json()) as {
 				attemptId: string;
 				uploadUrl: string;
@@ -137,85 +172,152 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ attemptId: attempt.attemptId })
 			});
-			if (!finalizeRes.ok) throw new Error(await finalizeRes.text());
+			if (!finalizeRes.ok) {
+				throw new Error(`finalize: ${finalizeRes.status} ${await finalizeRes.text()}`);
+			}
 
 			teardownPreview();
-			phase = 'idle';
 			onsuccess?.();
 		} catch (e) {
+			uploadErrorDetail = e instanceof Error ? e.message : String(e);
 			errorCode = e instanceof HourlyRecorderError ? e.code : 'upload_failed';
 			phase = 'previewing';
 		}
 	}
+
+	$effect(() => {
+		void acquire();
+	});
+
+	onDestroy(() => {
+		teardownStream();
+		teardownPreview();
+		clearProgress();
+	});
 </script>
 
-<div class="flex flex-col items-center gap-3">
-	{#if phase === 'idle'}
-		<p class="text-sm text-base-content/70">
-			{m.hourly_rec_intro()}
-		</p>
-		<PillButton variant="primary" size="lg" onclick={start}>{m.hourly_rec_start()}</PillButton>
-		<button type="button" class="text-xs text-base-content/60 underline" onclick={flipCamera}>
-			{facing === 'user' ? m.hourly_rec_use_rear() : m.hourly_rec_use_front()}
-		</button>
-	{:else if phase === 'requesting'}
-		<p class="text-sm text-base-content/70">{m.hourly_rec_requesting()}</p>
-	{:else if phase === 'recording'}
-		<div
-			class="relative w-full max-w-sm overflow-hidden rounded-2xl bg-base-300 {aspect ===
-			'landscape'
-				? 'aspect-video'
-				: 'aspect-square'}"
-		>
-			<video bind:this={videoEl} class="h-full w-full object-cover" muted playsinline autoplay
-			></video>
-			<span
-				class="absolute top-2 left-2 rounded-full bg-error/90 px-2 py-0.5 text-xs font-semibold text-error-content"
-			>
-				● REC
-			</span>
+<div class="fixed inset-0 z-50 flex flex-col bg-black text-white">
+	{#if phase === 'requesting'}
+		<div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+			<p class="text-sm text-white/70">{m.hourly_rec_requesting()}</p>
 		</div>
-		<p class="text-xs text-base-content/60">{m.hourly_rec_recording_hint()}</p>
-	{:else if phase === 'previewing' && previewUrl}
-		<div
-			class="relative w-full max-w-sm overflow-hidden rounded-2xl bg-base-300 {aspect ===
-			'landscape'
-				? 'aspect-video'
-				: 'aspect-square'}"
-		>
-			<video src={previewUrl} class="h-full w-full object-cover" autoplay loop muted playsinline
-			></video>
-		</div>
-		{#if errorCode}
-			<p class="text-xs text-error">{m.hourly_rec_upload_failed()}</p>
-		{/if}
-		<div class="flex gap-2">
-			<PillButton variant="primary" onclick={submit}>{m.hourly_rec_use_this()}</PillButton>
-			<PillButton variant="outline" onclick={retry}>{m.hourly_rec_retry()}</PillButton>
-			<PillButton variant="ghost" onclick={cancel}>{m.common_cancel()}</PillButton>
-		</div>
-	{:else if phase === 'uploading'}
-		<p class="text-sm text-base-content/70">{m.hourly_rec_uploading()}</p>
 	{:else if phase === 'error'}
-		<p class="text-sm text-error">
-			{#if errorCode === 'permission_denied'}
-				{m.hourly_rec_err_permission()}
-			{:else if errorCode === 'camera_unavailable'}
-				{m.hourly_rec_err_unavailable()}
-			{:else if errorCode === 'mediarecorder_unsupported' || errorCode === 'getusermedia_unsupported'}
-				{m.hourly_rec_err_unsupported()}
-			{:else}
-				{m.hourly_rec_err_generic()}
-			{/if}
-		</p>
-		{#if errorCode === 'permission_denied'}
-			<p class="max-w-sm text-center text-xs text-base-content/60">
-				{m.hourly_rec_err_permission_hint()}
+		<div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+			<p class="text-base">
+				{#if errorCode === 'permission_denied'}
+					{m.hourly_rec_err_permission()}
+				{:else if errorCode === 'camera_unavailable'}
+					{m.hourly_rec_err_unavailable()}
+				{:else if errorCode === 'mediarecorder_unsupported' || errorCode === 'getusermedia_unsupported'}
+					{m.hourly_rec_err_unsupported()}
+				{:else}
+					{m.hourly_rec_err_generic()}
+				{/if}
 			</p>
-		{/if}
-		<div class="flex gap-2">
-			<PillButton variant="primary" onclick={retry}>{m.hourly_rec_try_again()}</PillButton>
-			<PillButton variant="ghost" onclick={cancel}>{m.common_cancel()}</PillButton>
+			{#if errorCode === 'permission_denied'}
+				<p class="max-w-sm text-xs text-white/60">
+					{m.hourly_rec_err_permission_hint()}
+				</p>
+			{/if}
+			<div class="flex gap-2 pt-2">
+				<PillButton variant="primary" onclick={retry}>{m.hourly_rec_try_again()}</PillButton>
+				<PillButton variant="ghost" onclick={cancel}>{m.common_cancel()}</PillButton>
+			</div>
+		</div>
+	{:else}
+		<div class="relative flex-1 overflow-hidden bg-black">
+			{#if phase === 'previewing' && previewUrl}
+				<video src={previewUrl} class="h-full w-full object-cover" autoplay loop muted playsinline
+				></video>
+			{:else}
+				<video
+					bind:this={videoEl}
+					class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
+					muted
+					playsinline
+					autoplay
+				></video>
+			{/if}
+
+			<button
+				type="button"
+				class="absolute top-4 left-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
+				aria-label={m.common_cancel()}
+				onclick={cancel}
+			>
+				<XIcon size={22} weight="bold" />
+			</button>
+
+			{#if phase === 'ready'}
+				<button
+					type="button"
+					class="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
+					aria-label={facing === 'user' ? m.hourly_rec_use_rear() : m.hourly_rec_use_front()}
+					onclick={flipCamera}
+				>
+					<ArrowsClockwiseIcon size={22} weight="bold" />
+				</button>
+			{/if}
+
+			{#if phase === 'recording'}
+				<div
+					class="absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-error/90 px-3 py-1 text-xs font-semibold"
+				>
+					● REC
+				</div>
+			{/if}
+
+			{#if uploadErrorDetail && phase === 'previewing'}
+				<div
+					class="absolute top-4 right-4 left-16 max-w-sm rounded-lg bg-error/90 px-3 py-2 text-xs"
+				>
+					{m.hourly_rec_upload_failed()}
+					<div class="mt-1 text-[10px] break-words opacity-80">{uploadErrorDetail}</div>
+				</div>
+			{/if}
+		</div>
+
+		<div class="flex shrink-0 items-center justify-center gap-4 bg-black/80 px-4 pt-4 pb-8">
+			{#if phase === 'ready'}
+				<button
+					type="button"
+					class="relative flex h-20 w-20 items-center justify-center rounded-full border-4 border-white"
+					aria-label={m.hourly_rec_start()}
+					onclick={record}
+				>
+					<span class="h-14 w-14 rounded-full bg-white"></span>
+				</button>
+			{:else if phase === 'recording'}
+				<div class="relative flex h-20 w-20 items-center justify-center">
+					<svg class="absolute inset-0 -rotate-90" viewBox="0 0 80 80">
+						<circle
+							cx="40"
+							cy="40"
+							r="36"
+							fill="none"
+							stroke="rgba(255,255,255,0.25)"
+							stroke-width="4"
+						/>
+						<circle
+							cx="40"
+							cy="40"
+							r="36"
+							fill="none"
+							stroke="#ef4444"
+							stroke-width="4"
+							stroke-dasharray={2 * Math.PI * 36}
+							stroke-dashoffset={(1 - recordProgress) * 2 * Math.PI * 36}
+							stroke-linecap="round"
+						/>
+					</svg>
+					<span class="h-10 w-10 rounded-md bg-error"></span>
+				</div>
+			{:else if phase === 'previewing'}
+				<PillButton variant="ghost" onclick={retry}>{m.hourly_rec_retry()}</PillButton>
+				<PillButton variant="primary" onclick={submit}>{m.hourly_rec_use_this()}</PillButton>
+			{:else if phase === 'uploading'}
+				<p class="text-sm text-white/80">{m.hourly_rec_uploading()}</p>
+			{/if}
 		</div>
 	{/if}
 </div>
