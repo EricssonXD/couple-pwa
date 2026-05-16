@@ -36,7 +36,7 @@ State machine:
 
 	interface Props {
 		facingMode?: 'user' | 'environment';
-		aspect?: 'square' | 'landscape';
+		aspect?: 'square' | 'landscape' | 'portrait';
 		onsuccess?: () => void;
 		oncancel?: () => void;
 	}
@@ -315,7 +315,7 @@ State machine:
 			ontouchcancel={onViewfinderTouchEnd}
 		>
 			{#if phase === 'previewing' && previewUrl}
-				<video src={previewUrl} class="h-full w-full object-contain" autoplay loop muted playsinline
+				<video src={previewUrl} class="h-full w-full object-cover" autoplay loop muted playsinline
 				></video>
 				<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
 					<textarea
@@ -331,7 +331,7 @@ State machine:
 			{:else}
 				<video
 					bind:this={videoEl}
-					class="h-full w-full object-contain {facing === 'user' ? 'scale-x-[-1]' : ''}"
+					class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
 					muted
 					playsinline
 					autoplay

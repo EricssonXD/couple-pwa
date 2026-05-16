@@ -93,20 +93,29 @@ export async function startCapture(
 
 export async function acquireStream(
 	facingMode: 'user' | 'environment' = 'user',
-	aspect: 'square' | 'landscape' = 'square'
+	aspect: 'square' | 'landscape' | 'portrait' = 'square'
 ): Promise<MediaStream> {
 	if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
 		throw new HourlyRecorderError('getusermedia_unsupported');
 	}
-	const video: MediaTrackConstraints =
-		aspect === 'landscape'
-			? {
-					facingMode,
-					width: { ideal: 1280 },
-					height: { ideal: 720 },
-					aspectRatio: { ideal: 16 / 9 }
-				}
-			: { facingMode, width: { ideal: 480 }, height: { ideal: 480 } };
+	let video: MediaTrackConstraints;
+	if (aspect === 'landscape') {
+		video = {
+			facingMode,
+			width: { ideal: 1280 },
+			height: { ideal: 720 },
+			aspectRatio: { ideal: 16 / 9 }
+		};
+	} else if (aspect === 'portrait') {
+		video = {
+			facingMode,
+			width: { ideal: 720 },
+			height: { ideal: 1280 },
+			aspectRatio: { ideal: 9 / 16 }
+		};
+	} else {
+		video = { facingMode, width: { ideal: 480 }, height: { ideal: 480 } };
+	}
 	let stream: MediaStream;
 	try {
 		stream = await navigator.mediaDevices.getUserMedia({ video, audio: true });
