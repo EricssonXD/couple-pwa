@@ -78,7 +78,7 @@ export async function startCapture(
 			resolve({ blob, mime: picked.uploadMime, durationMs });
 		};
 		try {
-			recorder.start();
+			recorder.start(250);
 		} catch {
 			reject(new HourlyRecorderError('mediarecorder_start_failed'));
 			return;

@@ -192,6 +192,11 @@
 				{m.hourly_rec_err_generic()}
 			{/if}
 		</p>
+		{#if errorCode === 'permission_denied'}
+			<p class="max-w-sm text-center text-xs text-base-content/60">
+				{m.hourly_rec_err_permission_hint()}
+			</p>
+		{/if}
 		<div class="flex gap-2">
 			<PillButton variant="primary" onclick={retry}>{m.hourly_rec_try_again()}</PillButton>
 			<PillButton variant="ghost" onclick={cancel}>{m.common_cancel()}</PillButton>

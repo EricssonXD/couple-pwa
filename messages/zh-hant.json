@@ -237,6 +237,7 @@
 	"hourly_rec_uploading": "上傳中…",
 	"hourly_rec_try_again": "再試一次",
 	"hourly_rec_err_permission": "相機權限被拒，請至瀏覽器設定開啟。",
+	"hourly_rec_err_permission_hint": "iOS：設定 → Safari → 相機 → 允許。Android Chrome：點網址列旁的鎖頭 → 權限 → 相機 → 允許，然後重新整理頁面。",
 	"hourly_rec_err_unavailable": "此裝置沒有可用相機。",
 	"hourly_rec_err_unsupported": "此瀏覽器不支援內建錄製。",
 	"hourly_rec_err_generic": "發生錯誤，請再試。",
