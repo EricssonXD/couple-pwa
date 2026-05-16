@@ -18,6 +18,7 @@
 	import { HubHeader, momentsChips } from '$lib/components/duosync';
 	import HourlyRecorder from '$lib/components/hourly/HourlyRecorder.svelte';
 	import HourlyPager from '$lib/components/hourly/HourlyPager.svelte';
+	import HourListSheet from '$lib/components/hourly/HourListSheet.svelte';
 	import RotatePrompt from '$lib/components/hourly/RotatePrompt.svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { currentBucket, isCurrentHour } from '$lib/hourly/dayNav';
@@ -52,6 +53,7 @@
 	let savingMood: Mood | null = $state(null);
 	let selectedBucket = $state(currentBucket());
 	let rotateGate = $state<null | 'pending' | 'cleared'>(null);
+	let hourSheetOpen = $state(false);
 
 	const pagerCells = $derived.by(() => {
 		const you: Record<string, PagerCell> = {};
@@ -115,7 +117,18 @@
 		if (ts > lastSeenHourly) {
 			lastSeenHourly = ts;
 			if (!loading) void load();
+			// Realtime auto-snap: when a new clip lands while the user is
+			// already viewing the current hour, keep them on it as the
+			// clock rolls over.
+			if (isCurrentHour(selectedBucket)) selectedBucket = currentBucket();
 		}
+	});
+
+	// Today's 24 buckets in chronological order, derived from the day
+	// payload so the BottomSheet matches what /api/hourly/day returned.
+	const dayBuckets = $derived.by(() => {
+		if (!day) return [] as string[];
+		return day.you.cells.map((c) => c.hourBucket);
 	});
 
 	async function setMood(value: Mood): Promise<void> {
@@ -177,6 +190,7 @@
 			partnerCells={pagerCells.partner}
 			onselect={(b) => (selectedBucket = b)}
 			oncapture={openRecorder}
+			onpickhour={() => (hourSheetOpen = true)}
 		/>
 
 		{#if isCurrent}
@@ -200,3 +214,13 @@
 		{/if}
 	{/if}
 </main>
+
+<HourListSheet
+	bind:open={hourSheetOpen}
+	buckets={dayBuckets}
+	youCells={pagerCells.you}
+	partnerCells={pagerCells.partner}
+	{selectedBucket}
+	onselect={(b) => (selectedBucket = b)}
+	onclose={() => (hourSheetOpen = false)}
+/>
