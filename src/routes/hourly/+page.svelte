@@ -259,7 +259,7 @@
 {/if}
 {#if recorderOpen}
 	<HourlyRecorder
-		aspect="portrait"
+		aspect="landscape"
 		onsuccess={() => {
 			recorderOpen = false;
 			rotateGate = null;

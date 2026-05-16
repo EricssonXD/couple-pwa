@@ -102,7 +102,7 @@
 	);
 </script>
 
-<div class="relative aspect-[9/16] w-full overflow-hidden rounded-[var(--radius-card)] bg-base-300">
+<div class="relative aspect-video w-full overflow-hidden rounded-[var(--radius-card)] bg-base-300">
 	<!-- owner pill -->
 	<span
 		class="absolute top-2 left-2 z-10 rounded-full bg-base-100/85 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-base-content/80 uppercase backdrop-blur-sm"
