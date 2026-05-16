@@ -315,7 +315,13 @@ State machine:
 			ontouchcancel={onViewfinderTouchEnd}
 		>
 			{#if phase === 'previewing' && previewUrl}
-				<video src={previewUrl} class="h-full w-full object-cover" autoplay loop muted playsinline
+				<video
+					src={previewUrl}
+					class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
+					autoplay
+					loop
+					muted
+					playsinline
 				></video>
 				<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
 					<textarea
