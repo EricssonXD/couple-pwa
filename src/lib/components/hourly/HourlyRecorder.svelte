@@ -95,8 +95,12 @@ State machine:
 		return Math.hypot(dx, dy);
 	}
 
+	function zoomActive(): boolean {
+		return (phase === 'ready' || phase === 'recording') && zoomCap !== null;
+	}
+
 	function onViewfinderTouchStart(e: TouchEvent): void {
-		if (phase !== 'ready' || !zoomCap) return;
+		if (!zoomActive()) return;
 		if (e.touches.length === 2) {
 			pinchInitialDist = touchDistance(e.touches);
 			pinchInitialZoom = zoom;
@@ -108,7 +112,7 @@ State machine:
 	}
 
 	function onViewfinderTouchMove(e: TouchEvent): void {
-		if (phase !== 'ready' || !zoomCap) return;
+		if (!zoomActive() || !zoomCap) return;
 		if (e.touches.length === 2 && pinchInitialDist > 0) {
 			e.preventDefault();
 			const ratio = touchDistance(e.touches) / pinchInitialDist;
@@ -354,7 +358,7 @@ State machine:
 				</button>
 			{/if}
 
-			{#if phase === 'ready' && zoomCap}
+			{#if (phase === 'ready' || phase === 'recording') && zoomCap}
 				<div
 					class="absolute top-1/2 right-4 flex h-48 -translate-y-1/2 flex-col items-center gap-2 rounded-full bg-black/40 px-2 py-3 backdrop-blur"
 				>

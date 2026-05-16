@@ -60,7 +60,6 @@
 	};
 
 	let menuOpen = $state(false);
-	let isPortraitClip = $state(false);
 
 	function handleClick(): void {
 		if (clip) {
@@ -68,11 +67,6 @@
 		} else if (owner === 'you' && isCurrentHour) {
 			oncapture?.();
 		}
-	}
-
-	function onVideoLoaded(e: Event): void {
-		const v = e.currentTarget as HTMLVideoElement;
-		isPortraitClip = v.videoHeight > v.videoWidth;
 	}
 
 	function toggleMenu(e: MouseEvent): void {
@@ -137,14 +131,11 @@
 		>
 			<video
 				src={clip.playbackUrl}
-				class="h-full w-full {isPortraitClip
-					? 'scale-[1.7778] rotate-90 object-cover'
-					: 'object-cover'}"
+				class="h-full w-full bg-black object-contain"
 				muted
 				playsinline
 				autoplay
 				loop
-				onloadedmetadata={onVideoLoaded}
 			></video>
 		</button>
 		{#if clip.caption}
