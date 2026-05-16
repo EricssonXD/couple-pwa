@@ -43,6 +43,7 @@ export const HOURLY_CLIP_RETENTION_DAYS = 2;
 export const HOURLY_MOOD_PARTNER_VISIBLE_HOURS = 24;
 export const HOURLY_CLIP_MAX_BYTES = 750_000;
 export const HOURLY_ATTEMPT_MAX_SECONDS = 60;
+export const HOURLY_CAPTION_MAX_CHARS = 280;
 export const HOURLY_ALLOWED_MIMES = ['video/webm', 'video/mp4'] as const;
 export type HourlyMime = (typeof HOURLY_ALLOWED_MIMES)[number];
 export const HOURLY_MOODS = ['joyful', 'happy', 'neutral', 'sad', 'upset'] as const;
@@ -54,6 +55,10 @@ export class HourlyError extends Error {
 		readonly code:
 			| 'invalid_mime'
 			| 'invalid_mood'
+			| 'invalid_caption'
+			| 'clip_not_found'
+			| 'clip_owner_mismatch'
+			| 'clip_not_current_hour'
 			| 'attempt_not_found'
 			| 'attempt_expired'
 			| 'attempt_owner_mismatch'
@@ -66,6 +71,19 @@ export class HourlyError extends Error {
 		super(message);
 		this.name = 'HourlyError';
 	}
+}
+
+/** Normalize + length-check user-supplied captions. Returns null for
+ *  blank input. Throws on overlong. */
+export function normalizeCaption(input: unknown): string | null {
+	if (input === null || input === undefined) return null;
+	if (typeof input !== 'string') throw new HourlyError('invalid caption type', 'invalid_caption');
+	const trimmed = input.trim();
+	if (trimmed.length === 0) return null;
+	if (trimmed.length > HOURLY_CAPTION_MAX_CHARS) {
+		throw new HourlyError('caption too long', 'invalid_caption');
+	}
+	return trimmed;
 }
 
 export function isHourlyMime(v: unknown): v is HourlyMime {
@@ -178,6 +196,7 @@ export interface FinalizedClip {
 	hourBucket: string;
 	mime: HourlyMime;
 	byteSize: number;
+	caption: string | null;
 	createdAt: string;
 }
 
@@ -191,9 +210,11 @@ export async function finalizeClipAttempt(input: {
 	coupleId: string;
 	userId: string;
 	attemptId: string;
+	caption?: string | null;
 	now?: Date;
 }): Promise<FinalizedClip> {
 	const now = input.now ?? new Date();
+	const caption = normalizeCaption(input.caption);
 
 	const [attempt] = await db
 		.select()
@@ -286,6 +307,7 @@ export async function finalizeClipAttempt(input: {
 				storageKey: attempt.storageKey,
 				mime: finalMime,
 				byteSize,
+				caption,
 				status: 'ready'
 			})
 			.returning();
@@ -313,8 +335,93 @@ export async function finalizeClipAttempt(input: {
 		hourBucket: attempt.hourBucket.toISOString(),
 		mime: finalMime,
 		byteSize,
+		caption,
 		createdAt: finalized.createdAt.toISOString()
 	};
+}
+
+/**
+ * Update the caption on an existing clip. Only the owner of the clip
+ * can edit it; the clip must still be in `ready` state. Broadcasts a
+ * realtime tick so the partner's pager refetches.
+ */
+export async function setClipCaption(input: {
+	coupleId: string;
+	userId: string;
+	clipId: string;
+	caption: string | null;
+}): Promise<{ id: string; caption: string | null }> {
+	const caption = normalizeCaption(input.caption);
+	const [clip] = await db
+		.select()
+		.from(hourlyClip)
+		.where(eq(hourlyClip.id, input.clipId))
+		.limit(1);
+	if (!clip) throw new HourlyError('clip not found', 'clip_not_found');
+	if (clip.coupleId !== input.coupleId || clip.userId !== input.userId) {
+		throw new HourlyError('owner mismatch', 'clip_owner_mismatch');
+	}
+	if (clip.status !== 'ready') throw new HourlyError('clip not found', 'clip_not_found');
+
+	await db.update(hourlyClip).set({ caption }).where(eq(hourlyClip.id, input.clipId));
+
+	void broadcastToCouple(input.coupleId, {
+		t: 'hourly_clip',
+		ts: Date.now(),
+		p: {
+			id: clip.id,
+			userId: input.userId,
+			hourBucket: clip.hourBucket.toISOString()
+		}
+	}).catch((e) => console.warn('[hourly] caption broadcast failed', { id: clip.id, e }));
+
+	return { id: clip.id, caption };
+}
+
+/**
+ * Mark the owner's current-hour clip as `delete_pending`. Only allowed
+ * for the clip belonging to the current UTC hour bucket so the user
+ * can re-shoot; past clips are immutable history. The purge worker
+ * actually removes the storage object + row asynchronously.
+ */
+export async function deleteCurrentHourClip(input: {
+	coupleId: string;
+	userId: string;
+	clipId: string;
+	now?: Date;
+}): Promise<{ id: string }> {
+	const now = input.now ?? new Date();
+	const bucket = currentHourBucket(now);
+	const [clip] = await db
+		.select()
+		.from(hourlyClip)
+		.where(eq(hourlyClip.id, input.clipId))
+		.limit(1);
+	if (!clip) throw new HourlyError('clip not found', 'clip_not_found');
+	if (clip.coupleId !== input.coupleId || clip.userId !== input.userId) {
+		throw new HourlyError('owner mismatch', 'clip_owner_mismatch');
+	}
+	if (clip.hourBucket.getTime() !== bucket.getTime()) {
+		throw new HourlyError('not current hour', 'clip_not_current_hour');
+	}
+	if (clip.status !== 'ready') return { id: clip.id };
+
+	await db
+		.update(hourlyClip)
+		.set({ status: 'delete_pending' })
+		.where(eq(hourlyClip.id, clip.id));
+
+	void broadcastToCouple(input.coupleId, {
+		t: 'hourly_clip',
+		ts: Date.now(),
+		p: {
+			id: clip.id,
+			userId: input.userId,
+			hourBucket: clip.hourBucket.toISOString()
+		}
+	}).catch((e) => console.warn('[hourly] delete broadcast failed', { id: clip.id, e }));
+
+	return { id: clip.id };
 }
 
 export interface MoodSnapshot {
@@ -366,7 +473,13 @@ export async function setHourlyMoodNow(input: {
 
 export interface DayCell {
 	hourBucket: string;
-	clip: { id: string; mime: HourlyMime; playbackUrl: string; expiresIn: number } | null;
+	clip: {
+		id: string;
+		mime: HourlyMime;
+		playbackUrl: string;
+		expiresIn: number;
+		caption: string | null;
+	} | null;
 	mood: HourlyMood | null;
 }
 
@@ -443,7 +556,8 @@ export async function getDay(input: {
 							id: clip.id,
 							mime: clip.mime as HourlyMime,
 							playbackUrl: playbackByKey.get(clip.storageKey) ?? '',
-							expiresIn: PLAYBACK_URL_TTL_SECONDS
+							expiresIn: PLAYBACK_URL_TTL_SECONDS,
+							caption: clip.caption
 						}
 					: null,
 				mood: mood && !partnerMoodHidden ? (mood.mood as HourlyMood) : null

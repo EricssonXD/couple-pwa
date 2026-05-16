@@ -823,6 +823,7 @@ export const hourlyClip = pgTable(
 		mime: text('mime').notNull(),
 		byteSize: integer('byte_size').notNull(),
 		status: text('status').notNull().default('ready'),
+		caption: text('caption'),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => [
@@ -833,6 +834,10 @@ export const hourlyClip = pgTable(
 		check('hourly_clip_status_chk', sql`${t.status} in ('ready','delete_pending','deleted')`),
 		check('hourly_clip_byte_size_chk', sql`${t.byteSize} > 0 and ${t.byteSize} <= 750000`),
 		check('hourly_clip_mime_chk', sql`${t.mime} in ('video/webm','video/mp4')`),
+		check(
+			'hourly_clip_caption_len_chk',
+			sql`${t.caption} is null or char_length(${t.caption}) <= 280`
+		),
 		index('hourly_clip_couple_hour_idx').on(t.coupleId, t.hourBucket),
 		index('hourly_clip_purge_idx').on(t.createdAt)
 	]

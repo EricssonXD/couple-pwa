@@ -30,7 +30,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const finalized = await finalizeClipAttempt({
 			coupleId: locals.couple.id,
 			userId: locals.user.id,
-			attemptId: body.attemptId
+			attemptId: body.attemptId,
+			caption: typeof body.caption === 'string' ? body.caption : null
 		});
 		return json(finalized);
 	} catch (e) {
