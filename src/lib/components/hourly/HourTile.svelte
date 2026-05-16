@@ -60,7 +60,6 @@
 	};
 
 	let menuOpen = $state(false);
-	let isPortraitClip = $state(false);
 
 	function handleClick(): void {
 		if (clip) {
@@ -68,11 +67,6 @@
 		} else if (owner === 'you' && isCurrentHour) {
 			oncapture?.();
 		}
-	}
-
-	function onVideoLoaded(e: Event): void {
-		const v = e.currentTarget as HTMLVideoElement;
-		isPortraitClip = v.videoHeight > v.videoWidth;
 	}
 
 	function toggleMenu(e: MouseEvent): void {
@@ -139,12 +133,11 @@
 		>
 			<video
 				src={clip.playbackUrl}
-				class="tile-video {isPortraitClip ? 'tile-video-portrait' : 'tile-video-landscape'}"
+				class="h-full w-full object-cover"
 				muted
 				playsinline
 				autoplay
 				loop
-				onloadedmetadata={onVideoLoaded}
 			></video>
 		</button>
 		{#if clip.caption}
@@ -230,30 +223,7 @@
 </div>
 
 <style>
-	/*
-  Container queries let a portrait clip rotate 90° and size itself
-  using the *swapped* container dimensions, so it fills the
-  landscape tile with no cropping and no letterbox bars.
-  Landscape clips already share the tile aspect, so a plain
-  object-cover fills cleanly.
-*/
 	.tile-wrap {
-		container-type: size;
 		background: black;
-	}
-	.tile-video-landscape {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-	.tile-video-portrait {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 100cqh;
-		height: 100cqw;
-		transform: translate(-50%, -50%) rotate(90deg);
-		transform-origin: center;
-		object-fit: cover;
 	}
 </style>

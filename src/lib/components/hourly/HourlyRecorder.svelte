@@ -304,6 +304,62 @@ State machine:
 				<PillButton variant="ghost" onclick={cancel}>{m.common_cancel()}</PillButton>
 			</div>
 		</div>
+	{:else if phase === 'previewing' && previewUrl}
+		<div class="relative flex flex-1 flex-col items-center justify-center gap-4 bg-black p-4">
+			<button
+				type="button"
+				class="absolute top-4 left-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
+				aria-label={m.common_cancel()}
+				onclick={cancel}
+			>
+				<XIcon size={22} weight="bold" />
+			</button>
+
+			{#if uploadErrorDetail}
+				<div class="w-full max-w-md rounded-lg bg-error/90 px-3 py-2 text-xs">
+					{m.hourly_rec_upload_failed()}
+					<div class="mt-1 text-[10px] break-words opacity-80">{uploadErrorDetail}</div>
+				</div>
+			{/if}
+
+			<!--
+				Preview card — pixel-identical to HourTile so the caption you
+				see here is exactly what the final tile will render.
+			-->
+			<div
+				class="relative aspect-video w-full max-w-lg overflow-hidden rounded-[var(--radius-card)] bg-base-300"
+				style="background: black;"
+			>
+				<video
+					src={previewUrl}
+					class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
+					autoplay
+					loop
+					muted
+					playsinline
+				></video>
+				<div
+					class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center px-3"
+				>
+					<textarea
+						bind:value={caption}
+						maxlength={CAPTION_MAX}
+						rows="2"
+						placeholder={m.hourly_rec_caption_placeholder()}
+						aria-label={m.hourly_rec_caption_placeholder()}
+						class="pointer-events-auto w-full resize-none border-0 bg-transparent p-0 text-center text-sm font-semibold text-white placeholder:text-white/60 focus:ring-0 focus:outline-none"
+						style="text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4);"
+					></textarea>
+				</div>
+			</div>
+
+			<p class="text-center text-xs text-white/60">{m.hourly_rec_preview_hint()}</p>
+
+			<div class="flex shrink-0 items-center justify-center gap-4 pt-2">
+				<PillButton variant="ghost" onclick={retry}>{m.hourly_rec_retry()}</PillButton>
+				<PillButton variant="primary" onclick={submit}>{m.hourly_rec_use_this()}</PillButton>
+			</div>
+		</div>
 	{:else}
 		<div
 			class="relative flex-1 overflow-hidden bg-black"
@@ -314,35 +370,13 @@ State machine:
 			ontouchend={onViewfinderTouchEnd}
 			ontouchcancel={onViewfinderTouchEnd}
 		>
-			{#if phase === 'previewing' && previewUrl}
-				<video
-					src={previewUrl}
-					class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
-					autoplay
-					loop
-					muted
-					playsinline
-				></video>
-				<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-					<textarea
-						bind:value={caption}
-						maxlength={CAPTION_MAX}
-						rows="2"
-						placeholder={m.hourly_rec_caption_placeholder()}
-						aria-label={m.hourly_rec_caption_placeholder()}
-						class="pointer-events-auto w-full max-w-md resize-none rounded-lg bg-black/40 px-4 py-2 text-center text-lg font-semibold text-white shadow-lg backdrop-blur-sm placeholder:text-white/60 focus:bg-black/60 focus:outline-none"
-						style="text-shadow: 0 1px 3px rgba(0,0,0,0.6);"
-					></textarea>
-				</div>
-			{:else}
-				<video
-					bind:this={videoEl}
-					class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
-					muted
-					playsinline
-					autoplay
-				></video>
-			{/if}
+			<video
+				bind:this={videoEl}
+				class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
+				muted
+				playsinline
+				autoplay
+			></video>
 
 			<button
 				type="button"
@@ -389,15 +423,6 @@ State machine:
 					class="absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-error/90 px-3 py-1 text-xs font-semibold"
 				>
 					● REC
-				</div>
-			{/if}
-
-			{#if uploadErrorDetail && phase === 'previewing'}
-				<div
-					class="absolute top-4 right-4 left-16 max-w-sm rounded-lg bg-error/90 px-3 py-2 text-xs"
-				>
-					{m.hourly_rec_upload_failed()}
-					<div class="mt-1 text-[10px] break-words opacity-80">{uploadErrorDetail}</div>
 				</div>
 			{/if}
 		</div>
