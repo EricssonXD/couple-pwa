@@ -107,8 +107,9 @@ export async function acquireStream(
 					aspectRatio: { ideal: 16 / 9 }
 				}
 			: { facingMode, width: { ideal: 480 }, height: { ideal: 480 } };
+	let stream: MediaStream;
 	try {
-		return await navigator.mediaDevices.getUserMedia({ video, audio: true });
+		stream = await navigator.mediaDevices.getUserMedia({ video, audio: true });
 	} catch (e) {
 		const name = (e as { name?: string })?.name ?? '';
 		if (name === 'NotAllowedError' || name === 'SecurityError') {
@@ -118,6 +119,58 @@ export async function acquireStream(
 			throw new HourlyRecorderError('camera_unavailable');
 		}
 		throw new HourlyRecorderError('camera_error');
+	}
+	// Best-effort continuous autofocus. Not supported on iOS Safari and
+	// some desktop browsers — silently ignore.
+	const track = stream.getVideoTracks()[0];
+	if (track && typeof track.applyConstraints === 'function') {
+		try {
+			await track.applyConstraints({
+				advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet]
+			});
+		} catch {
+			/* not supported, ignore */
+		}
+	}
+	return stream;
+}
+
+export interface ZoomCapability {
+	min: number;
+	max: number;
+	step: number;
+	current: number;
+}
+
+/**
+ * Read optical/digital zoom range from the active video track. Returns
+ * null on browsers without zoom support (iOS Safari, Firefox).
+ */
+export function getZoomCapability(stream: MediaStream | null): ZoomCapability | null {
+	if (!stream) return null;
+	const track = stream.getVideoTracks()[0];
+	if (!track || typeof track.getCapabilities !== 'function') return null;
+	const caps = track.getCapabilities() as MediaTrackCapabilities & {
+		zoom?: { min: number; max: number; step?: number };
+	};
+	const zoom = caps.zoom;
+	if (!zoom || typeof zoom.min !== 'number' || typeof zoom.max !== 'number') return null;
+	if (zoom.max <= zoom.min) return null;
+	const settings = track.getSettings() as MediaTrackSettings & { zoom?: number };
+	const current = typeof settings.zoom === 'number' ? settings.zoom : zoom.min;
+	return { min: zoom.min, max: zoom.max, step: zoom.step ?? 0.1, current };
+}
+
+export async function applyZoom(stream: MediaStream | null, value: number): Promise<void> {
+	if (!stream) return;
+	const track = stream.getVideoTracks()[0];
+	if (!track || typeof track.applyConstraints !== 'function') return;
+	try {
+		await track.applyConstraints({
+			advanced: [{ zoom: value } as MediaTrackConstraintSet]
+		});
+	} catch {
+		/* device rejected — ignore */
 	}
 }
 

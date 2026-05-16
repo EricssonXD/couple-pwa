@@ -261,6 +261,7 @@
 	"hourly_rec_err_generic": "Something went wrong. Please try again.",
 	"hourly_rec_caption_placeholder": "Add a caption…",
 	"hourly_rec_caption_too_long": "Caption can be at most 280 characters.",
+	"hourly_rec_zoom_label": "Zoom",
 	"hourly_tile_menu_edit_caption": "Edit caption",
 	"hourly_tile_menu_delete": "Delete & re-shoot",
 	"hourly_tile_delete_confirm": "Delete your clip for this hour? You can record a new one.",

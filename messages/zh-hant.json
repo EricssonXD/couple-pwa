@@ -253,6 +253,7 @@
 	"hourly_rec_err_generic": "發生錯誤，請再試。",
 	"hourly_rec_caption_placeholder": "加上文字…",
 	"hourly_rec_caption_too_long": "文字最多 280 字元。",
+	"hourly_rec_zoom_label": "縮放",
 	"hourly_tile_menu_edit_caption": "修改文字",
 	"hourly_tile_menu_delete": "刪除並重拍",
 	"hourly_tile_delete_confirm": "刪除這小時的片段嗎？可以再拍一個。",

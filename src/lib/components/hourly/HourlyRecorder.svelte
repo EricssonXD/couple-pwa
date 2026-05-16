@@ -23,12 +23,15 @@ State machine:
 	import ArrowsClockwiseIcon from 'phosphor-svelte/lib/ArrowsClockwise';
 	import {
 		acquireStream,
+		applyZoom,
+		getZoomCapability,
 		HOURLY_CLIP_MS,
 		HourlyRecorderError,
 		startCapture,
 		stopStream,
 		uploadClip,
-		type CaptureResult
+		type CaptureResult,
+		type ZoomCapability
 	} from '$lib/hourly/recorder';
 
 	interface Props {
@@ -61,13 +64,67 @@ State machine:
 	let videoEl: HTMLVideoElement | null = $state(null);
 	let progressTimer: ReturnType<typeof setInterval> | null = null;
 	let caption = $state('');
-	let isPortraitClip = $state(false);
 
 	const CAPTION_MAX = 280;
 
-	function onPreviewLoaded(e: Event): void {
-		const v = e.currentTarget as HTMLVideoElement;
-		isPortraitClip = v.videoHeight > v.videoWidth;
+	// Zoom — optional, only when the underlying MediaTrack exposes
+	// `zoom` capability (Chromium on Android). On iOS Safari the slider
+	// + gestures simply don't render.
+	let zoomCap: ZoomCapability | null = $state(null);
+	let zoom = $state(1);
+	let pinchInitialDist = 0;
+	let pinchInitialZoom = 1;
+	let dragStartY: number | null = null;
+	let dragStartZoom = 1;
+
+	function clampZoom(v: number): number {
+		if (!zoomCap) return v;
+		return Math.min(zoomCap.max, Math.max(zoomCap.min, v));
+	}
+
+	function setZoom(v: number): void {
+		const next = clampZoom(v);
+		zoom = next;
+		void applyZoom(stream, next);
+	}
+
+	function touchDistance(t: TouchList): number {
+		if (t.length < 2) return 0;
+		const dx = t[0].clientX - t[1].clientX;
+		const dy = t[0].clientY - t[1].clientY;
+		return Math.hypot(dx, dy);
+	}
+
+	function onViewfinderTouchStart(e: TouchEvent): void {
+		if (phase !== 'ready' || !zoomCap) return;
+		if (e.touches.length === 2) {
+			pinchInitialDist = touchDistance(e.touches);
+			pinchInitialZoom = zoom;
+			dragStartY = null;
+		} else if (e.touches.length === 1) {
+			dragStartY = e.touches[0].clientY;
+			dragStartZoom = zoom;
+		}
+	}
+
+	function onViewfinderTouchMove(e: TouchEvent): void {
+		if (phase !== 'ready' || !zoomCap) return;
+		if (e.touches.length === 2 && pinchInitialDist > 0) {
+			e.preventDefault();
+			const ratio = touchDistance(e.touches) / pinchInitialDist;
+			setZoom(pinchInitialZoom * ratio);
+		} else if (e.touches.length === 1 && dragStartY !== null) {
+			// Drag up = zoom in, drag down = zoom out. 250px of drag
+			// spans the full range so subtle movement still nudges.
+			const dy = dragStartY - e.touches[0].clientY;
+			const range = zoomCap.max - zoomCap.min;
+			setZoom(dragStartZoom + (dy / 250) * range);
+		}
+	}
+
+	function onViewfinderTouchEnd(): void {
+		pinchInitialDist = 0;
+		dragStartY = null;
 	}
 
 	function teardownStream(): void {
@@ -101,6 +158,8 @@ State machine:
 		phase = 'requesting';
 		try {
 			stream = await acquireStream(facing, aspect);
+			zoomCap = getZoomCapability(stream);
+			zoom = zoomCap ? zoomCap.current : 1;
 			phase = 'ready';
 			queueMicrotask(async () => {
 				if (videoEl && stream) {
@@ -139,7 +198,6 @@ State machine:
 	function retry(): void {
 		teardownPreview();
 		uploadErrorDetail = null;
-		isPortraitClip = false;
 		void acquire();
 	}
 
@@ -148,7 +206,7 @@ State machine:
 		teardownPreview();
 		clearProgress();
 		caption = '';
-		isPortraitClip = false;
+		zoomCap = null;
 		oncancel?.();
 	}
 
@@ -195,7 +253,6 @@ State machine:
 
 			teardownPreview();
 			caption = '';
-			isPortraitClip = false;
 			onsuccess?.();
 		} catch (e) {
 			uploadErrorDetail = e instanceof Error ? e.message : String(e);
@@ -244,18 +301,17 @@ State machine:
 			</div>
 		</div>
 	{:else}
-		<div class="relative flex-1 overflow-hidden bg-black">
+		<div
+			class="relative flex-1 overflow-hidden bg-black"
+			role="region"
+			aria-label="Viewfinder"
+			ontouchstart={onViewfinderTouchStart}
+			ontouchmove={onViewfinderTouchMove}
+			ontouchend={onViewfinderTouchEnd}
+			ontouchcancel={onViewfinderTouchEnd}
+		>
 			{#if phase === 'previewing' && previewUrl}
-				<video
-					src={previewUrl}
-					class="h-full w-full {isPortraitClip
-						? 'scale-[1.7778] rotate-90 object-cover'
-						: 'object-cover'}"
-					autoplay
-					loop
-					muted
-					playsinline
-					onloadedmetadata={onPreviewLoaded}
+				<video src={previewUrl} class="h-full w-full object-contain" autoplay loop muted playsinline
 				></video>
 				<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
 					<textarea
@@ -271,7 +327,7 @@ State machine:
 			{:else}
 				<video
 					bind:this={videoEl}
-					class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
+					class="h-full w-full object-contain {facing === 'user' ? 'scale-x-[-1]' : ''}"
 					muted
 					playsinline
 					autoplay
@@ -296,6 +352,26 @@ State machine:
 				>
 					<ArrowsClockwiseIcon size={22} weight="bold" />
 				</button>
+			{/if}
+
+			{#if phase === 'ready' && zoomCap}
+				<div
+					class="absolute top-1/2 right-4 flex h-48 -translate-y-1/2 flex-col items-center gap-2 rounded-full bg-black/40 px-2 py-3 backdrop-blur"
+				>
+					<span class="text-[10px] font-semibold tracking-wide text-white/80"
+						>{zoom.toFixed(1)}x</span
+					>
+					<input
+						type="range"
+						class="zoom-slider"
+						min={zoomCap.min}
+						max={zoomCap.max}
+						step={zoomCap.step}
+						value={zoom}
+						aria-label={m.hourly_rec_zoom_label()}
+						oninput={(e) => setZoom(Number((e.currentTarget as HTMLInputElement).value))}
+					/>
+				</div>
 			{/if}
 
 			{#if phase === 'recording'}
@@ -360,3 +436,16 @@ State machine:
 		</div>
 	{/if}
 </div>
+
+<style>
+	.zoom-slider {
+		-webkit-appearance: slider-vertical;
+		appearance: slider-vertical;
+		writing-mode: vertical-lr;
+		direction: rtl;
+		width: 1.5rem;
+		height: 100%;
+		background: transparent;
+		accent-color: #fff;
+	}
+</style>
