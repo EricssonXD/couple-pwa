@@ -49,6 +49,10 @@ const config = {
 				// the pragmatic choice; combined with default-src 'self'
 				// the supply-chain surface is still tight.
 				'connect-src': ['self', 'https:', 'wss:'],
+				// F11 hourly diary: short clips are uploaded to Supabase Storage
+				// and played back via signed URLs on arbitrary https hosts.
+				// blob: covers the local preview <video src={URL.createObjectURL}>.
+				'media-src': ['self', 'blob:', 'https:'],
 				'frame-ancestors': ['none'],
 				'base-uri': ['self'],
 				'form-action': ['self'],

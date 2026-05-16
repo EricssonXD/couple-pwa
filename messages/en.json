@@ -245,6 +245,7 @@
 	"hourly_rec_uploading": "Uploading…",
 	"hourly_rec_try_again": "Try again",
 	"hourly_rec_err_permission": "Camera permission was denied. Enable it in your browser settings to record.",
+	"hourly_rec_err_permission_hint": "iOS: Settings → Safari → Camera → Allow. Android Chrome: tap the lock icon next to the URL → Permissions → Camera → Allow. Then reload this page.",
 	"hourly_rec_err_unavailable": "No camera available on this device.",
 	"hourly_rec_err_unsupported": "This browser doesn't support in-browser recording.",
 	"hourly_rec_err_generic": "Something went wrong. Please try again.",
