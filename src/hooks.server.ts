@@ -31,13 +31,14 @@ const handleSecurityHeaders: Handle = async ({ event, resolve }) => {
 		h.set('x-frame-options', 'DENY');
 	}
 	if (!h.has('permissions-policy')) {
-		// Allow geolocation + notifications for the app itself, deny the
-		// camera/mic/etc. Browsers fall back to safe defaults if a
+		// Allow geolocation + notifications + camera + microphone for the
+		// app itself (F11 hourly diary needs camera + mic on /hourly).
+		// Deny everything else. Browsers fall back to safe defaults if a
 		// directive is unrecognised, so listing the deny-list explicitly
 		// is fine.
 		h.set(
 			'permissions-policy',
-			'geolocation=(self), notifications=(self), camera=(), microphone=(), payment=(), usb=(), magnetometer=(), gyroscope=()'
+			'geolocation=(self), notifications=(self), camera=(self), microphone=(self), payment=(), usb=(), magnetometer=(), gyroscope=()'
 		);
 	}
 	if (!h.has('cross-origin-opener-policy')) {
