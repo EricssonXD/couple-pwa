@@ -215,26 +215,52 @@ export async function finalizeClipAttempt(input: {
 	// Verify the storage object exists with the expected size + mime.
 	// Trusting the client's claim would let a malicious upload exceed
 	// HOURLY_CLIP_MAX_BYTES or land an unsupported codec.
+	//
+	// We prefer info() over list() because list() can return stale or
+	// empty metadata immediately after a signed-URL upload, leaving
+	// `size` undefined and tripping the size guard below.
 	const supabase = createSupabaseAdminClient();
-	const folder = attempt.storageKey.substring(0, attempt.storageKey.lastIndexOf('/'));
-	const fileName = attempt.storageKey.substring(attempt.storageKey.lastIndexOf('/') + 1);
-	const { data: listed, error: listErr } = await supabase.storage
+	let byteSize = 0;
+	let mime: string | undefined;
+	const { data: infoData, error: infoErr } = await supabase.storage
 		.from(HOURLY_BUCKET_NAME)
-		.list(folder, { search: fileName, limit: 1 });
-	if (listErr) throw new Error(`storage list failed: ${listErr.message}`);
-	const obj = listed?.find((o: { name: string }) => o.name === fileName);
-	if (!obj) throw new HourlyError('object missing', 'storage_object_missing');
+		.info(attempt.storageKey);
+	if (infoErr) {
+		// Fall back to list-based metadata for older Storage backends
+		// that don't expose the /object/info endpoint.
+		const folder = attempt.storageKey.substring(0, attempt.storageKey.lastIndexOf('/'));
+		const fileName = attempt.storageKey.substring(attempt.storageKey.lastIndexOf('/') + 1);
+		const { data: listed, error: listErr } = await supabase.storage
+			.from(HOURLY_BUCKET_NAME)
+			.list(folder, { search: fileName, limit: 1 });
+		if (listErr)
+			throw new Error(`storage info+list failed: ${infoErr.message} / ${listErr.message}`);
+		const obj = listed?.find((o: { name: string }) => o.name === fileName);
+		if (!obj) throw new HourlyError('object missing', 'storage_object_missing');
+		const meta = (obj.metadata ?? {}) as { size?: number; mimetype?: string };
+		byteSize = typeof meta.size === 'number' ? meta.size : 0;
+		mime = meta.mimetype;
+	} else if (!infoData) {
+		throw new HourlyError('object missing', 'storage_object_missing');
+	} else {
+		byteSize = typeof infoData.size === 'number' ? infoData.size : 0;
+		mime = infoData.contentType;
+	}
 
-	const meta = (obj.metadata ?? {}) as { size?: number; mimetype?: string };
-	const byteSize = typeof meta.size === 'number' ? meta.size : 0;
-	const mime = (meta.mimetype as HourlyMime | undefined) ?? 'video/webm';
+	// Strip codec parameters (e.g. `video/webm;codecs=vp9,opus`) before
+	// validating against the allowed mime list.
+	const baseMime = (mime ?? 'video/webm').split(';')[0].trim().toLowerCase();
 
 	if (byteSize <= 0 || byteSize > HOURLY_CLIP_MAX_BYTES) {
-		throw new HourlyError('object too large', 'storage_object_too_large');
+		throw new HourlyError(`object size invalid: ${byteSize}`, 'storage_object_too_large');
 	}
-	if (!isHourlyMime(mime)) {
-		throw new HourlyError('mime mismatch', 'storage_object_mime_mismatch');
+	if (!isHourlyMime(baseMime)) {
+		throw new HourlyError(
+			`mime mismatch: got "${mime ?? 'undefined'}"`,
+			'storage_object_mime_mismatch'
+		);
 	}
+	const finalMime: HourlyMime = baseMime;
 
 	// Promote in a single transaction so the prior row's status flip
 	// and the new row's INSERT can't be observed mid-flight.
@@ -258,7 +284,7 @@ export async function finalizeClipAttempt(input: {
 				userId: input.userId,
 				hourBucket: attempt.hourBucket,
 				storageKey: attempt.storageKey,
-				mime,
+				mime: finalMime,
 				byteSize,
 				status: 'ready'
 			})
@@ -285,7 +311,7 @@ export async function finalizeClipAttempt(input: {
 	return {
 		id: finalized.id,
 		hourBucket: attempt.hourBucket.toISOString(),
-		mime,
+		mime: finalMime,
 		byteSize,
 		createdAt: finalized.createdAt.toISOString()
 	};
