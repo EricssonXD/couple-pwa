@@ -20,13 +20,7 @@
 	import CaretLeftIcon from 'phosphor-svelte/lib/CaretLeft';
 	import CaretRightIcon from 'phosphor-svelte/lib/CaretRight';
 	import HourTile from './HourTile.svelte';
-
-	export type Mood = 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset';
-	export interface TileClip {
-		id: string;
-		mime: string;
-		playbackUrl: string;
-	}
+	import type { PagerCell, TileClip } from '$lib/hourly/types';
 	import {
 		currentBucket,
 		hourLabel,
@@ -36,12 +30,6 @@
 		prevHour,
 		relativeLabel
 	} from '$lib/hourly/dayNav';
-
-	export interface PagerCell {
-		hourBucket: string;
-		clip: TileClip | null;
-		mood: Mood | null;
-	}
 
 	interface Props {
 		selectedBucket: string;

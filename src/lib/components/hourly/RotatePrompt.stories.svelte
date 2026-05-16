@@ -5,21 +5,16 @@
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import RotatePrompt from './RotatePrompt.svelte';
 
+	function noop(): void {}
+
 	const { Story } = defineMeta({
 		title: 'F11/RotatePrompt',
 		component: RotatePrompt,
-		tags: ['autodocs']
+		tags: ['autodocs'],
+		args: { onlandscape: noop, oncancel: noop }
 	});
 </script>
 
-<script lang="ts">
-	function noop(): void {}
-</script>
+<Story name="Default" />
 
-<Story name="Default">
-	<RotatePrompt onlandscape={noop} oncancel={noop} />
-</Story>
-
-<Story name="No cancel">
-	<RotatePrompt onlandscape={noop} />
-</Story>
+<Story name="No cancel" args={{ onlandscape: noop, oncancel: undefined }} />
