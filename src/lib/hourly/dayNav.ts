@@ -88,10 +88,7 @@ export function relativeLabel(bucket: string, now: Date = new Date()): RelativeL
  *  - Else snap to the current hour.
  *  - Never return a future bucket.
  */
-export function deriveSelectedHour(opts: {
-	selected?: string | null;
-	now?: Date;
-}): string {
+export function deriveSelectedHour(opts: { selected?: string | null; now?: Date }): string {
 	const now = opts.now ?? new Date();
 	const current = currentBucket(now);
 	if (!opts.selected) return current;
