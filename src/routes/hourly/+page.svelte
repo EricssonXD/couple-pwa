@@ -21,7 +21,7 @@
 	import HourListSheet from '$lib/components/hourly/HourListSheet.svelte';
 	import RotatePrompt from '$lib/components/hourly/RotatePrompt.svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
-	import { currentBucket, isCurrentHour } from '$lib/hourly/dayNav';
+	import { currentBucket, isCurrentHour, bucketOf } from '$lib/hourly/dayNav';
 	import type { Mood, PagerCell } from '$lib/hourly/types';
 	import type { PageData } from './$types';
 
@@ -59,11 +59,16 @@
 		const you: Record<string, PagerCell> = {};
 		const partner: Record<string, PagerCell> = {};
 		if (day) {
+			// Server emits Date.toISOString() (`...:00:00.000Z`) but the
+			// pager's bucketOf() canonical form strips `.000` to
+			// `...:00:00Z`. Re-key on intake so selectedBucket lookups hit.
 			for (const c of day.you.cells) {
-				you[c.hourBucket] = { hourBucket: c.hourBucket, clip: c.clip, mood: c.mood };
+				const key = bucketOf(new Date(c.hourBucket));
+				you[key] = { hourBucket: key, clip: c.clip, mood: c.mood };
 			}
 			for (const c of day.partner.cells) {
-				partner[c.hourBucket] = { hourBucket: c.hourBucket, clip: c.clip, mood: c.mood };
+				const key = bucketOf(new Date(c.hourBucket));
+				partner[key] = { hourBucket: key, clip: c.clip, mood: c.mood };
 			}
 		}
 		return { you, partner };
@@ -131,7 +136,7 @@
 	// payload so the BottomSheet matches what /api/hourly/day returned.
 	const dayBuckets = $derived.by(() => {
 		if (!day) return [] as string[];
-		return day.you.cells.map((c) => c.hourBucket);
+		return day.you.cells.map((c) => bucketOf(new Date(c.hourBucket)));
 	});
 
 	async function setMood(value: Mood): Promise<void> {
