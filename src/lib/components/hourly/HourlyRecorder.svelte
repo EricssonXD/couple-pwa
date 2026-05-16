@@ -64,14 +64,8 @@ State machine:
 	let videoEl: HTMLVideoElement | null = $state(null);
 	let progressTimer: ReturnType<typeof setInterval> | null = null;
 	let caption = $state('');
-	let isPortraitClip = $state(false);
 
 	const CAPTION_MAX = 280;
-
-	function onPreviewLoaded(e: Event): void {
-		const v = e.currentTarget as HTMLVideoElement;
-		isPortraitClip = v.videoHeight > v.videoWidth;
-	}
 
 	// Zoom — optional, only when the underlying MediaTrack exposes
 	// `zoom` capability (Chromium on Android). On iOS Safari the slider
@@ -208,7 +202,6 @@ State machine:
 	function retry(): void {
 		teardownPreview();
 		uploadErrorDetail = null;
-		isPortraitClip = false;
 		void acquire();
 	}
 
@@ -217,7 +210,6 @@ State machine:
 		teardownPreview();
 		clearProgress();
 		caption = '';
-		isPortraitClip = false;
 		zoomCap = null;
 		oncancel?.();
 	}
@@ -265,7 +257,6 @@ State machine:
 
 			teardownPreview();
 			caption = '';
-			isPortraitClip = false;
 			onsuccess?.();
 		} catch (e) {
 			uploadErrorDetail = e instanceof Error ? e.message : String(e);
@@ -315,7 +306,7 @@ State machine:
 		</div>
 	{:else}
 		<div
-			class="viewfinder relative flex-1 overflow-hidden bg-black"
+			class="relative flex-1 overflow-hidden bg-black"
 			role="region"
 			aria-label="Viewfinder"
 			ontouchstart={onViewfinderTouchStart}
@@ -324,14 +315,7 @@ State machine:
 			ontouchcancel={onViewfinderTouchEnd}
 		>
 			{#if phase === 'previewing' && previewUrl}
-				<video
-					src={previewUrl}
-					class="preview-video {isPortraitClip ? 'preview-portrait' : 'preview-landscape'}"
-					autoplay
-					loop
-					muted
-					playsinline
-					onloadedmetadata={onPreviewLoaded}
+				<video src={previewUrl} class="h-full w-full object-cover" autoplay loop muted playsinline
 				></video>
 				<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
 					<textarea
@@ -467,32 +451,5 @@ State machine:
 		height: 100%;
 		background: transparent;
 		accent-color: #fff;
-	}
-	/*
-	  Same trick HourTile uses: container queries let a portrait clip
-	  rotate 90° and size itself from the swapped viewfinder dimensions
-	  so it fills the preview cleanly when the viewfinder is landscape,
-	  and stays upright + uncropped regardless of viewport orientation.
-	*/
-	.viewfinder {
-		container-type: size;
-	}
-	.preview-video {
-		display: block;
-	}
-	.preview-landscape {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-	.preview-portrait {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 100cqh;
-		height: 100cqw;
-		transform: translate(-50%, -50%) rotate(90deg);
-		transform-origin: center;
-		object-fit: cover;
 	}
 </style>
