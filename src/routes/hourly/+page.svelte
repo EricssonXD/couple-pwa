@@ -22,7 +22,7 @@
 	import RotatePrompt from '$lib/components/hourly/RotatePrompt.svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { currentBucket, isCurrentHour, bucketOf } from '$lib/hourly/dayNav';
-	import type { Mood, PagerCell } from '$lib/hourly/types';
+	import type { Mood, PagerCell, TileClip } from '$lib/hourly/types';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -37,7 +37,13 @@
 
 	interface DayCell {
 		hourBucket: string;
-		clip: { id: string; mime: string; playbackUrl: string; expiresIn: number } | null;
+		clip: {
+			id: string;
+			mime: string;
+			playbackUrl: string;
+			expiresIn: number;
+			caption: string | null;
+		} | null;
 		mood: Mood | null;
 	}
 	interface DayPayload {
@@ -152,6 +158,91 @@
 			savingMood = null;
 		}
 	}
+
+	// Caption edit + delete state for the current-hour your-tile menu.
+	let editingClip: { id: string; current: string } | null = $state(null);
+	let editingDraft = $state('');
+	let editingBusy = $state(false);
+	let editingError: string | null = $state(null);
+	let deletingClipId: string | null = $state(null);
+	let deletingBusy = $state(false);
+	let deletingError: string | null = $state(null);
+
+	const CAPTION_MAX = 280;
+
+	function openEditCaption(clip: TileClip): void {
+		editingClip = { id: clip.id, current: clip.caption ?? '' };
+		editingDraft = clip.caption ?? '';
+		editingError = null;
+	}
+
+	function closeEditCaption(): void {
+		if (editingBusy) return;
+		editingClip = null;
+		editingDraft = '';
+		editingError = null;
+	}
+
+	async function saveCaption(): Promise<void> {
+		if (!editingClip) return;
+		const trimmed = editingDraft.trim();
+		if (trimmed.length > CAPTION_MAX) {
+			editingError = m.hourly_rec_caption_too_long();
+			return;
+		}
+		editingBusy = true;
+		editingError = null;
+		try {
+			const res = await fetch(resolve('/api/hourly/caption'), {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					clipId: editingClip.id,
+					caption: trimmed.length > 0 ? trimmed : null
+				})
+			});
+			if (!res.ok) {
+				editingError = m.hourly_tile_caption_error({ status: res.status });
+				return;
+			}
+			editingClip = null;
+			editingDraft = '';
+			await load();
+		} finally {
+			editingBusy = false;
+		}
+	}
+
+	function openDelete(clip: TileClip): void {
+		deletingClipId = clip.id;
+		deletingError = null;
+	}
+
+	function closeDelete(): void {
+		if (deletingBusy) return;
+		deletingClipId = null;
+		deletingError = null;
+	}
+
+	async function confirmDelete(): Promise<void> {
+		if (!deletingClipId) return;
+		deletingBusy = true;
+		deletingError = null;
+		try {
+			const res = await fetch(
+				`${resolve('/api/hourly/clip')}?id=${encodeURIComponent(deletingClipId)}`,
+				{ method: 'DELETE' }
+			);
+			if (!res.ok) {
+				deletingError = m.hourly_tile_delete_error({ status: res.status });
+				return;
+			}
+			deletingClipId = null;
+			await load();
+		} finally {
+			deletingBusy = false;
+		}
+	}
 </script>
 
 <svelte:head><title>{m.hourly_title()} · DuoSync</title></svelte:head>
@@ -197,6 +288,8 @@
 			onselect={(b) => (selectedBucket = b)}
 			oncapture={openRecorder}
 			onpickhour={() => (hourSheetOpen = true)}
+			oneditcaption={openEditCaption}
+			ondelete={openDelete}
 		/>
 
 		{#if isCurrent}
@@ -230,3 +323,104 @@
 	onselect={(b) => (selectedBucket = b)}
 	onclose={() => (hourSheetOpen = false)}
 />
+
+{#if editingClip}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+		onclick={closeEditCaption}
+	>
+		<div
+			class="w-full max-w-sm rounded-2xl bg-base-100 p-4 shadow-2xl"
+			role="dialog"
+			aria-modal="true"
+			tabindex="-1"
+			onclick={(e) => e.stopPropagation()}
+		>
+			<h2 class="mb-3 text-base font-semibold">{m.hourly_tile_menu_edit_caption()}</h2>
+			<textarea
+				bind:value={editingDraft}
+				maxlength={CAPTION_MAX}
+				rows="3"
+				placeholder={m.hourly_rec_caption_placeholder()}
+				class="w-full resize-none rounded-lg border border-base-content/15 bg-base-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+				disabled={editingBusy}
+			></textarea>
+			<div class="mt-1 text-right text-[10px] text-base-content/60">
+				{editingDraft.length}/{CAPTION_MAX}
+			</div>
+			{#if editingError}
+				<p class="mt-1 text-xs text-error">{editingError}</p>
+			{/if}
+			<div class="mt-3 flex items-center justify-end gap-2">
+				<button
+					type="button"
+					class="rounded-full px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200 disabled:opacity-50"
+					onclick={() => {
+						editingDraft = '';
+					}}
+					disabled={editingBusy || editingDraft.length === 0}
+				>
+					{m.hourly_tile_caption_clear()}
+				</button>
+				<button
+					type="button"
+					class="rounded-full px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200 disabled:opacity-50"
+					onclick={closeEditCaption}
+					disabled={editingBusy}
+				>
+					{m.hourly_tile_caption_cancel()}
+				</button>
+				<button
+					type="button"
+					class="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-primary-content disabled:opacity-50"
+					onclick={saveCaption}
+					disabled={editingBusy}
+				>
+					{m.hourly_tile_caption_save()}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if deletingClipId}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+		onclick={closeDelete}
+	>
+		<div
+			class="w-full max-w-sm rounded-2xl bg-base-100 p-4 shadow-2xl"
+			role="alertdialog"
+			aria-modal="true"
+			tabindex="-1"
+			onclick={(e) => e.stopPropagation()}
+		>
+			<p class="text-sm">{m.hourly_tile_delete_confirm()}</p>
+			{#if deletingError}
+				<p class="mt-2 text-xs text-error">{deletingError}</p>
+			{/if}
+			<div class="mt-4 flex items-center justify-end gap-2">
+				<button
+					type="button"
+					class="rounded-full px-3 py-1.5 text-sm text-base-content/70 hover:bg-base-200 disabled:opacity-50"
+					onclick={closeDelete}
+					disabled={deletingBusy}
+				>
+					{m.hourly_tile_caption_cancel()}
+				</button>
+				<button
+					type="button"
+					class="rounded-full bg-error px-4 py-1.5 text-sm font-semibold text-error-content disabled:opacity-50"
+					onclick={confirmDelete}
+					disabled={deletingBusy}
+				>
+					{m.hourly_tile_menu_delete()}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}

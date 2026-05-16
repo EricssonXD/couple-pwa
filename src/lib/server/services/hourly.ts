@@ -352,11 +352,7 @@ export async function setClipCaption(input: {
 	caption: string | null;
 }): Promise<{ id: string; caption: string | null }> {
 	const caption = normalizeCaption(input.caption);
-	const [clip] = await db
-		.select()
-		.from(hourlyClip)
-		.where(eq(hourlyClip.id, input.clipId))
-		.limit(1);
+	const [clip] = await db.select().from(hourlyClip).where(eq(hourlyClip.id, input.clipId)).limit(1);
 	if (!clip) throw new HourlyError('clip not found', 'clip_not_found');
 	if (clip.coupleId !== input.coupleId || clip.userId !== input.userId) {
 		throw new HourlyError('owner mismatch', 'clip_owner_mismatch');
@@ -392,11 +388,7 @@ export async function deleteCurrentHourClip(input: {
 }): Promise<{ id: string }> {
 	const now = input.now ?? new Date();
 	const bucket = currentHourBucket(now);
-	const [clip] = await db
-		.select()
-		.from(hourlyClip)
-		.where(eq(hourlyClip.id, input.clipId))
-		.limit(1);
+	const [clip] = await db.select().from(hourlyClip).where(eq(hourlyClip.id, input.clipId)).limit(1);
 	if (!clip) throw new HourlyError('clip not found', 'clip_not_found');
 	if (clip.coupleId !== input.coupleId || clip.userId !== input.userId) {
 		throw new HourlyError('owner mismatch', 'clip_owner_mismatch');
@@ -406,10 +398,7 @@ export async function deleteCurrentHourClip(input: {
 	}
 	if (clip.status !== 'ready') return { id: clip.id };
 
-	await db
-		.update(hourlyClip)
-		.set({ status: 'delete_pending' })
-		.where(eq(hourlyClip.id, clip.id));
+	await db.update(hourlyClip).set({ status: 'delete_pending' }).where(eq(hourlyClip.id, clip.id));
 
 	void broadcastToCouple(input.coupleId, {
 		t: 'hourly_clip',

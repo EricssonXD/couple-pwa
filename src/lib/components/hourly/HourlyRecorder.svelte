@@ -60,6 +60,15 @@ State machine:
 
 	let videoEl: HTMLVideoElement | null = $state(null);
 	let progressTimer: ReturnType<typeof setInterval> | null = null;
+	let caption = $state('');
+	let isPortraitClip = $state(false);
+
+	const CAPTION_MAX = 280;
+
+	function onPreviewLoaded(e: Event): void {
+		const v = e.currentTarget as HTMLVideoElement;
+		isPortraitClip = v.videoHeight > v.videoWidth;
+	}
 
 	function teardownStream(): void {
 		stopStream(stream);
@@ -130,6 +139,7 @@ State machine:
 	function retry(): void {
 		teardownPreview();
 		uploadErrorDetail = null;
+		isPortraitClip = false;
 		void acquire();
 	}
 
@@ -137,6 +147,8 @@ State machine:
 		teardownStream();
 		teardownPreview();
 		clearProgress();
+		caption = '';
+		isPortraitClip = false;
 		oncancel?.();
 	}
 
@@ -148,6 +160,8 @@ State machine:
 
 	async function submit(): Promise<void> {
 		if (!captured) return;
+		const trimmedCaption = caption.trim();
+		if (trimmedCaption.length > CAPTION_MAX) return;
 		phase = 'uploading';
 		errorCode = null;
 		uploadErrorDetail = null;
@@ -170,13 +184,18 @@ State machine:
 			const finalizeRes = await fetch(resolve('/api/hourly/finalize'), {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ attemptId: attempt.attemptId })
+				body: JSON.stringify({
+					attemptId: attempt.attemptId,
+					caption: trimmedCaption.length > 0 ? trimmedCaption : null
+				})
 			});
 			if (!finalizeRes.ok) {
 				throw new Error(`finalize: ${finalizeRes.status} ${await finalizeRes.text()}`);
 			}
 
 			teardownPreview();
+			caption = '';
+			isPortraitClip = false;
 			onsuccess?.();
 		} catch (e) {
 			uploadErrorDetail = e instanceof Error ? e.message : String(e);
@@ -227,8 +246,28 @@ State machine:
 	{:else}
 		<div class="relative flex-1 overflow-hidden bg-black">
 			{#if phase === 'previewing' && previewUrl}
-				<video src={previewUrl} class="h-full w-full object-cover" autoplay loop muted playsinline
+				<video
+					src={previewUrl}
+					class="h-full w-full {isPortraitClip
+						? 'scale-[1.7778] rotate-90 object-cover'
+						: 'object-cover'}"
+					autoplay
+					loop
+					muted
+					playsinline
+					onloadedmetadata={onPreviewLoaded}
 				></video>
+				<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
+					<textarea
+						bind:value={caption}
+						maxlength={CAPTION_MAX}
+						rows="2"
+						placeholder={m.hourly_rec_caption_placeholder()}
+						aria-label={m.hourly_rec_caption_placeholder()}
+						class="pointer-events-auto w-full max-w-md resize-none rounded-lg bg-black/40 px-4 py-2 text-center text-lg font-semibold text-white shadow-lg backdrop-blur-sm placeholder:text-white/60 focus:bg-black/60 focus:outline-none"
+						style="text-shadow: 0 1px 3px rgba(0,0,0,0.6);"
+					></textarea>
+				</div>
 			{:else}
 				<video
 					bind:this={videoEl}

@@ -8,6 +8,7 @@ export interface TileClip {
 	id: string;
 	mime: string;
 	playbackUrl: string;
+	caption?: string | null;
 }
 
 export interface PagerCell {

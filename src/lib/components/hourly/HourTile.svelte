@@ -13,6 +13,7 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import CameraIcon from 'phosphor-svelte/lib/Camera';
+	import DotsThreeVerticalIcon from 'phosphor-svelte/lib/DotsThreeVertical';
 	import type { Snippet } from 'svelte';
 
 	export type Mood = 'joyful' | 'happy' | 'neutral' | 'sad' | 'upset';
@@ -21,6 +22,7 @@
 		id: string;
 		mime: string;
 		playbackUrl: string;
+		caption?: string | null;
 	}
 
 	interface Props {
@@ -31,11 +33,23 @@
 		/** Tapped by the user — parent decides whether to play, expand, or open recorder. */
 		ontap?: () => void;
 		oncapture?: () => void;
+		oneditcaption?: () => void;
+		ondelete?: () => void;
 		/** Right-corner accessory (Re-record pill, for example). */
 		accessory?: Snippet;
 	}
 
-	let { owner, isCurrentHour, clip, mood, ontap, oncapture, accessory }: Props = $props();
+	let {
+		owner,
+		isCurrentHour,
+		clip,
+		mood,
+		ontap,
+		oncapture,
+		oneditcaption,
+		ondelete,
+		accessory
+	}: Props = $props();
 
 	const moodEmoji: Record<Mood, string> = {
 		joyful: '😄',
@@ -45,6 +59,9 @@
 		upset: '😣'
 	};
 
+	let menuOpen = $state(false);
+	let isPortraitClip = $state(false);
+
 	function handleClick(): void {
 		if (clip) {
 			ontap?.();
@@ -53,8 +70,31 @@
 		}
 	}
 
+	function onVideoLoaded(e: Event): void {
+		const v = e.currentTarget as HTMLVideoElement;
+		isPortraitClip = v.videoHeight > v.videoWidth;
+	}
+
+	function toggleMenu(e: MouseEvent): void {
+		e.stopPropagation();
+		menuOpen = !menuOpen;
+	}
+
+	function pickEdit(e: MouseEvent): void {
+		e.stopPropagation();
+		menuOpen = false;
+		oneditcaption?.();
+	}
+
+	function pickDelete(e: MouseEvent): void {
+		e.stopPropagation();
+		menuOpen = false;
+		ondelete?.();
+	}
+
 	const canCapture = $derived(owner === 'you' && isCurrentHour && !clip);
 	const isInteractive = $derived(Boolean(clip) || canCapture);
+	const showMenu = $derived(Boolean(clip) && owner === 'you' && isCurrentHour);
 
 	const emptyLabel = $derived(() => {
 		if (owner === 'you') {
@@ -79,7 +119,9 @@
 	<!-- mood chip -->
 	{#if mood}
 		<span
-			class="absolute top-2 right-2 z-10 rounded-full bg-base-100/90 px-1.5 py-0.5 text-base backdrop-blur-sm"
+			class="absolute top-2 right-2 z-10 rounded-full bg-base-100/90 px-1.5 py-0.5 text-base backdrop-blur-sm {showMenu
+				? 'right-10'
+				: ''}"
 			aria-label={mood}
 		>
 			{moodEmoji[mood]}
@@ -95,13 +137,68 @@
 		>
 			<video
 				src={clip.playbackUrl}
-				class="h-full w-full object-cover"
+				class="h-full w-full {isPortraitClip
+					? 'scale-[1.7778] rotate-90 object-cover'
+					: 'object-cover'}"
 				muted
 				playsinline
 				autoplay
 				loop
+				onloadedmetadata={onVideoLoaded}
 			></video>
 		</button>
+		{#if clip.caption}
+			<div
+				class="pointer-events-none absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 px-3 text-center text-sm font-semibold text-white"
+				style="text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4);"
+			>
+				{clip.caption}
+			</div>
+		{/if}
+		{#if showMenu}
+			<button
+				type="button"
+				class="absolute top-1.5 right-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+				aria-label="Clip options"
+				aria-haspopup="menu"
+				aria-expanded={menuOpen}
+				onclick={toggleMenu}
+			>
+				<DotsThreeVerticalIcon size={18} weight="bold" />
+			</button>
+			{#if menuOpen}
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="fixed inset-0 z-30"
+					onclick={(e) => {
+						e.stopPropagation();
+						menuOpen = false;
+					}}
+				></div>
+				<div
+					role="menu"
+					class="absolute top-10 right-1.5 z-40 flex min-w-[10rem] flex-col overflow-hidden rounded-lg bg-base-100 text-sm shadow-lg ring-1 ring-base-content/10"
+				>
+					<button
+						type="button"
+						role="menuitem"
+						class="px-3 py-2 text-left hover:bg-base-200"
+						onclick={pickEdit}
+					>
+						{m.hourly_tile_menu_edit_caption()}
+					</button>
+					<button
+						type="button"
+						role="menuitem"
+						class="px-3 py-2 text-left text-error hover:bg-base-200"
+						onclick={pickDelete}
+					>
+						{m.hourly_tile_menu_delete()}
+					</button>
+				</div>
+			{/if}
+		{/if}
 	{:else if canCapture}
 		<button
 			type="button"

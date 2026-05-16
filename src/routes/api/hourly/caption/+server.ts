@@ -53,11 +53,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	} catch (e) {
 		if (e instanceof HourlyError) {
 			const status =
-				e.code === 'clip_not_found'
-					? 404
-					: e.code === 'clip_owner_mismatch'
-						? 403
-						: 400;
+				e.code === 'clip_not_found' ? 404 : e.code === 'clip_owner_mismatch' ? 403 : 400;
 			error(status, e.code);
 		}
 		throw e;

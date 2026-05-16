@@ -45,6 +45,10 @@
 		oncapture?: () => void;
 		/** Tapped the time label — parent may open a BottomSheet picker. */
 		onpickhour?: () => void;
+		/** Tapped "edit caption" in the current-hour your-tile menu. */
+		oneditcaption?: (clip: TileClip) => void;
+		/** Tapped "delete" in the current-hour your-tile menu. */
+		ondelete?: (clip: TileClip) => void;
 	}
 
 	let {
@@ -55,7 +59,9 @@
 		onselect,
 		ontap,
 		oncapture,
-		onpickhour
+		onpickhour,
+		oneditcaption,
+		ondelete
 	}: Props = $props();
 
 	const isCurrent = $derived(isCurrentHour(selectedBucket));
@@ -176,6 +182,8 @@
 			mood={youCell?.mood ?? null}
 			ontap={onYouTap}
 			oncapture={() => oncapture?.()}
+			oneditcaption={() => youCell?.clip && oneditcaption?.(youCell.clip)}
+			ondelete={() => youCell?.clip && ondelete?.(youCell.clip)}
 		/>
 		<HourTile
 			owner="partner"
