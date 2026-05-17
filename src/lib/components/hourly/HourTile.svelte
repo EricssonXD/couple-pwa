@@ -133,7 +133,7 @@
 		>
 			<video
 				src={clip.playbackUrl}
-				class="h-full w-full object-cover"
+				class="h-full w-full object-contain"
 				muted
 				playsinline
 				autoplay
