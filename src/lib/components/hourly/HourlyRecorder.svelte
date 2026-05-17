@@ -332,7 +332,7 @@ State machine:
 			>
 				<video
 					src={previewUrl}
-					class="h-full w-full object-contain {facing === 'user' ? 'scale-x-[-1]' : ''}"
+					class="h-full w-full object-cover {facing === 'user' ? 'scale-x-[-1]' : ''}"
 					autoplay
 					loop
 					muted
