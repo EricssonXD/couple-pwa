@@ -9,6 +9,13 @@
 
 export const HOURLY_CLIP_MS = 2_000;
 
+// Keep the 2-second clip well under typical Supabase Storage per-object
+// limits. iOS Safari MediaRecorder defaults to ~8-15 Mbps which can
+// push a 2s clip past 4 MB — we cap to ~800 kbps video + 64 kbps audio
+// so a clip lands around 200-300 KB regardless of device.
+const HOURLY_VIDEO_BPS = 800_000;
+const HOURLY_AUDIO_BPS = 64_000;
+
 // Mime preference order. iOS Safari MediaRecorder ships only video/mp4.
 // Chrome / Android picks vp9 first, then vp8.
 const MIME_PREFERENCES: ReadonlyArray<{ mime: string; ext: 'webm' | 'mp4' }> = [
@@ -63,7 +70,11 @@ export async function startCapture(
 	if (!picked) throw new HourlyRecorderError('mediarecorder_unsupported');
 
 	const clipMs = opts.clipMs ?? HOURLY_CLIP_MS;
-	const recorder = new MediaRecorder(stream, { mimeType: picked.recorderMime });
+	const recorder = new MediaRecorder(stream, {
+		mimeType: picked.recorderMime,
+		videoBitsPerSecond: HOURLY_VIDEO_BPS,
+		audioBitsPerSecond: HOURLY_AUDIO_BPS
+	});
 	const chunks: Blob[] = [];
 	const startTs = performance.now();
 
@@ -100,17 +111,19 @@ export async function acquireStream(
 	}
 	let video: MediaTrackConstraints;
 	if (aspect === 'landscape') {
+		// 480p is plenty for a 2-second tile clip and meaningfully
+		// reduces blob size on devices that ignore the bitrate hint.
 		video = {
 			facingMode,
-			width: { ideal: 1280 },
-			height: { ideal: 720 },
+			width: { ideal: 854, max: 1280 },
+			height: { ideal: 480, max: 720 },
 			aspectRatio: { ideal: 16 / 9 }
 		};
 	} else if (aspect === 'portrait') {
 		video = {
 			facingMode,
-			width: { ideal: 720 },
-			height: { ideal: 1280 },
+			width: { ideal: 480, max: 720 },
+			height: { ideal: 854, max: 1280 },
 			aspectRatio: { ideal: 9 / 16 }
 		};
 	} else {
