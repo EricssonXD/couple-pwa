@@ -315,7 +315,7 @@ State machine:
 		<div class="relative flex flex-1 flex-col items-center justify-center gap-4 bg-black p-4">
 			<button
 				type="button"
-				class="absolute top-4 left-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
+				class="safe-top safe-left absolute flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
 				aria-label={m.common_cancel()}
 				onclick={cancel}
 			>
@@ -383,7 +383,7 @@ State machine:
 
 			<button
 				type="button"
-				class="absolute top-4 left-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
+				class="safe-top safe-left absolute flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
 				aria-label={m.common_cancel()}
 				onclick={cancel}
 			>
@@ -393,7 +393,7 @@ State machine:
 			{#if phase === 'ready'}
 				<button
 					type="button"
-					class="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
+					class="safe-top safe-right absolute flex h-10 w-10 items-center justify-center rounded-full bg-black/50 backdrop-blur"
 					aria-label={facing === 'user' ? m.hourly_rec_use_rear() : m.hourly_rec_use_front()}
 					onclick={flipCamera}
 				>
@@ -403,7 +403,7 @@ State machine:
 
 			{#if (phase === 'ready' || phase === 'recording') && zoomCap}
 				<div
-					class="absolute top-1/2 right-4 flex h-48 -translate-y-1/2 flex-col items-center gap-2 rounded-full bg-black/40 px-2 py-3 backdrop-blur"
+					class="safe-right absolute top-1/2 flex h-48 -translate-y-1/2 flex-col items-center gap-2 rounded-full bg-black/40 px-2 py-3 backdrop-blur"
 				>
 					<span class="text-[10px] font-semibold tracking-wide text-white/80"
 						>{zoom.toFixed(1)}x</span
@@ -423,14 +423,14 @@ State machine:
 
 			{#if phase === 'recording'}
 				<div
-					class="absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-error/90 px-3 py-1 text-xs font-semibold"
+					class="safe-top absolute left-1/2 -translate-x-1/2 rounded-full bg-error/90 px-3 py-1 text-xs font-semibold"
 				>
 					● REC
 				</div>
 			{/if}
 		</div>
 
-		<div class="flex shrink-0 items-center justify-center gap-4 bg-black/80 px-4 pt-4 pb-8">
+		<div class="safe-pb flex shrink-0 items-center justify-center gap-4 bg-black/80 px-4 pt-4">
 			{#if phase === 'ready'}
 				<button
 					type="button"
@@ -482,5 +482,22 @@ State machine:
 		height: 100%;
 		background: transparent;
 		accent-color: #fff;
+	}
+	/*
+		Push corner controls inside the device's safe area so the
+		Dynamic Island / notch / home indicator never covers a button.
+		Falls back to plain 1rem/2rem on devices without env() support.
+	*/
+	.safe-top {
+		top: calc(1rem + env(safe-area-inset-top));
+	}
+	.safe-left {
+		left: calc(1rem + env(safe-area-inset-left));
+	}
+	.safe-right {
+		right: calc(1rem + env(safe-area-inset-right));
+	}
+	.safe-pb {
+		padding-bottom: calc(2rem + env(safe-area-inset-bottom));
 	}
 </style>
