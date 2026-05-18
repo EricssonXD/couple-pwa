@@ -191,18 +191,47 @@ export function stopStream(stream: MediaStream | null): void {
 /**
  * One-shot upload of a captured blob to a Supabase Storage signed
  * upload URL. Throws on non-2xx so the caller can surface a retry UI.
+ *
+ * iOS Safari quirks worked around here:
+ *  - `fetch()` with a Blob body sometimes fails to set Content-Length
+ *    correctly on iOS, leading to the upload hanging / server 400. We
+ *    read the blob into an ArrayBuffer first so the platform sets a
+ *    known-good length.
+ *  - We capture the response body on failure so the UI can show the
+ *    real Supabase error instead of an opaque "upload_failed".
  */
 export async function uploadClip(
 	uploadUrl: string,
 	blob: Blob,
 	mime: SupportedMime
 ): Promise<void> {
-	const res = await fetch(uploadUrl, {
-		method: 'PUT',
-		headers: { 'content-type': mime },
-		body: blob
-	});
-	if (!res.ok) throw new HourlyRecorderError('upload_failed');
+	const body = await blob.arrayBuffer();
+	let res: Response;
+	try {
+		res = await fetch(uploadUrl, {
+			method: 'PUT',
+			headers: {
+				'content-type': mime,
+				'cache-control': 'max-age=3600',
+				'x-upsert': 'true'
+			},
+			body
+		});
+	} catch (e) {
+		// Network-level failure (CORS, DNS, offline, iOS aborting on
+		// background) — bubble up the real reason instead of swallowing.
+		throw new HourlyRecorderError('upload_failed', e instanceof Error ? e.message : String(e));
+	}
+	if (!res.ok) {
+		let detail = `${res.status}`;
+		try {
+			const text = await res.text();
+			if (text) detail += ` ${text.slice(0, 200)}`;
+		} catch {
+			/* ignore */
+		}
+		throw new HourlyRecorderError('upload_failed', detail);
+	}
 }
 
 export type HourlyRecorderErrorCode =
@@ -217,9 +246,11 @@ export type HourlyRecorderErrorCode =
 
 export class HourlyRecorderError extends Error {
 	code: HourlyRecorderErrorCode;
-	constructor(code: HourlyRecorderErrorCode) {
-		super(code);
+	detail?: string;
+	constructor(code: HourlyRecorderErrorCode, detail?: string) {
+		super(detail ? `${code}: ${detail}` : code);
 		this.code = code;
+		this.detail = detail;
 		this.name = 'HourlyRecorderError';
 	}
 }
