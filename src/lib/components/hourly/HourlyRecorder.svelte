@@ -26,11 +26,10 @@ State machine:
 		acquireStream,
 		acquireStreamByDeviceId,
 		applyZoom,
-		countRearCameras,
 		getZoomCapability,
 		HOURLY_CLIP_MS,
 		HourlyRecorderError,
-		nextRearCameraId,
+		listRearCameras,
 		startCapture,
 		stopStream,
 		uploadClip,
@@ -77,7 +76,7 @@ State machine:
 	let zoomCap: ZoomCapability | null = $state(null);
 	let zoom = $state(1);
 
-	let rearLensCount = $state(0);
+	let rearLenses: MediaDeviceInfo[] = $state([]);
 	let activeDeviceId: string | null = $state(null);
 	let pinchInitialDist = 0;
 	let pinchInitialZoom = 1;
@@ -170,7 +169,7 @@ State machine:
 		try {
 			stream = await acquireStream(facing, aspect);
 			activeDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? null;
-			rearLensCount = facing === 'environment' ? await countRearCameras() : 0;
+			rearLenses = facing === 'environment' ? await listRearCameras() : [];
 			zoomCap = getZoomCapability(stream);
 			zoom = zoomCap ? zoomCap.current : 1;
 			phase = 'ready';
@@ -189,16 +188,14 @@ State machine:
 		}
 	}
 
-	async function cycleLens(): Promise<void> {
-		if (facing !== 'environment' || rearLensCount <= 1) return;
-		const nextId = await nextRearCameraId(activeDeviceId);
-		if (!nextId || nextId === activeDeviceId) return;
+	async function setLens(deviceId: string): Promise<void> {
+		if (facing !== 'environment' || !deviceId || deviceId === activeDeviceId) return;
 		teardownStream();
 		errorCode = null;
 		phase = 'requesting';
 		try {
-			stream = await acquireStreamByDeviceId(nextId);
-			activeDeviceId = nextId;
+			stream = await acquireStreamByDeviceId(deviceId);
+			activeDeviceId = deviceId;
 			zoomCap = getZoomCapability(stream);
 			zoom = zoomCap ? zoomCap.current : 1;
 			phase = 'ready';
@@ -215,6 +212,15 @@ State machine:
 		} catch (e) {
 			fail(e instanceof HourlyRecorderError ? e.code : 'unknown');
 		}
+	}
+
+	function lensLabel(d: MediaDeviceInfo, i: number): string {
+		const raw = (d.label || '').trim();
+		if (!raw) return `Lens ${i + 1}`;
+		// Trim verbose "camera2 0, facing back (id)" → "Lens 1" with hint.
+		const generic = /^camera2?\s+\d/i.test(raw);
+		if (generic) return `Lens ${i + 1}`;
+		return raw.length > 28 ? raw.slice(0, 26) + '…' : raw;
 	}
 
 	async function record(): Promise<void> {
@@ -436,16 +442,18 @@ State machine:
 				>
 					<ArrowsClockwiseIcon size={22} weight="bold" />
 				</button>
-				{#if facing === 'environment' && rearLensCount > 1}
-					<button
-						type="button"
-						class="safe-top absolute right-16 flex h-10 items-center justify-center rounded-full bg-black/50 px-3 text-xs font-semibold backdrop-blur"
+				{#if facing === 'environment' && rearLenses.length > 1}
+					<select
+						class="safe-top absolute right-16 h-10 max-w-[10rem] truncate rounded-full bg-black/50 px-3 text-xs font-semibold backdrop-blur"
 						style="top: calc(env(safe-area-inset-top, 0px) + 1rem);"
 						aria-label="Switch lens"
-						onclick={cycleLens}
+						value={activeDeviceId ?? ''}
+						onchange={(e) => setLens((e.currentTarget as HTMLSelectElement).value)}
 					>
-						Lens
-					</button>
+						{#each rearLenses as lens, i (lens.deviceId)}
+							<option value={lens.deviceId}>{lensLabel(lens, i)}</option>
+						{/each}
+					</select>
 				{/if}
 			{/if}
 

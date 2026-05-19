@@ -107,7 +107,7 @@ export async function startCapture(
  * only populated after the user has granted camera permission at least
  * once in this origin; on a cold call you'll get empty strings.
  */
-async function listRearCameras(): Promise<MediaDeviceInfo[]> {
+export async function listRearCameras(): Promise<MediaDeviceInfo[]> {
 	if (!navigator.mediaDevices?.enumerateDevices) return [];
 	let devices: MediaDeviceInfo[];
 	try {
