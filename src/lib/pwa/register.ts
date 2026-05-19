@@ -73,8 +73,14 @@ function armPending(): void {
  * from the new bundle.
  *
  * If there's nothing waiting (caller raced an already-applied update), we
- * fall back to a simple navigation. If `controllerchange` doesn't arrive
- * within APPLY_TIMEOUT_MS we navigate anyway — better stale than stuck.
+ * fall back to a simple reload/navigation. If `controllerchange` doesn't
+ * arrive within APPLY_TIMEOUT_MS we navigate anyway — better stale than
+ * stuck.
+ *
+ * Reload semantics: when targetUrl matches the current page we MUST call
+ * `location.reload()` rather than `location.assign(currentUrl)`. iOS Safari
+ * (and intermittently Chrome Android) treats assign-to-self as a no-op
+ * which is why the "Reload" pill silently did nothing for some users.
  */
 export async function applyPendingUpdate(targetUrl: string): Promise<void> {
 	if (applying) return;
@@ -82,27 +88,46 @@ export async function applyPendingUpdate(targetUrl: string): Promise<void> {
 	pendingUpdate = false;
 	needRefresh.set(false);
 
-	const reg = registration ?? (await navigator.serviceWorker.getRegistration()) ?? null;
-	const worker = reg?.waiting ?? null;
+	const finish = (): void => {
+		const here = typeof window !== 'undefined' ? window.location.href.split('#')[0] : '';
+		const target = targetUrl.split('#')[0];
+		if (target === here) {
+			window.location.reload();
+		} else {
+			window.location.assign(targetUrl);
+		}
+	};
 
-	if (!worker) {
-		window.location.assign(targetUrl);
-		return;
+	try {
+		const reg = registration ?? (await navigator.serviceWorker.getRegistration()) ?? null;
+		const worker = reg?.waiting ?? null;
+
+		if (!worker) {
+			finish();
+			return;
+		}
+
+		await new Promise<void>((resolve) => {
+			let settled = false;
+			const done = () => {
+				if (settled) return;
+				settled = true;
+				resolve();
+			};
+			navigator.serviceWorker.addEventListener('controllerchange', done, { once: true });
+			worker.postMessage('SKIP_WAITING');
+			setTimeout(done, APPLY_TIMEOUT_MS);
+		});
+
+		finish();
+	} catch (err) {
+		// Never strand the user mid-click: release the single-flight lock
+		// so they can try again, and surface the failure for diagnostics.
+		console.warn('[duosync] applyPendingUpdate failed', err);
+		applying = false;
+		pendingUpdate = true;
+		needRefresh.set(true);
 	}
-
-	await new Promise<void>((resolve) => {
-		let settled = false;
-		const done = () => {
-			if (settled) return;
-			settled = true;
-			resolve();
-		};
-		navigator.serviceWorker.addEventListener('controllerchange', done, { once: true });
-		worker.postMessage('SKIP_WAITING');
-		setTimeout(done, APPLY_TIMEOUT_MS);
-	});
-
-	window.location.assign(targetUrl);
 }
 
 function startUpdatePolling(reg: ServiceWorkerRegistration): void {
