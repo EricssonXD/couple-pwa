@@ -103,37 +103,92 @@ export async function startCapture(
 }
 
 /**
- * Pick the widest-FOV back camera deviceId by label heuristic. On Android
- * Chrome a "quad camera" phone exposes each lens (ultrawide, main, tele,
- * macro) as a separate MediaDeviceInfo; facingMode: 'environment' alone
- * usually returns the *main* or *telephoto* lens, which looks like a
- * heavy zoom-in compared to the native camera app (which defaults to
- * ultrawide). Returns null if there's only one back camera (or labels are
- * empty because permission hasn't been granted yet — iOS Safari case).
+ * List rear-facing video input devices in enumeration order. Labels are
+ * only populated after the user has granted camera permission at least
+ * once in this origin; on a cold call you'll get empty strings.
  */
-async function pickWidestBackCameraId(): Promise<string | null> {
-	if (!navigator.mediaDevices?.enumerateDevices) return null;
+async function listRearCameras(): Promise<MediaDeviceInfo[]> {
+	if (!navigator.mediaDevices?.enumerateDevices) return [];
 	let devices: MediaDeviceInfo[];
 	try {
 		devices = await navigator.mediaDevices.enumerateDevices();
 	} catch {
-		return null;
+		return [];
 	}
-	const backs = devices.filter(
-		(d) => d.kind === 'videoinput' && d.label && !/front|user|selfie|facetime/i.test(d.label)
+	return devices.filter(
+		(d) => d.kind === 'videoinput' && (!d.label || !/front|user|selfie|facetime/i.test(d.label))
 	);
+}
+
+/**
+ * Pick the widest-FOV back camera deviceId by label heuristic, with a
+ * positional fallback. On Android Chrome a phone with a rear camera
+ * array exposes each lens as a separate MediaDeviceInfo;
+ * facingMode: 'environment' alone usually returns the *main* or
+ * *telephoto* lens, which looks like a heavy zoom-in.
+ *
+ * Strategy:
+ *   1) If any label clearly says ultrawide / 0.5x / wide, pick that.
+ *   2) Else fall back to enumeration index 1 — on most stock Android
+ *      camera stacks the order is [main, ultrawide, tele, depth], so
+ *      index 1 is usually the ultrawide.
+ *   3) iOS Safari hides extra lenses, returning a single entry → null.
+ */
+async function pickWidestBackCameraId(): Promise<string | null> {
+	const backs = await listRearCameras();
 	if (backs.length <= 1) return null;
 	const score = (label: string): number => {
 		const l = label.toLowerCase();
+		if (!l) return 0;
 		if (/macro|depth|monochrome|ir\b/.test(l)) return -100;
 		if (/ultra[\s-]?wide|0\.?5x|wide angle|wide-angle/.test(l)) return 30;
 		if (/\btele|zoom|2x|3x|5x|10x/.test(l)) return -20;
 		if (/\bwide\b/.test(l)) return 10;
 		return 0;
 	};
-	const ranked = backs.map((d) => ({ d, s: score(d.label) })).sort((a, b) => b.s - a.s);
-	if (ranked[0].s <= 0) return null;
-	return ranked[0].d.deviceId;
+	const ranked = backs
+		.map((d, i) => ({ d, s: score(d.label), i }))
+		.sort((a, b) => b.s - a.s || a.i - b.i);
+	if (ranked[0].s > 0) return ranked[0].d.deviceId;
+	return backs[1]?.deviceId ?? null;
+}
+
+/**
+ * Cycle to the next rear-camera lens. Returns the next back-camera
+ * deviceId in enumeration order (wrapping), or null if there's only one.
+ */
+export async function nextRearCameraId(currentDeviceId: string | null): Promise<string | null> {
+	const backs = await listRearCameras();
+	if (backs.length <= 1) return null;
+	const idx = currentDeviceId ? backs.findIndex((d) => d.deviceId === currentDeviceId) : -1;
+	const next = backs[(idx + 1) % backs.length];
+	return next?.deviceId ?? null;
+}
+
+export async function countRearCameras(): Promise<number> {
+	const backs = await listRearCameras();
+	return backs.length;
+}
+
+export async function acquireStreamByDeviceId(deviceId: string): Promise<MediaStream> {
+	if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+		throw new HourlyRecorderError('getusermedia_unsupported');
+	}
+	try {
+		return await navigator.mediaDevices.getUserMedia({
+			video: { deviceId: { exact: deviceId } },
+			audio: true
+		});
+	} catch (e) {
+		const name = (e as { name?: string })?.name ?? '';
+		if (name === 'NotAllowedError' || name === 'SecurityError') {
+			throw new HourlyRecorderError('permission_denied');
+		}
+		if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+			throw new HourlyRecorderError('camera_unavailable');
+		}
+		throw new HourlyRecorderError('camera_error');
+	}
 }
 
 export async function acquireStream(

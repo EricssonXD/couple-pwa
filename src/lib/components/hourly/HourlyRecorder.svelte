@@ -24,10 +24,13 @@ State machine:
 	import ArrowsClockwiseIcon from 'phosphor-svelte/lib/ArrowsClockwise';
 	import {
 		acquireStream,
+		acquireStreamByDeviceId,
 		applyZoom,
+		countRearCameras,
 		getZoomCapability,
 		HOURLY_CLIP_MS,
 		HourlyRecorderError,
+		nextRearCameraId,
 		startCapture,
 		stopStream,
 		uploadClip,
@@ -73,6 +76,9 @@ State machine:
 	// + gestures simply don't render.
 	let zoomCap: ZoomCapability | null = $state(null);
 	let zoom = $state(1);
+
+	let rearLensCount = $state(0);
+	let activeDeviceId: string | null = $state(null);
 	let pinchInitialDist = 0;
 	let pinchInitialZoom = 1;
 	let dragStartY: number | null = null;
@@ -163,6 +169,8 @@ State machine:
 		phase = 'requesting';
 		try {
 			stream = await acquireStream(facing, aspect);
+			activeDeviceId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? null;
+			rearLensCount = facing === 'environment' ? await countRearCameras() : 0;
 			zoomCap = getZoomCapability(stream);
 			zoom = zoomCap ? zoomCap.current : 1;
 			phase = 'ready';
@@ -173,6 +181,34 @@ State machine:
 						await videoEl.play();
 					} catch {
 						/* autoplay restrictions — viewfinder will still render frames */
+					}
+				}
+			});
+		} catch (e) {
+			fail(e instanceof HourlyRecorderError ? e.code : 'unknown');
+		}
+	}
+
+	async function cycleLens(): Promise<void> {
+		if (facing !== 'environment' || rearLensCount <= 1) return;
+		const nextId = await nextRearCameraId(activeDeviceId);
+		if (!nextId || nextId === activeDeviceId) return;
+		teardownStream();
+		errorCode = null;
+		phase = 'requesting';
+		try {
+			stream = await acquireStreamByDeviceId(nextId);
+			activeDeviceId = nextId;
+			zoomCap = getZoomCapability(stream);
+			zoom = zoomCap ? zoomCap.current : 1;
+			phase = 'ready';
+			queueMicrotask(async () => {
+				if (videoEl && stream) {
+					videoEl.srcObject = stream;
+					try {
+						await videoEl.play();
+					} catch {
+						/* autoplay restrictions */
 					}
 				}
 			});
@@ -217,6 +253,7 @@ State machine:
 
 	async function flipCamera(): Promise<void> {
 		facing = facing === 'user' ? 'environment' : 'user';
+		activeDeviceId = null;
 		teardownStream();
 		await acquire();
 	}
@@ -399,6 +436,17 @@ State machine:
 				>
 					<ArrowsClockwiseIcon size={22} weight="bold" />
 				</button>
+				{#if facing === 'environment' && rearLensCount > 1}
+					<button
+						type="button"
+						class="safe-top absolute right-16 flex h-10 items-center justify-center rounded-full bg-black/50 px-3 text-xs font-semibold backdrop-blur"
+						style="top: calc(env(safe-area-inset-top, 0px) + 1rem);"
+						aria-label="Switch lens"
+						onclick={cycleLens}
+					>
+						Lens
+					</button>
+				{/if}
 			{/if}
 
 			{#if (phase === 'ready' || phase === 'recording') && zoomCap}
