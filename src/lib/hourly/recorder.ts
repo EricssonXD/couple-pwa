@@ -109,30 +109,18 @@ export async function acquireStream(
 	if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
 		throw new HourlyRecorderError('getusermedia_unsupported');
 	}
-	let video: MediaTrackConstraints;
-	// 480p-ish size hints keep blobs under the Supabase per-object cap.
-	// We intentionally do NOT pin aspectRatio: front-facing sensors on
-	// phones are usually ~4:3 with a narrower FOV than the rear camera,
-	// and forcing 16:9 (or 9:16) makes the browser center-crop the sensor,
-	// which looks like a heavy zoom that the user cannot back out of
-	// (track.zoom is optical-only and absent on most selfie cameras).
-	// Letting the sensor deliver its native aspect preserves the full FOV;
-	// CSS `object-cover` on the viewfinder handles the visual fit.
-	if (aspect === 'landscape') {
-		video = {
-			facingMode,
-			width: { ideal: 854, max: 1280 },
-			height: { ideal: 480, max: 720 }
-		};
-	} else if (aspect === 'portrait') {
-		video = {
-			facingMode,
-			width: { ideal: 480, max: 720 },
-			height: { ideal: 854, max: 1280 }
-		};
-	} else {
-		video = { facingMode, width: { ideal: 480 }, height: { ideal: 480 } };
-	}
+	// We intentionally request NO width/height/aspectRatio constraints.
+	// Phone camera stacks (especially front-facing) often satisfy a small
+	// requested resolution by serving a center-cropped sensor region
+	// instead of downscaling the full frame, which looks like a heavy
+	// unrecoverable zoom-in (track.zoom is optical-only and unavailable
+	// on most selfie cameras, so the slider can't back it out). Letting
+	// the browser pick the camera's native FOV and downscaling on encode
+	// keeps the user's expected framing. File size is bounded by the
+	// HOURLY_VIDEO_BPS / HOURLY_AUDIO_BPS caps on MediaRecorder, which is
+	// what actually keeps clips under Supabase's per-object limit.
+	void aspect;
+	const video: MediaTrackConstraints = { facingMode };
 	let stream: MediaStream;
 	try {
 		stream = await navigator.mediaDevices.getUserMedia({ video, audio: true });

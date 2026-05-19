@@ -4,7 +4,7 @@
 	Single-hour pager: two stacked 16:9 tiles (you / partner) for the
 	currently selected hour bucket, swipe or chevrons to navigate.
 	The current-hour your-tile doubles as the capture affordance,
-	routed through RotatePrompt → HourlyRecorder (landscape).
+	opening HourlyRecorder fullscreen directly.
 
 	Mood picker: a 5-emoji row shown below the pager only when the
 	selected bucket is the current hour. Realtime: a partner's new
@@ -19,7 +19,6 @@
 	import HourlyRecorder from '$lib/components/hourly/HourlyRecorder.svelte';
 	import HourlyPager from '$lib/components/hourly/HourlyPager.svelte';
 	import HourListSheet from '$lib/components/hourly/HourListSheet.svelte';
-	import RotatePrompt from '$lib/components/hourly/RotatePrompt.svelte';
 	import { createRealtimeClient } from '$lib/client/realtime.svelte';
 	import { currentBucket, isCurrentHour, bucketOf } from '$lib/hourly/dayNav';
 	import type { Mood, PagerCell, TileClip } from '$lib/hourly/types';
@@ -58,7 +57,6 @@
 	let recorderOpen = $state(false);
 	let savingMood: Mood | null = $state(null);
 	let selectedBucket = $state(currentBucket());
-	let rotateGate = $state<null | 'pending' | 'cleared'>(null);
 	let hourSheetOpen = $state(false);
 
 	const pagerCells = $derived.by(() => {
@@ -84,14 +82,7 @@
 	const currentYouCell = $derived(pagerCells.you[selectedBucket] ?? null);
 
 	function openRecorder(): void {
-		rotateGate = 'pending';
-	}
-	function onLandscapeReady(): void {
-		rotateGate = 'cleared';
 		recorderOpen = true;
-	}
-	function cancelRotate(): void {
-		rotateGate = null;
 	}
 
 	function todayIso(): string {
@@ -254,20 +245,15 @@
 	fallbackHref="/moments"
 />
 
-{#if rotateGate === 'pending'}
-	<RotatePrompt onlandscape={onLandscapeReady} oncancel={cancelRotate} />
-{/if}
 {#if recorderOpen}
 	<HourlyRecorder
 		aspect="landscape"
 		onsuccess={() => {
 			recorderOpen = false;
-			rotateGate = null;
 			void load();
 		}}
 		oncancel={() => {
 			recorderOpen = false;
-			rotateGate = null;
 		}}
 	/>
 {/if}
