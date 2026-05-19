@@ -102,6 +102,40 @@ export async function startCapture(
 	});
 }
 
+/**
+ * Pick the widest-FOV back camera deviceId by label heuristic. On Android
+ * Chrome a "quad camera" phone exposes each lens (ultrawide, main, tele,
+ * macro) as a separate MediaDeviceInfo; facingMode: 'environment' alone
+ * usually returns the *main* or *telephoto* lens, which looks like a
+ * heavy zoom-in compared to the native camera app (which defaults to
+ * ultrawide). Returns null if there's only one back camera (or labels are
+ * empty because permission hasn't been granted yet — iOS Safari case).
+ */
+async function pickWidestBackCameraId(): Promise<string | null> {
+	if (!navigator.mediaDevices?.enumerateDevices) return null;
+	let devices: MediaDeviceInfo[];
+	try {
+		devices = await navigator.mediaDevices.enumerateDevices();
+	} catch {
+		return null;
+	}
+	const backs = devices.filter(
+		(d) => d.kind === 'videoinput' && d.label && !/front|user|selfie|facetime/i.test(d.label)
+	);
+	if (backs.length <= 1) return null;
+	const score = (label: string): number => {
+		const l = label.toLowerCase();
+		if (/macro|depth|monochrome|ir\b/.test(l)) return -100;
+		if (/ultra[\s-]?wide|0\.?5x|wide angle|wide-angle/.test(l)) return 30;
+		if (/\btele|zoom|2x|3x|5x|10x/.test(l)) return -20;
+		if (/\bwide\b/.test(l)) return 10;
+		return 0;
+	};
+	const ranked = backs.map((d) => ({ d, s: score(d.label) })).sort((a, b) => b.s - a.s);
+	if (ranked[0].s <= 0) return null;
+	return ranked[0].d.deviceId;
+}
+
 export async function acquireStream(
 	facingMode: 'user' | 'environment' = 'user',
 	aspect: 'square' | 'landscape' | 'portrait' = 'square'
@@ -133,6 +167,28 @@ export async function acquireStream(
 			throw new HourlyRecorderError('camera_unavailable');
 		}
 		throw new HourlyRecorderError('camera_error');
+	}
+	// For the rear camera on multi-lens Android devices, try to swap to
+	// the ultrawide lens. enumerateDevices() only returns labels after a
+	// successful gUM (privacy), so we acquire once, inspect, and re-acquire
+	// with deviceId if a wider lens is available. iOS Safari intentionally
+	// hides the extra lenses so this is a no-op there.
+	if (facingMode === 'environment') {
+		try {
+			const wideId = await pickWidestBackCameraId();
+			if (wideId) {
+				const currentId = stream.getVideoTracks()[0]?.getSettings().deviceId;
+				if (currentId !== wideId) {
+					stream.getTracks().forEach((t) => t.stop());
+					stream = await navigator.mediaDevices.getUserMedia({
+						video: { deviceId: { exact: wideId } },
+						audio: true
+					});
+				}
+			}
+		} catch {
+			/* keep the original stream if the swap fails */
+		}
 	}
 	// Best-effort continuous autofocus. Not supported on iOS Safari and
 	// some desktop browsers — silently ignore.
