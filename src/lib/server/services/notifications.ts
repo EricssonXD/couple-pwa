@@ -280,3 +280,28 @@ export async function notifyQuizCompleted(t: QuizCompletedTrigger): Promise<void
 export async function _internalDrainOutbox() {
 	await db.execute(sql`DELETE FROM push_outbox`);
 }
+
+export interface HourlyClipTrigger {
+	coupleId: string;
+	recipientId: string;
+	authorDisplayName: string | null;
+	hourBucket: Date;
+}
+
+/**
+ * Partner uploaded a new hourly clip. Dedupes per (coupleId, hourBucket)
+ * so a re-record within the same hour doesn't fan out another push.
+ */
+export async function notifyPartnerHourlyClip(t: HourlyClipTrigger): Promise<void> {
+	const name = t.authorDisplayName ?? 'Your partner';
+	const bucketKey = t.hourBucket.toISOString().slice(0, 13);
+	await enqueue({
+		coupleId: t.coupleId,
+		recipientId: t.recipientId,
+		kind: 'partner_hourly_clip',
+		title: `${name} just shared an hourly`,
+		body: 'Tap to see what they captured.',
+		data: { kind: 'partner_hourly_clip', url: '/hourly' },
+		dedupeKey: `hourly_clip:${t.coupleId}:${bucketKey}`
+	});
+}

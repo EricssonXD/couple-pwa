@@ -77,7 +77,8 @@ const KIND_CODE: Record<string, string> = {
 	partner_heartbeat_tap: 'tap',
 	partner_low_battery: 'bat',
 	partner_arrived: 'arr',
-	partner_dropped_moment: 'mom'
+	partner_dropped_moment: 'mom',
+	partner_hourly_clip: 'hrl'
 };
 
 function pushTopic(kind: string, recipientId: string): string {

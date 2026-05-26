@@ -32,9 +32,17 @@
 
 import { and, asc, eq, gte, isNull, lt, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { hourlyClip, hourlyClipAttempt, hourlyMood, hourlyPushWindow } from '$lib/server/db/schema';
+import {
+	couple,
+	hourlyClip,
+	hourlyClipAttempt,
+	hourlyMood,
+	hourlyPushWindow,
+	profile
+} from '$lib/server/db/schema';
 import { broadcastToCouple } from '$lib/server/realtime';
 import { createSupabaseAdminClient } from '$lib/server/supabase';
+import { notifyPartnerHourlyClip } from './notifications';
 
 export const HOURLY_BUCKET_NAME = 'hourly-clips';
 export const HOURLY_CLIP_RETENTION_DAYS = 2;
@@ -329,6 +337,14 @@ export async function finalizeClipAttempt(input: {
 			hourBucket: attempt.hourBucket.toISOString()
 		}
 	}).catch((e) => console.warn('[hourly] clip broadcast failed', { id: finalized.id, e }));
+
+	// Notify the partner that a new clip just landed. Fire-and-forget so
+	// a notification failure can never abort the finalize response.
+	void notifyPartnerForClip({
+		coupleId: input.coupleId,
+		authorId: input.userId,
+		hourBucket: attempt.hourBucket
+	}).catch((e) => console.warn('[hourly] partner notify failed', { id: finalized.id, e }));
 
 	return {
 		id: finalized.id,
@@ -668,4 +684,34 @@ export async function purgeOrphanAttemptObjects(limit = 50): Promise<number> {
 		if (error) console.warn('[hourly] orphan-attempt remove failed', error);
 	}
 	return rows.length;
+}
+
+/**
+ * Look up the partner of the clip author and enqueue a push notification
+ * for the new hourly clip. No-op when the couple has no partner (single-
+ * user dev environment) or when the recipient is ghosted (the
+ * notifications service handles that internally).
+ */
+async function notifyPartnerForClip(args: {
+	coupleId: string;
+	authorId: string;
+	hourBucket: Date;
+}): Promise<void> {
+	const [c] = await db.select().from(couple).where(eq(couple.id, args.coupleId)).limit(1);
+	if (!c) return;
+	const partnerId = c.partnerA === args.authorId ? c.partnerB : c.partnerA;
+	if (!partnerId || partnerId === args.authorId) return;
+
+	const [authorProfile] = await db
+		.select({ displayName: profile.displayName })
+		.from(profile)
+		.where(eq(profile.userId, args.authorId))
+		.limit(1);
+
+	await notifyPartnerHourlyClip({
+		coupleId: args.coupleId,
+		recipientId: partnerId,
+		authorDisplayName: authorProfile?.displayName ?? null,
+		hourBucket: args.hourBucket
+	});
 }
